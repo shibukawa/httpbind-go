@@ -1,0 +1,30 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "handler": {
+        "form": "named",
+        "name": "healthHandler"
+      },
+      "request": "HealthRequest",
+      "response": "HealthResponse",
+      "wrappers": {
+        "allow_query_semicolons": false
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/users/{id}",
+      "handler": {
+        "form": "named",
+        "name": "getUserHandler"
+      },
+      "request": "GetUserRequest",
+      "response": "GetUserResponse",
+      "wrappers": {
+        "allow_query_semicolons": false
+      }
+    }
+  ]
+}

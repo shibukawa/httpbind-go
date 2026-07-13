@@ -1,0 +1,18 @@
+{
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/api/",
+      "handler": {
+        "form": "named",
+        "name": "apiHandler"
+      },
+      "request": "APIRequest",
+      "response": "APIResponse",
+      "wrappers": {
+        "allow_query_semicolons": false,
+        "stripped_prefix": "/api"
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/users",
+      "handler": {
+        "form": "struct",
+        "name": "UserHandler"
+      },
+      "request": "UserRequest",
+      "response": "UserResponse",
+      "wrappers": {
+        "allow_query_semicolons": false
+      }
+    }
+  ]
+}

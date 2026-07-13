@@ -1,0 +1,26 @@
+{
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/users",
+      "handler": {
+        "form": "named",
+        "name": "userHandler"
+      },
+      "request": "UserRequest",
+      "response": "UserResponse",
+      "errors": [
+        "BadRequest",
+        "Conflict",
+        "Forbidden",
+        "Internal",
+        "NotFound",
+        "Unauthorized",
+        "Validation"
+      ],
+      "wrappers": {
+        "allow_query_semicolons": false
+      }
+    }
+  ]
+}

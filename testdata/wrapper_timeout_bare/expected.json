@@ -1,0 +1,19 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/ping",
+      "handler": {
+        "form": "named",
+        "name": "pingHandler"
+      },
+      "request": "PingRequest",
+      "response": "PingResponse",
+      "wrappers": {
+        "allow_query_semicolons": false,
+        "timeout": "1s",
+        "timeout_message": "slow"
+      }
+    }
+  ]
+}

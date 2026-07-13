@@ -1,0 +1,17 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/items/{id}",
+      "handler": {
+        "form": "named",
+        "name": "itemHandler"
+      },
+      "request": "ItemRequest",
+      "response": "ItemResponse",
+      "wrappers": {
+        "allow_query_semicolons": false
+      }
+    }
+  ]
+}

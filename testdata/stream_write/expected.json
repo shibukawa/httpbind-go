@@ -1,0 +1,18 @@
+{
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/chat",
+      "handler": {
+        "form": "named",
+        "name": "chatHandler"
+      },
+      "request": "ChatRequest",
+      "response": "httpbinder.Stream[ChatEvent]",
+      "stream": "ChatEvent",
+      "wrappers": {
+        "allow_query_semicolons": false
+      }
+    }
+  ]
+}

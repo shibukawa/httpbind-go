@@ -1,0 +1,432 @@
+package generator
+
+import (
+	"encoding/json"
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/shibukawayoshiki/httpbind-go/parser"
+)
+
+// Document is an OpenAPI 3.1 document represented as ordered JSON-friendly maps.
+// Keys under paths/operations/components are sorted for deterministic output.
+type Document map[string]any
+
+// BuildOpenAPI analyzes dir with the route parser and field planner and returns
+// an OpenAPI 3.1 document derived only from Go source (not from handwritten YAML).
+func BuildOpenAPI(dir string) (Document, error) {
+	routes, err := parser.ParsePackage(dir)
+	if err != nil {
+		return nil, fmt.Errorf("parse routes: %w", err)
+	}
+	plan, err := AnalyzePackage(dir)
+	if err != nil {
+		return nil, fmt.Errorf("analyze types: %w", err)
+	}
+	types := indexTypes(plan)
+	doc := Document{
+		"openapi": "3.1.0",
+		"info": map[string]any{
+			"title":   plan.Package + " API",
+			"version": "0.0.0",
+		},
+		"paths":      map[string]any{},
+		"components": map[string]any{"schemas": map[string]any{}},
+	}
+	schemas := doc["components"].(map[string]any)["schemas"].(map[string]any)
+	// Always include Problem Details schema for error responses.
+	schemas["ProblemDetails"] = problemDetailsSchema()
+
+	paths := doc["paths"].(map[string]any)
+	for _, route := range routes.Routes {
+		if route.Method == "" || route.Path == "" {
+			continue
+		}
+		pathItem, _ := paths[route.Path].(map[string]any)
+		if pathItem == nil {
+			pathItem = map[string]any{}
+			paths[route.Path] = pathItem
+		}
+		op := buildOperation(route, types, schemas)
+		pathItem[strings.ToLower(route.Method)] = op
+	}
+	return doc, nil
+}
+
+// MarshalJSON returns deterministic indented OpenAPI JSON.
+func (d Document) MarshalJSON() ([]byte, error) {
+	return json.MarshalIndent(map[string]any(d), "", "  ")
+}
+
+// JSON is an alias for MarshalJSON bytes for callers.
+func (d Document) JSON() ([]byte, error) {
+	return d.MarshalJSON()
+}
+
+// YAML returns a minimal YAML encoding of the document (deterministic key order).
+func (d Document) YAML() ([]byte, error) {
+	var b strings.Builder
+	if err := writeYAML(&b, map[string]any(d), 0); err != nil {
+		return nil, err
+	}
+	return []byte(b.String()), nil
+}
+
+func indexTypes(plan *PackagePlan) map[string]TypePlan {
+	out := make(map[string]TypePlan, len(plan.Types))
+	for _, t := range plan.Types {
+		out[t.Name] = t
+	}
+	return out
+}
+
+func buildOperation(route parser.Route, types map[string]TypePlan, schemas map[string]any) map[string]any {
+	op := map[string]any{
+		"responses": map[string]any{},
+	}
+	if route.Handler.Name != "" {
+		op["operationId"] = route.Handler.Name
+	}
+
+	var params []any
+	var bodyProps map[string]any
+	var bodyRequired []string
+	needBody := false
+
+	if route.Request != "" {
+		reqName := stripPackage(route.Request)
+		ensureSchema(schemas, reqName, types[reqName])
+		if tp, ok := types[reqName]; ok {
+			for _, f := range tp.Fields {
+				switch f.Source {
+				case SourcePath:
+					params = append(params, parameter("path", f, true))
+				case SourceHeader:
+					params = append(params, parameter("header", f, false))
+				case SourceCookie:
+					params = append(params, parameter("cookie", f, false))
+				case SourceQuery:
+					params = append(params, parameter("query", f, false))
+				case SourceInput:
+					params = append(params, parameter("query", f, false))
+					needBody = true
+					if bodyProps == nil {
+						bodyProps = map[string]any{}
+					}
+					bodyProps[f.Wire] = schemaForKind(f.Kind)
+				case SourcePayload:
+					needBody = true
+					if bodyProps == nil {
+						bodyProps = map[string]any{}
+					}
+					bodyProps[f.Wire] = schemaForKind(f.Kind)
+				case SourceMethod:
+					// method tag is not an OpenAPI parameter
+				}
+			}
+		}
+	}
+	if len(params) > 0 {
+		sort.SliceStable(params, func(i, j int) bool {
+			a := params[i].(map[string]any)
+			b := params[j].(map[string]any)
+			if a["in"] != b["in"] {
+				return fmt.Sprint(a["in"]) < fmt.Sprint(b["in"])
+			}
+			return fmt.Sprint(a["name"]) < fmt.Sprint(b["name"])
+		})
+		op["parameters"] = params
+	}
+	if needBody && bodyProps != nil {
+		mediaSchema := map[string]any{
+			"type":       "object",
+			"properties": bodyProps,
+		}
+		if len(bodyRequired) > 0 {
+			mediaSchema["required"] = bodyRequired
+		}
+		content := map[string]any{
+			"application/json": map[string]any{
+				"schema": mediaSchema,
+			},
+			"application/x-www-form-urlencoded": map[string]any{
+				"schema": mediaSchema,
+			},
+			"multipart/form-data": map[string]any{
+				"schema": mediaSchema,
+			},
+		}
+		op["requestBody"] = map[string]any{
+			"required": false,
+			"content":  content,
+		}
+	}
+
+	responses := op["responses"].(map[string]any)
+	// Success response
+	if route.Stream != "" || strings.Contains(route.Response, "Stream[") {
+		elem := route.Stream
+		if elem == "" {
+			elem = extractStreamElem(route.Response)
+		}
+		elem = stripPackage(elem)
+		ensureSchema(schemas, elem, types[elem])
+		ref := schemaRef(elem)
+		content := map[string]any{
+			"text/event-stream":    map[string]any{"schema": ref},
+			"application/x-ndjson": map[string]any{"schema": ref},
+			"application/json":     map[string]any{"schema": ref},
+		}
+		responses["200"] = map[string]any{
+			"description": "OK",
+			"content":     content,
+		}
+	} else if route.Response != "" {
+		respName := stripPackage(route.Response)
+		// skip Stream-only names already handled
+		if !strings.Contains(respName, "Stream[") {
+			ensureSchema(schemas, respName, types[respName])
+			responses["200"] = map[string]any{
+				"description": "OK",
+				"content": map[string]any{
+					"application/json": map[string]any{
+						"schema": schemaRef(respName),
+					},
+				},
+			}
+		}
+	} else {
+		responses["200"] = map[string]any{"description": "OK"}
+	}
+
+	// Error responses from discovered helpers
+	for _, e := range route.Errors {
+		status := errorStatus(e)
+		if status == "" {
+			continue
+		}
+		responses[status] = map[string]any{
+			"description": e,
+			"content": map[string]any{
+				"application/problem+json": map[string]any{
+					"schema": schemaRef("ProblemDetails"),
+				},
+			},
+		}
+	}
+
+	// Wrapper-derived responses (optional metadata)
+	if route.Wrappers.MaxRequestBodyBytes != nil {
+		if _, ok := responses["413"]; !ok {
+			responses["413"] = map[string]any{
+				"description": "Payload Too Large",
+				"content": map[string]any{
+					"application/problem+json": map[string]any{
+						"schema": schemaRef("ProblemDetails"),
+					},
+				},
+			}
+		}
+	}
+	if route.Wrappers.Timeout != "" {
+		if _, ok := responses["503"]; !ok {
+			responses["503"] = map[string]any{
+				"description": "Service Unavailable",
+				"content": map[string]any{
+					"application/problem+json": map[string]any{
+						"schema": schemaRef("ProblemDetails"),
+					},
+				},
+			}
+		}
+	}
+
+	return op
+}
+
+func parameter(in string, f FieldPlan, required bool) map[string]any {
+	return map[string]any{
+		"name":     f.Wire,
+		"in":       in,
+		"required": required,
+		"schema":   schemaForKind(f.Kind),
+	}
+}
+
+func schemaForKind(kind string) map[string]any {
+	switch kind {
+	case "int", "int64":
+		return map[string]any{"type": "integer"}
+	case "bool":
+		return map[string]any{"type": "boolean"}
+	case "float64":
+		return map[string]any{"type": "number"}
+	default:
+		return map[string]any{"type": "string"}
+	}
+}
+
+func ensureSchema(schemas map[string]any, name string, tp TypePlan) {
+	if name == "" {
+		return
+	}
+	if _, ok := schemas[name]; ok {
+		return
+	}
+	if tp.Name == "" {
+		// unknown type: generic object
+		schemas[name] = map[string]any{"type": "object"}
+		return
+	}
+	props := map[string]any{}
+	for _, f := range tp.Fields {
+		key := f.JSON
+		if key == "" {
+			key = f.Wire
+		}
+		props[key] = schemaForKind(f.Kind)
+	}
+	schemas[name] = map[string]any{
+		"type":       "object",
+		"properties": props,
+	}
+}
+
+func schemaRef(name string) map[string]any {
+	return map[string]any{"$ref": "#/components/schemas/" + name}
+}
+
+func problemDetailsSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"type":   map[string]any{"type": "string"},
+			"title":  map[string]any{"type": "string"},
+			"status": map[string]any{"type": "integer"},
+			"detail": map[string]any{"type": "string"},
+			"code":   map[string]any{"type": "string"},
+			"errors": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"field":    map[string]any{"type": "string"},
+						"location": map[string]any{"type": "string"},
+						"message":  map[string]any{"type": "string"},
+					},
+				},
+			},
+		},
+	}
+}
+
+func errorStatus(name string) string {
+	switch name {
+	case "BadRequest", "Validation":
+		return "400"
+	case "Unauthorized":
+		return "401"
+	case "Forbidden":
+		return "403"
+	case "NotFound":
+		return "404"
+	case "Conflict":
+		return "409"
+	case "Internal":
+		return "500"
+	default:
+		return ""
+	}
+}
+
+func stripPackage(name string) string {
+	if i := strings.LastIndex(name, "."); i >= 0 {
+		name = name[i+1:]
+	}
+	// httpbinder.Stream[ChatEvent] already handled elsewhere
+	return name
+}
+
+func extractStreamElem(resp string) string {
+	// ...Stream[ChatEvent]
+	i := strings.Index(resp, "Stream[")
+	if i < 0 {
+		return ""
+	}
+	s := resp[i+len("Stream["):]
+	if j := strings.Index(s, "]"); j >= 0 {
+		return s[:j]
+	}
+	return s
+}
+
+func writeYAML(b *strings.Builder, v any, indent int) error {
+	ind := strings.Repeat("  ", indent)
+	switch x := v.(type) {
+	case map[string]any:
+		keys := make([]string, 0, len(x))
+		for k := range x {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			val := x[k]
+			switch val.(type) {
+			case map[string]any, []any:
+				fmt.Fprintf(b, "%s%s:\n", ind, k)
+				if err := writeYAML(b, val, indent+1); err != nil {
+					return err
+				}
+			default:
+				fmt.Fprintf(b, "%s%s: %s\n", ind, k, yamlScalar(val))
+			}
+		}
+	case []any:
+		for _, item := range x {
+			switch item.(type) {
+			case map[string]any, []any:
+				fmt.Fprintf(b, "%s-\n", ind)
+				if err := writeYAML(b, item, indent+1); err != nil {
+					return err
+				}
+			default:
+				fmt.Fprintf(b, "%s- %s\n", ind, yamlScalar(item))
+			}
+		}
+	default:
+		fmt.Fprintf(b, "%s%s\n", ind, yamlScalar(x))
+	}
+	return nil
+}
+
+func yamlScalar(v any) string {
+	switch x := v.(type) {
+	case string:
+		// quote if needed
+		if x == "" || strings.ContainsAny(x, ":#\n'\"") || strings.Contains(x, " ") {
+			return strconvQuote(x)
+		}
+		return x
+	case bool:
+		if x {
+			return "true"
+		}
+		return "false"
+	case int:
+		return fmt.Sprintf("%d", x)
+	case int64:
+		return fmt.Sprintf("%d", x)
+	case float64:
+		return fmt.Sprintf("%v", x)
+	case nil:
+		return "null"
+	default:
+		return strconvQuote(fmt.Sprint(x))
+	}
+}
+
+func strconvQuote(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
+}

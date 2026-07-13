@@ -1,0 +1,19 @@
+{
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/jobs",
+      "handler": {
+        "form": "named",
+        "name": "jobHandler"
+      },
+      "request": "JobRequest",
+      "response": "JobResponse",
+      "wrappers": {
+        "allow_query_semicolons": false,
+        "timeout": "30s",
+        "timeout_message": "timeout"
+      }
+    }
+  ]
+}

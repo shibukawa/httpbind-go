@@ -1,0 +1,33 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/items",
+      "handler": {
+        "form": "named",
+        "name": "listHandler"
+      },
+      "request": "ListRequest",
+      "response": "ListResponse",
+      "wrappers": {
+        "allow_query_semicolons": false
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/items",
+      "handler": {
+        "form": "named",
+        "name": "createHandler"
+      },
+      "request": "CreateRequest",
+      "response": "CreateResponse",
+      "errors": [
+        "BadRequest"
+      ],
+      "wrappers": {
+        "allow_query_semicolons": false
+      }
+    }
+  ]
+}

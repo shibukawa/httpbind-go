@@ -1,0 +1,16 @@
+{
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/users",
+      "handler": {
+        "form": "inline"
+      },
+      "request": "CreateUserRequest",
+      "response": "CreateUserResponse",
+      "wrappers": {
+        "allow_query_semicolons": false
+      }
+    }
+  ]
+}

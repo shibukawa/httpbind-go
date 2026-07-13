@@ -1,0 +1,17 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/search",
+      "handler": {
+        "form": "named",
+        "name": "searchHandler"
+      },
+      "request": "SearchRequest",
+      "response": "SearchResponse",
+      "wrappers": {
+        "allow_query_semicolons": false
+      }
+    }
+  ]
+}
