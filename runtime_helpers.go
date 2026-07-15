@@ -3,10 +3,17 @@ package httpbinder
 import (
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
 )
+
+// DefaultMultipartMaxMemory is the maxMemory argument passed to
+// http.Request.ParseMultipartForm for generated binders (32 MiB).
+// Larger file parts spill to temporary files; request body caps are separate
+// (e.g. http.MaxBytesReader / MaxBytesHandler).
+const DefaultMultipartMaxMemory int64 = 32 << 20
 
 // Content-type helpers and scalar parsers used by generated binders.
 // These do not inspect application struct fields via reflect.
@@ -28,6 +35,99 @@ func IsFormRequest(r *http.Request) bool {
 	media, _, _ := strings.Cut(ct, ";")
 	media = strings.TrimSpace(strings.ToLower(media))
 	return media == "application/x-www-form-urlencoded"
+}
+
+// IsMultipartRequest reports multipart/form-data.
+func IsMultipartRequest(r *http.Request) bool {
+	ct := r.Header.Get("Content-Type")
+	media, _, _ := strings.Cut(ct, ";")
+	media = strings.TrimSpace(strings.ToLower(media))
+	return media == "multipart/form-data"
+}
+
+// ParseMultipartMap parses a multipart/form-data body into scalar form fields
+// (first value wins) and named file parts (first file wins per field name).
+// Oversized bodies (MaxBytesReader / message-too-large) map to HTTP 413.
+func ParseMultipartMap(r *http.Request) (form map[string]string, files map[string]File, err error) {
+	if err := r.ParseMultipartForm(DefaultMultipartMaxMemory); err != nil {
+		return nil, nil, multipartParseError(err)
+	}
+	form = make(map[string]string)
+	files = make(map[string]File)
+	if r.MultipartForm == nil {
+		return form, files, nil
+	}
+	for k, vs := range r.MultipartForm.Value {
+		if len(vs) > 0 {
+			form[k] = vs[0]
+		}
+	}
+	for k, fhs := range r.MultipartForm.File {
+		if len(fhs) == 0 {
+			continue
+		}
+		f, err := fileFromHeader(fhs[0])
+		if err != nil {
+			return nil, nil, BindError(k, "payload", "unreadable file")
+		}
+		files[k] = f
+	}
+	return form, files, nil
+}
+
+func fileFromHeader(fh *multipart.FileHeader) (File, error) {
+	rc, err := fh.Open()
+	if err != nil {
+		return File{}, err
+	}
+	defer rc.Close()
+	data, err := io.ReadAll(rc)
+	if err != nil {
+		return File{}, err
+	}
+	ct := fh.Header.Get("Content-Type")
+	size := fh.Size
+	if size <= 0 {
+		size = int64(len(data))
+	}
+	return File{
+		Filename:    fh.Filename,
+		ContentType: ct,
+		Size:        size,
+		Content:     data,
+	}, nil
+}
+
+func multipartParseError(err error) error {
+	if isRequestTooLarge(err) {
+		return PayloadTooLarge(Problem{Code: "payload_too_large", Message: "multipart body too large"}, err)
+	}
+	return BadRequest(Problem{Code: "multipart_parse", Message: "invalid multipart body"}, err)
+}
+
+// isRequestTooLarge reports body/message size limit errors without errors.As,
+// matching AsHTTPError's TinyGo-friendly unwrap style.
+func isRequestTooLarge(err error) bool {
+	for err != nil {
+		if _, ok := err.(*http.MaxBytesError); ok {
+			return true
+		}
+		if err == multipart.ErrMessageTooLarge {
+			return true
+		}
+		msg := err.Error()
+		if strings.Contains(msg, "request body too large") ||
+			strings.Contains(msg, "message too large") ||
+			strings.Contains(msg, "http: request body too large") {
+			return true
+		}
+		u, ok := err.(interface{ Unwrap() error })
+		if !ok {
+			return false
+		}
+		err = u.Unwrap()
+	}
+	return false
 }
 
 // ReadJSONMap decodes a JSON object body into a map of raw messages.

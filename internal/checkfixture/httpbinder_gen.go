@@ -237,6 +237,14 @@ func bindCheckResponse(r *http.Request) (CheckResponse, error) {
 			formBody = m
 			return nil
 		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
 		return nil
 	}
 	if qv, ok := httpbinder.QueryValue(r, "oK"); ok {
@@ -300,6 +308,14 @@ func bindOpenAPICheckRequest(r *http.Request) (OpenAPICheckRequest, error) {
 		}
 		if httpbinder.IsFormRequest(r) {
 			m, err := httpbinder.ParseFormMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
 			if err != nil {
 				return err
 			}
@@ -442,6 +458,14 @@ func bindOpenAPICheckResponse(r *http.Request) (OpenAPICheckResponse, error) {
 		}
 		if httpbinder.IsFormRequest(r) {
 			m, err := httpbinder.ParseFormMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
 			if err != nil {
 				return err
 			}

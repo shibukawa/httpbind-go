@@ -1,5 +1,7 @@
 package mappingfixture
 
+import "github.com/shibukawayoshiki/httpbind-go"
+
 // CreateUserRequest exercises default input, path, and header sources.
 type CreateUserRequest struct {
 	Name  string
@@ -27,4 +29,11 @@ type SearchResponse struct {
 	Keyword string `json:"keyword"`
 	Page    int    `json:"page"`
 	Filter  string `json:"filter"`
+}
+
+// UploadAvatarRequest exercises multipart File + scalar form fields + path.
+type UploadAvatarRequest struct {
+	UserID string          `path:"user_id"`
+	Title  string          `payload:"title"`
+	Image  httpbinder.File `payload:"image"`
 }

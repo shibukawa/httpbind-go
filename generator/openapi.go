@@ -269,6 +269,8 @@ func schemaForKind(kind string) map[string]any {
 		return map[string]any{"type": "boolean"}
 	case "float64":
 		return map[string]any{"type": "number"}
+	case "file":
+		return map[string]any{"type": "string", "format": "binary"}
 	default:
 		return map[string]any{"type": "string"}
 	}

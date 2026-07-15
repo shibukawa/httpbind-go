@@ -1,0 +1,53 @@
+---
+id: concept:openapi-generation
+type: concept
+title: OpenAPI Generation
+---
+OpenAPI is generated from Go source via the shared IR; the document is never hand-edited and stays synchronized with binders, writers, and validation.
+
+```yaml
+primary_source: Go source code
+openapi_role: derived artifact only
+never: manual OpenAPI edits as source of truth
+version: decision:openapi-31
+schemas_for:
+  - request models
+  - response models
+  - validation constraints
+  - error models
+  - streaming event models
+field_rules:
+  - rule:openapi-input-fields
+  - rule:openapi-payload-fields
+  - rule:openapi-query-fields
+  - rule:openapi-http-metadata-params
+responses:
+  - rule:openapi-success-response
+  - rule:openapi-streaming-content
+  - rule:openapi-error-statuses
+validation_tags: rule:openapi-validation-metadata
+errors: policy:problem-details
+route_analysis:
+  - concept:route-discovery
+  - concept:stdlib-wrapper-unwrap
+  - flow:handler-parse
+artifacts:
+  - concept:openapi-embed
+  - api:openapi-json
+  - api:openapi-yaml
+  - concept:openapi-ui
+goals: requirement:openapi-goals
+pipeline:
+  - Go source
+  - intermediate representation
+  - request binder
+  - response writer
+  - validation
+  - error mapping
+  - OpenAPI
+related:
+  - decision:single-source-of-truth
+  - flow:code-generation
+  - concept:code-generation
+  - concept:handler-discovery
+```

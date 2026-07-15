@@ -169,6 +169,16 @@ func applyCheckToken(c *CheckRules, tok string) error {
 func validateCheckAgainstKind(c CheckRules, kind string) error {
 	isNum := kind == "int" || kind == "int64" || kind == "float64"
 	isString := kind == "string"
+	isFile := kind == "file"
+	if isFile {
+		// File size/MIME rules are deferred; only required is allowed for now.
+		if c.Min != nil || c.Max != nil || c.MinLen != nil || c.MaxLen != nil || c.Len != nil ||
+			len(c.Enum) > 0 || c.Pattern != "" || c.HasDefault ||
+			c.Email || c.UUID || c.Date || c.Time || c.DateTime {
+			return fmt.Errorf("check: only required is supported for file fields in v1")
+		}
+		return nil
+	}
 	if c.Min != nil || c.Max != nil {
 		if !isNum {
 			return fmt.Errorf("check: min/max only apply to numeric types, not %s", kind)

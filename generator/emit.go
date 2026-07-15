@@ -85,15 +85,22 @@ func emitBinder(b *bytes.Buffer, t TypePlan) {
 	}
 
 	needsBody := false
+	needsFiles := false
 	for _, f := range t.Fields {
 		if f.Source == SourceInput || f.Source == SourcePayload {
 			needsBody = true
-			break
+		}
+		if f.Kind == "file" {
+			needsFiles = true
+			needsBody = true
 		}
 	}
 	if needsBody {
 		b.WriteString("\tvar jsonBody map[string]jsonRaw\n")
 		b.WriteString("\tvar formBody map[string]string\n")
+		if needsFiles {
+			b.WriteString("\tvar fileBody map[string]httpbinder.File\n")
+		}
 		b.WriteString("\tvar bodyRead bool\n")
 		b.WriteString("\treadBody := func() error {\n")
 		b.WriteString("\t\tif bodyRead {\n\t\t\treturn nil\n\t\t}\n")
@@ -108,6 +115,19 @@ func emitBinder(b *bytes.Buffer, t TypePlan) {
 		b.WriteString("\t\t\tm, err := httpbinder.ParseFormMap(r)\n")
 		b.WriteString("\t\t\tif err != nil {\n\t\t\t\treturn err\n\t\t\t}\n")
 		b.WriteString("\t\t\tformBody = m\n")
+		b.WriteString("\t\t\treturn nil\n")
+		b.WriteString("\t\t}\n")
+		b.WriteString("\t\tif httpbinder.IsMultipartRequest(r) {\n")
+		if needsFiles {
+			b.WriteString("\t\t\tm, files, err := httpbinder.ParseMultipartMap(r)\n")
+			b.WriteString("\t\t\tif err != nil {\n\t\t\t\treturn err\n\t\t\t}\n")
+			b.WriteString("\t\t\tformBody = m\n")
+			b.WriteString("\t\t\tfileBody = files\n")
+		} else {
+			b.WriteString("\t\t\tm, _, err := httpbinder.ParseMultipartMap(r)\n")
+			b.WriteString("\t\t\tif err != nil {\n\t\t\t\treturn err\n\t\t\t}\n")
+			b.WriteString("\t\t\tformBody = m\n")
+		}
 		b.WriteString("\t\t\treturn nil\n")
 		b.WriteString("\t\t}\n")
 		b.WriteString("\t\treturn nil\n")
@@ -193,6 +213,19 @@ func emitFieldBind(b *bytes.Buffer, f FieldPlan) {
 
 func emitPayloadField(b *bytes.Buffer, f FieldPlan, prefix string, track bool) {
 	fmt.Fprintf(b, "%sif err := readBody(); err != nil {\n%s\treturn out, err\n%s}\n", prefix, prefix, prefix)
+	if f.Kind == "file" {
+		// File binds only from multipart file parts by wire name.
+		// fileBody is non-nil only after a successful multipart parse.
+		fmt.Fprintf(b, "%sif fv, ok := fileBody[%q]; ok {\n", prefix, f.Wire)
+		if track {
+			fmt.Fprintf(b, "%s\tpresent%s = true\n", prefix, f.Name)
+		}
+		fmt.Fprintf(b, "%s\tout.%s = fv\n", prefix, f.Name)
+		fmt.Fprintf(b, "%s} else if fileBody != nil {\n", prefix)
+		fmt.Fprintf(b, "%s\treturn out, httpbinder.BindError(%q, \"payload\", \"missing file\")\n", prefix, f.Wire)
+		fmt.Fprintf(b, "%s}\n", prefix)
+		return
+	}
 	fmt.Fprintf(b, "%sif raw, ok := jsonBody[%q]; ok {\n", prefix, f.Wire)
 	if track {
 		fmt.Fprintf(b, "%s\tpresent%s = true\n", prefix, f.Name)
@@ -262,9 +295,12 @@ func emitValidate(b *bytes.Buffer, t TypePlan) {
 		c := f.Check
 		// required
 		if c.Required {
-			if f.Kind == "string" {
+			switch f.Kind {
+			case "string":
 				fmt.Fprintf(b, "\tif !present%s || out.%s == \"\" {\n", f.Name, f.Name)
-			} else {
+			case "file":
+				fmt.Fprintf(b, "\tif !present%s || out.%s.Empty() {\n", f.Name, f.Name)
+			default:
 				fmt.Fprintf(b, "\tif !present%s {\n", f.Name)
 			}
 			fmt.Fprintf(b, "\t\tcheckFields = append(checkFields, httpbinder.Field(%q, %q, \"required\"))\n", f.Wire, loc)

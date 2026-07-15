@@ -20,6 +20,8 @@ func init() {
 	httpbinder.RegisterWrite[SearchRequest](writeSearchRequest)
 	httpbinder.RegisterBind[SearchResponse](bindSearchResponse)
 	httpbinder.RegisterWrite[SearchResponse](writeSearchResponse)
+	httpbinder.RegisterBind[UploadAvatarRequest](bindUploadAvatarRequest)
+	httpbinder.RegisterWrite[UploadAvatarRequest](writeUploadAvatarRequest)
 }
 
 func bindCreateUserRequest(r *http.Request) (CreateUserRequest, error) {
@@ -42,6 +44,14 @@ func bindCreateUserRequest(r *http.Request) (CreateUserRequest, error) {
 		}
 		if httpbinder.IsFormRequest(r) {
 			m, err := httpbinder.ParseFormMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
 			if err != nil {
 				return err
 			}
@@ -122,6 +132,14 @@ func bindCreateUserResponse(r *http.Request) (CreateUserResponse, error) {
 		}
 		if httpbinder.IsFormRequest(r) {
 			m, err := httpbinder.ParseFormMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
 			if err != nil {
 				return err
 			}
@@ -223,6 +241,14 @@ func bindSearchRequest(r *http.Request) (SearchRequest, error) {
 			formBody = m
 			return nil
 		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
 		return nil
 	}
 	if qv, ok := httpbinder.QueryValue(r, "keyword"); ok {
@@ -282,6 +308,14 @@ func bindSearchResponse(r *http.Request) (SearchResponse, error) {
 		}
 		if httpbinder.IsFormRequest(r) {
 			m, err := httpbinder.ParseFormMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
 			if err != nil {
 				return err
 			}
@@ -361,6 +395,80 @@ func writeSearchResponse(w http.ResponseWriter, r *http.Request, v SearchRespons
 		"keyword": v.Keyword,
 		"page":    v.Page,
 		"filter":  v.Filter,
+	}
+	return httpbinder.WriteJSON(w, http.StatusOK, body)
+}
+
+func bindUploadAvatarRequest(r *http.Request) (UploadAvatarRequest, error) {
+	var out UploadAvatarRequest
+	var jsonBody map[string]jsonRaw
+	var formBody map[string]string
+	var fileBody map[string]httpbinder.File
+	var bodyRead bool
+	readBody := func() error {
+		if bodyRead {
+			return nil
+		}
+		bodyRead = true
+		if httpbinder.IsJSONRequest(r) {
+			m, err := httpbinder.ReadJSONMap(r)
+			if err != nil {
+				return err
+			}
+			jsonBody = m
+			return nil
+		}
+		if httpbinder.IsFormRequest(r) {
+			m, err := httpbinder.ParseFormMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, files, err := httpbinder.ParseMultipartMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			fileBody = files
+			return nil
+		}
+		return nil
+	}
+	out.UserID = httpbinder.PathValue(r, "user_id")
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if raw, ok := jsonBody["title"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("title", "payload", "invalid string")
+		}
+		out.Title = v
+	} else if formBody != nil {
+		if fv, ok := formBody["title"]; ok {
+			out.Title = fv
+		}
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if fv, ok := fileBody["image"]; ok {
+		out.Image = fv
+	} else if fileBody != nil {
+		return out, httpbinder.BindError("image", "payload", "missing file")
+	}
+	return out, nil
+}
+
+func writeUploadAvatarRequest(w http.ResponseWriter, r *http.Request, v UploadAvatarRequest) error {
+	_ = r
+	body := map[string]any{
+		"user_id": v.UserID,
+		"title":   v.Title,
+		"image":   v.Image,
 	}
 	return httpbinder.WriteJSON(w, http.StatusOK, body)
 }

@@ -97,6 +97,11 @@ func Conflict(problem Problem, cause ...error) error {
 	return statusError(http.StatusConflict, "Conflict", problem, cause...)
 }
 
+// PayloadTooLarge returns a 413 Payload Too Large error.
+func PayloadTooLarge(problem Problem, cause ...error) error {
+	return statusError(http.StatusRequestEntityTooLarge, "Payload Too Large", problem, cause...)
+}
+
 // Internal returns a 500 Internal Server Error that wraps err.
 func Internal(err error) error {
 	msg := "internal error"

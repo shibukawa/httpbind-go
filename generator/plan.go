@@ -30,10 +30,13 @@ type FieldPlan struct {
 	Name   string      // Go field name
 	Wire   string      // wire / tag name
 	Source FieldSource // input|query|payload|path|header|cookie|method
-	Kind   string      // string|int|int64|bool|float64
+	Kind   string      // string|int|int64|bool|float64|file
 	JSON   string      // json name for responses (default wire or lowercased)
 	Check  CheckRules  // from check:"" tag; empty if absent
 }
+
+// httpbinderImportPath is the module path of this library (for recognizing File).
+const httpbinderImportPath = "github.com/shibukawayoshiki/httpbind-go"
 
 // TypePlan is the mapping plan for one struct type.
 type TypePlan struct {
@@ -81,6 +84,7 @@ func AnalyzePackage(dir string) (*PackagePlan, error) {
 
 	plan := &PackagePlan{Package: pkg.Name}
 	for _, f := range pkg.Files {
+		binderNames := httpbinderImportNames(f)
 		for _, decl := range f.Decls {
 			gd, ok := decl.(*ast.GenDecl)
 			if !ok || gd.Tok != token.TYPE {
@@ -95,7 +99,7 @@ func AnalyzePackage(dir string) (*PackagePlan, error) {
 				if !ok || st.Fields == nil {
 					continue
 				}
-				tp, ok, err := analyzeStruct(ts.Name.Name, st)
+				tp, ok, err := analyzeStruct(ts.Name.Name, st, binderNames)
 				if err != nil {
 					return nil, fmt.Errorf("%s: %w", ts.Name.Name, err)
 				}
@@ -108,7 +112,36 @@ func AnalyzePackage(dir string) (*PackagePlan, error) {
 	return plan, nil
 }
 
-func analyzeStruct(name string, st *ast.StructType) (TypePlan, bool, error) {
+// httpbinderImportNames returns local identifiers that refer to this library
+// (default name "httpbinder" or explicit/aliased imports).
+func httpbinderImportNames(f *ast.File) map[string]bool {
+	out := make(map[string]bool)
+	if f == nil {
+		return out
+	}
+	for _, imp := range f.Imports {
+		path, err := strconv.Unquote(imp.Path.Value)
+		if err != nil || path != httpbinderImportPath {
+			continue
+		}
+		if imp.Name != nil {
+			switch imp.Name.Name {
+			case "_":
+				// side-effect import only
+			case ".":
+				// dot-import: File is bare Ident; handled separately if needed
+			default:
+				out[imp.Name.Name] = true
+			}
+			continue
+		}
+		// default: last path element is "httpbind-go" but the package name is httpbinder
+		out["httpbinder"] = true
+	}
+	return out
+}
+
+func analyzeStruct(name string, st *ast.StructType, binderNames map[string]bool) (TypePlan, bool, error) {
 	var fields []FieldPlan
 	for _, f := range st.Fields.List {
 		if len(f.Names) == 0 {
@@ -118,11 +151,20 @@ func analyzeStruct(name string, st *ast.StructType) (TypePlan, bool, error) {
 			if id == nil || !exported(id.Name) {
 				continue
 			}
-			kind, ok := typeKind(f.Type)
+			kind, ok := typeKind(f.Type, binderNames)
 			if !ok {
 				continue // unsupported field type for v1
 			}
 			src, wire := parseFieldTag(id.Name, f.Tag)
+			if kind == "file" {
+				// File is payload-only (multipart part); input defaults to payload.
+				switch src {
+				case SourceInput, SourcePayload:
+					src = SourcePayload
+				default:
+					return TypePlan{}, false, fmt.Errorf("field %s: httpbinder.File only supports payload/input tags, got %s", id.Name, src)
+				}
+			}
 			jsonName := wire
 			if jsonName == "" {
 				jsonName = lowerFirst(id.Name)
@@ -157,7 +199,7 @@ func exported(name string) bool {
 	return unicode.IsUpper(r)
 }
 
-func typeKind(expr ast.Expr) (string, bool) {
+func typeKind(expr ast.Expr, binderNames map[string]bool) (string, bool) {
 	switch t := expr.(type) {
 	case *ast.Ident:
 		switch t.Name {
@@ -165,6 +207,11 @@ func typeKind(expr ast.Expr) (string, bool) {
 			return t.Name, true
 		}
 	case *ast.SelectorExpr:
+		if t.Sel != nil && t.Sel.Name == "File" {
+			if pkg, ok := t.X.(*ast.Ident); ok && binderNames[pkg.Name] {
+				return "file", true
+			}
+		}
 		// time.Time etc. unsupported in v1
 	}
 	return "", false

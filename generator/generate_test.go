@@ -13,12 +13,15 @@ func TestAnalyzeAndEmit_NoReflect(t *testing.T) {
 	dir := t.TempDir()
 	src := `package sample
 
+import "github.com/shibukawayoshiki/httpbind-go"
+
 type Req struct {
 	Name  string
 	Page  int    ` + "`query:\"page\"`" + `
 	OrgID string ` + "`path:\"org_id\"`" + `
 	Token string ` + "`header:\"Authorization\"`" + `
 	Note  string ` + "`payload:\"note\"`" + `
+	Image httpbinder.File ` + "`payload:\"image\"`" + `
 }
 
 type Resp struct {
@@ -36,6 +39,29 @@ type Resp struct {
 	if len(plan.Types) != 2 {
 		t.Fatalf("types: %+v", plan.Types)
 	}
+	var foundFile bool
+	for _, tp := range plan.Types {
+		if tp.Name != "Req" {
+			continue
+		}
+		for _, f := range tp.Fields {
+			if f.Name == "Image" {
+				foundFile = true
+				if f.Kind != "file" {
+					t.Fatalf("Image kind: %q", f.Kind)
+				}
+				if f.Source != generator.SourcePayload {
+					t.Fatalf("Image source: %q", f.Source)
+				}
+				if f.Wire != "image" {
+					t.Fatalf("Image wire: %q", f.Wire)
+				}
+			}
+		}
+	}
+	if !foundFile {
+		t.Fatal("httpbinder.File field Image not planned")
+	}
 	code, err := generator.Emit(plan)
 	if err != nil {
 		t.Fatal(err)
@@ -51,6 +77,10 @@ type Resp struct {
 		`PathValue(r, "org_id")`,
 		`HeaderValue(r, "Authorization")`,
 		`"note"`,
+		"ParseMultipartMap",
+		"fileBody",
+		`"image"`,
+		"missing file",
 	} {
 		if !strings.Contains(s, n) {
 			t.Fatalf("missing %q in:\n%s", n, s)

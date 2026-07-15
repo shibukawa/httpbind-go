@@ -1,0 +1,73 @@
+{"category": "interface", "id": "api:bind", "path": ".knowledge/api/bind.md", "role": "primary", "title": "httpbinder.Bind", "type": "api"}
+{"category": "interface", "id": "api:new-stream", "path": ".knowledge/api/new-stream.md", "role": "primary", "title": "httpbinder.NewStream", "type": "api"}
+{"category": "interface", "id": "api:openapi-json", "path": ".knowledge/api/openapi-json.md", "role": "primary", "title": "OpenAPI JSON Handler", "type": "api"}
+{"category": "interface", "id": "api:openapi-yaml", "path": ".knowledge/api/openapi-yaml.md", "role": "primary", "title": "OpenAPI YAML Handler", "type": "api"}
+{"category": "interface", "id": "api:stream-write", "path": ".knowledge/api/stream-write.md", "role": "primary", "title": "Stream Write and Close", "type": "api"}
+{"category": "interface", "id": "api:write-error", "path": ".knowledge/api/write-error.md", "role": "primary", "title": "httpbinder.WriteError", "type": "api"}
+{"category": "interface", "id": "api:write", "path": ".knowledge/api/write.md", "role": "primary", "title": "httpbinder.Write", "type": "api"}
+{"category": "concept", "id": "concept:check-validation", "path": ".knowledge/concept/check-validation.md", "role": "supporting", "title": "Check Tag Validation", "type": "concept"}
+{"category": "concept", "id": "concept:code-generation", "path": ".knowledge/concept/code-generation.md", "role": "supporting", "title": "Generated Runtime Code", "type": "concept"}
+{"category": "concept", "id": "concept:error-helpers", "path": ".knowledge/concept/error-helpers.md", "role": "supporting", "title": "Error Helpers", "type": "concept"}
+{"category": "concept", "id": "concept:future-generators", "path": ".knowledge/concept/future-generators.md", "role": "supporting", "title": "Future Generator Ideas", "type": "concept"}
+{"category": "concept", "id": "concept:handler-discovery", "path": ".knowledge/concept/handler-discovery.md", "role": "supporting", "title": "Handler Discovery", "type": "concept"}
+{"category": "concept", "id": "concept:handler-forms", "path": ".knowledge/concept/handler-forms.md", "role": "supporting", "title": "Handler Forms", "type": "concept"}
+{"category": "concept", "id": "concept:net-http-handler", "path": ".knowledge/concept/net-http-handler.md", "role": "supporting", "title": "Standard net/http Handler", "type": "concept"}
+{"category": "concept", "id": "concept:openapi-embed", "path": ".knowledge/concept/openapi-embed.md", "role": "supporting", "title": "Embedded OpenAPI Document", "type": "concept"}
+{"category": "concept", "id": "concept:openapi-generation", "path": ".knowledge/concept/openapi-generation.md", "role": "supporting", "title": "OpenAPI Generation", "type": "concept"}
+{"category": "concept", "id": "concept:openapi-ui", "path": ".knowledge/concept/openapi-ui.md", "role": "supporting", "title": "Optional OpenAPI UI", "type": "concept"}
+{"category": "concept", "id": "concept:request-binding", "path": ".knowledge/concept/request-binding.md", "role": "supporting", "title": "Request Binding", "type": "concept"}
+{"category": "concept", "id": "concept:response-binding", "path": ".knowledge/concept/response-binding.md", "role": "supporting", "title": "Response Binding", "type": "concept"}
+{"category": "concept", "id": "concept:route-discovery", "path": ".knowledge/concept/route-discovery.md", "role": "supporting", "title": "Route Discovery", "type": "concept"}
+{"category": "concept", "id": "concept:service-layer", "path": ".knowledge/concept/service-layer.md", "role": "supporting", "title": "Service Layer", "type": "concept"}
+{"category": "concept", "id": "concept:stdlib-wrapper-unwrap", "path": ".knowledge/concept/stdlib-wrapper-unwrap.md", "role": "supporting", "title": "Stdlib Handler Wrapper Unwrap", "type": "concept"}
+{"category": "concept", "id": "concept:streaming", "path": ".knowledge/concept/streaming.md", "role": "supporting", "title": "Typed Streaming", "type": "concept"}
+{"category": "structure", "id": "data:create-user-request", "path": ".knowledge/data/create-user-request.md", "role": "supporting", "title": "CreateUserRequest Example", "type": "data"}
+{"category": "structure", "id": "data:file", "path": ".knowledge/data/file.md", "role": "supporting", "title": "httpbinder.File", "type": "data"}
+{"category": "structure", "id": "data:problem", "path": ".knowledge/data/problem.md", "role": "supporting", "title": "Problem", "type": "data"}
+{"category": "structure", "id": "data:search-request", "path": ".knowledge/data/search-request.md", "role": "supporting", "title": "SearchRequest Example", "type": "data"}
+{"category": "structure", "id": "data:upload-avatar-request", "path": ".knowledge/data/upload-avatar-request.md", "role": "supporting", "title": "UploadAvatarRequest Example", "type": "data"}
+{"category": "constraint", "id": "decision:check-tag-validation", "path": ".knowledge/decision/check-tag-validation.md", "role": "supporting", "title": "Check Tags as Validation SSOT", "type": "decision"}
+{"category": "constraint", "id": "decision:openapi-31", "path": ".knowledge/decision/openapi-31.md", "role": "supporting", "title": "OpenAPI 3.1 Target", "type": "decision"}
+{"category": "constraint", "id": "decision:reflection-free", "path": ".knowledge/decision/reflection-free.md", "role": "supporting", "title": "Reflection-Free Runtime", "type": "decision"}
+{"category": "constraint", "id": "decision:single-source-of-truth", "path": ".knowledge/decision/single-source-of-truth.md", "role": "supporting", "title": "Single Source of Truth", "type": "decision"}
+{"category": "constraint", "id": "decision:stdlib-servemux", "path": ".knowledge/decision/stdlib-servemux.md", "role": "supporting", "title": "Stdlib ServeMux Routing", "type": "decision"}
+{"category": "behavior", "id": "flow:code-generation", "path": ".knowledge/flow/code-generation.md", "role": "primary", "title": "Code Generation Pipeline", "type": "flow"}
+{"category": "behavior", "id": "flow:handler-parse", "path": ".knowledge/flow/handler-parse.md", "role": "primary", "title": "Handler Parse Flow", "type": "flow"}
+{"category": "behavior", "id": "flow:handler-request", "path": ".knowledge/flow/handler-request.md", "role": "primary", "title": "Handler Request Flow", "type": "flow"}
+{"category": "constraint", "id": "policy:problem-details", "path": ".knowledge/policy/problem-details.md", "role": "supporting", "title": "RFC 9457 Problem Details Errors", "type": "policy"}
+{"category": "objective", "id": "requirement:openapi-goals", "path": ".knowledge/requirement/openapi-goals.md", "role": "primary", "title": "OpenAPI Generator Goals", "type": "requirement"}
+{"category": "objective", "id": "requirement:product-goals", "path": ".knowledge/requirement/product-goals.md", "role": "primary", "title": "Product Goals", "type": "requirement"}
+{"category": "objective", "id": "requirement:tinygo-wasm", "path": ".knowledge/requirement/tinygo-wasm.md", "role": "primary", "title": "TinyGo and WASM Support", "type": "requirement"}
+{"category": "constraint", "id": "rule:check-codegen-pipeline", "path": ".knowledge/rule/check-codegen-pipeline.md", "role": "supporting", "title": "Check Validation Codegen Pipeline", "type": "rule"}
+{"category": "constraint", "id": "rule:check-format-validators", "path": ".knowledge/rule/check-format-validators.md", "role": "supporting", "title": "Check Format Validators", "type": "rule"}
+{"category": "constraint", "id": "rule:check-required-semantics", "path": ".knowledge/rule/check-required-semantics.md", "role": "supporting", "title": "Check Required and Zero-Value Semantics", "type": "rule"}
+{"category": "constraint", "id": "rule:check-tag-syntax", "path": ".knowledge/rule/check-tag-syntax.md", "role": "supporting", "title": "Check Tag DSL Syntax", "type": "rule"}
+{"category": "constraint", "id": "rule:check-v1-rule-set", "path": ".knowledge/rule/check-v1-rule-set.md", "role": "supporting", "title": "Check Validation v1 Rule Set", "type": "rule"}
+{"category": "constraint", "id": "rule:custom-middleware-unwrap", "path": ".knowledge/rule/custom-middleware-unwrap.md", "role": "supporting", "title": "Custom Middleware Unwrap", "type": "rule"}
+{"category": "constraint", "id": "rule:default-input-tag", "path": ".knowledge/rule/default-input-tag.md", "role": "supporting", "title": "Default Field Tag is input", "type": "rule"}
+{"category": "constraint", "id": "rule:error-cause-preservation", "path": ".knowledge/rule/error-cause-preservation.md", "role": "supporting", "title": "Error Cause Preservation", "type": "rule"}
+{"category": "constraint", "id": "rule:error-response-discovery", "path": ".knowledge/rule/error-response-discovery.md", "role": "supporting", "title": "Error Response Discovery", "type": "rule"}
+{"category": "constraint", "id": "rule:nested-wrapper-unwrap", "path": ".knowledge/rule/nested-wrapper-unwrap.md", "role": "supporting", "title": "Nested Wrapper Unwrap", "type": "rule"}
+{"category": "constraint", "id": "rule:openapi-error-statuses", "path": ".knowledge/rule/openapi-error-statuses.md", "role": "supporting", "title": "OpenAPI Statuses from Error Helpers", "type": "rule"}
+{"category": "constraint", "id": "rule:openapi-http-metadata-params", "path": ".knowledge/rule/openapi-http-metadata-params.md", "role": "supporting", "title": "OpenAPI Parameters for HTTP Metadata", "type": "rule"}
+{"category": "constraint", "id": "rule:openapi-input-fields", "path": ".knowledge/rule/openapi-input-fields.md", "role": "supporting", "title": "OpenAPI Mapping for input Fields", "type": "rule"}
+{"category": "constraint", "id": "rule:openapi-payload-fields", "path": ".knowledge/rule/openapi-payload-fields.md", "role": "supporting", "title": "OpenAPI Mapping for payload Fields", "type": "rule"}
+{"category": "constraint", "id": "rule:openapi-query-fields", "path": ".knowledge/rule/openapi-query-fields.md", "role": "supporting", "title": "OpenAPI Mapping for query Fields", "type": "rule"}
+{"category": "constraint", "id": "rule:openapi-streaming-content", "path": ".knowledge/rule/openapi-streaming-content.md", "role": "supporting", "title": "OpenAPI Streaming Response Content Types", "type": "rule"}
+{"category": "constraint", "id": "rule:openapi-success-response", "path": ".knowledge/rule/openapi-success-response.md", "role": "supporting", "title": "OpenAPI Success Response from Write", "type": "rule"}
+{"category": "constraint", "id": "rule:openapi-validation-metadata", "path": ".knowledge/rule/openapi-validation-metadata.md", "role": "supporting", "title": "OpenAPI Validation Metadata from Struct Tags", "type": "rule"}
+{"category": "constraint", "id": "rule:request-model-discovery", "path": ".knowledge/rule/request-model-discovery.md", "role": "supporting", "title": "Request Model Discovery", "type": "rule"}
+{"category": "constraint", "id": "rule:response-model-discovery", "path": ".knowledge/rule/response-model-discovery.md", "role": "supporting", "title": "Response Model Discovery", "type": "rule"}
+{"category": "constraint", "id": "rule:standard-error-mapping", "path": ".knowledge/rule/standard-error-mapping.md", "role": "supporting", "title": "Standard Error Mapping", "type": "rule"}
+{"category": "constraint", "id": "rule:stream-content-negotiation", "path": ".knowledge/rule/stream-content-negotiation.md", "role": "supporting", "title": "Stream Content Negotiation", "type": "rule"}
+{"category": "constraint", "id": "rule:unsupported-route-patterns", "path": ".knowledge/rule/unsupported-route-patterns.md", "role": "supporting", "title": "Unsupported Route Patterns", "type": "rule"}
+{"category": "constraint", "id": "rule:wrapper-allow-query-semicolons", "path": ".knowledge/rule/wrapper-allow-query-semicolons.md", "role": "supporting", "title": "AllowQuerySemicolons Unwrap", "type": "rule"}
+{"category": "constraint", "id": "rule:wrapper-max-bytes-handler", "path": ".knowledge/rule/wrapper-max-bytes-handler.md", "role": "supporting", "title": "MaxBytesHandler Unwrap", "type": "rule"}
+{"category": "constraint", "id": "rule:wrapper-strip-prefix", "path": ".knowledge/rule/wrapper-strip-prefix.md", "role": "supporting", "title": "StripPrefix Unwrap", "type": "rule"}
+{"category": "constraint", "id": "rule:wrapper-timeout-handler", "path": ".knowledge/rule/wrapper-timeout-handler.md", "role": "supporting", "title": "TimeoutHandler Unwrap", "type": "rule"}
+{"category": "external", "id": "system:httpbinder", "path": ".knowledge/system/httpbinder.md", "role": "supporting", "title": "httpbinder Library", "type": "system"}
+{"category": "vocabulary", "id": "term:http-metadata", "path": ".knowledge/term/http-metadata.md", "role": "supporting", "title": "HTTP Metadata Tags", "type": "term"}
+{"category": "vocabulary", "id": "term:input", "path": ".knowledge/term/input.md", "role": "supporting", "title": "input Tag", "type": "term"}
+{"category": "vocabulary", "id": "term:payload", "path": ".knowledge/term/payload.md", "role": "supporting", "title": "payload Tag", "type": "term"}
+{"category": "vocabulary", "id": "term:query", "path": ".knowledge/term/query.md", "role": "supporting", "title": "query Tag", "type": "term"}
+{"category": "objective", "id": "vision:httpbinder", "path": ".knowledge/vision/httpbinder.md", "role": "primary", "title": "httpbinder Vision", "type": "vision"}

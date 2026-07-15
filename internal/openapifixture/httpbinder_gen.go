@@ -48,6 +48,14 @@ func bindCreateUserRequest(r *http.Request) (CreateUserRequest, error) {
 			formBody = m
 			return nil
 		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
 		return nil
 	}
 	if qv, ok := httpbinder.QueryValue(r, "name"); ok {
@@ -122,6 +130,14 @@ func bindCreateUserResponse(r *http.Request) (CreateUserResponse, error) {
 		}
 		if httpbinder.IsFormRequest(r) {
 			m, err := httpbinder.ParseFormMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
 			if err != nil {
 				return err
 			}
@@ -223,6 +239,14 @@ func bindSearchRequest(r *http.Request) (SearchRequest, error) {
 			formBody = m
 			return nil
 		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
 		return nil
 	}
 	if qv, ok := httpbinder.QueryValue(r, "keyword"); ok {
@@ -282,6 +306,14 @@ func bindSearchResponse(r *http.Request) (SearchResponse, error) {
 		}
 		if httpbinder.IsFormRequest(r) {
 			m, err := httpbinder.ParseFormMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
 			if err != nil {
 				return err
 			}

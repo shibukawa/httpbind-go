@@ -1,0 +1,26 @@
+---
+id: rule:error-response-discovery
+type: rule
+title: Error Response Discovery
+---
+Recognized httpbinder error constructors feed generated OpenAPI error responses.
+
+```yaml
+recognized_constructors:
+  - httpbinder.BadRequest
+  - httpbinder.Unauthorized
+  - httpbinder.Forbidden
+  - httpbinder.NotFound
+  - httpbinder.Conflict
+  - httpbinder.Internal
+  - httpbinder.Validation
+purpose: generate OpenAPI error responses
+status_mapping: rule:openapi-error-statuses
+media_type: application/problem+json
+related:
+  - concept:error-helpers
+  - policy:problem-details
+  - concept:openapi-generation
+  - concept:handler-discovery
+  - rule:openapi-error-statuses
+```

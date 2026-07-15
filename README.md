@@ -55,6 +55,7 @@ Wire name defaults to the lower-camel field name when a tag value is omitted (e.
 | *(none)* or `input:"name"` | **query + payload** | Default. Payload covers JSON, `application/x-www-form-urlencoded`, and `multipart/form-data`. Tag is optional when the field is plain user input. |
 | `query:"page"` | query only | Not read from the body. |
 | `payload:"name"` | body only | JSON / form / multipart by `Content-Type`. Not read from the query string. |
+| `payload:"image"` on `httpbinder.File` | multipart file part | Binds filename, content type, size, and bytes from the named part. Payload-only (not query). |
 | `path:"org_id"` | path parameter | Matches `{org_id}` (or equivalent) in the route pattern. |
 | `header:"Authorization"` | request header | Header name is the tag value. |
 | `cookie:"session"` | cookie | Cookie name is the tag value. |
@@ -151,7 +152,7 @@ Verified with **TinyGo 0.40.1** (Go **1.19–1.25**). System Go 1.26 is rejected
 | Toolchain | TinyGo 0.40 needs Go ≤ 1.25 (`GOTOOLCHAIN=go1.25.4`) |
 | Streaming | Prefer host `go test` for `NewStream`; not fully TinyGo-matrixed |
 | ServeMux | Prefer testing handlers with `ServeHTTP` + `SetPathValue` under TinyGo |
-| Multipart `File` | Not fully implemented |
+| Multipart `File` | Supported via `httpbinder.File` (`payload`); size/MIME `check` rules deferred |
 | Generator | Host-side only (`go run` / `go test`) |
 
 ## License

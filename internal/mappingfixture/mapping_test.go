@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -166,6 +167,139 @@ func TestBind_InvalidJSON(t *testing.T) {
 	}
 }
 
+func buildMultipartRequest(t *testing.T, path string, fields map[string]string, fileField, filename, content string) *http.Request {
+	t.Helper()
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	for k, v := range fields {
+		if err := w.WriteField(k, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if fileField != "" {
+		part, err := w.CreateFormFile(fileField, filename)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := io.WriteString(part, content); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, path, &buf)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	return req
+}
+
+func TestBind_MultipartFileAndScalars(t *testing.T) {
+	const (
+		filename = "avatar.png"
+		content  = "fake-png-bytes"
+		title    = "profile"
+	)
+	req := buildMultipartRequest(t, "/users/u42/avatar", map[string]string{
+		"title": title,
+	}, "image", filename, content)
+	req.SetPathValue("user_id", "u42")
+
+	got, err := httpbinder.Bind[mappingfixture.UploadAvatarRequest](req)
+	if err != nil {
+		t.Fatalf("Bind: %v", err)
+	}
+	if got.UserID != "u42" {
+		t.Fatalf("path user_id: %q", got.UserID)
+	}
+	if got.Title != title {
+		t.Fatalf("title: %q", got.Title)
+	}
+	if got.Image.Filename != filename {
+		t.Fatalf("filename: %q", got.Image.Filename)
+	}
+	if string(got.Image.Content) != content {
+		t.Fatalf("content: %q", got.Image.Content)
+	}
+	if got.Image.Empty() {
+		t.Fatal("Image should not be empty")
+	}
+	if got.Image.Size <= 0 && len(got.Image.Content) == 0 {
+		t.Fatalf("size: %d", got.Image.Size)
+	}
+}
+
+func TestBind_MultipartMissingFile(t *testing.T) {
+	req := buildMultipartRequest(t, "/users/u1/avatar", map[string]string{
+		"title": "only-title",
+	}, "", "", "")
+	req.SetPathValue("user_id", "u1")
+
+	_, err := httpbinder.Bind[mappingfixture.UploadAvatarRequest](req)
+	if err == nil {
+		t.Fatal("expected missing file error")
+	}
+	he, ok := httpbinder.AsHTTPError(err)
+	if !ok || he.Status != http.StatusBadRequest {
+		t.Fatalf("want 400 HTTPError, got %#v", err)
+	}
+	found := false
+	for _, f := range he.Fields {
+		if f.Field == "image" && f.Location == "payload" && strings.Contains(f.Message, "missing") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected image missing field error, got %+v", he.Fields)
+	}
+}
+
+func TestBind_MultipartTooLarge(t *testing.T) {
+	req := buildMultipartRequest(t, "/users/u1/avatar", map[string]string{
+		"title": "x",
+	}, "image", "big.bin", strings.Repeat("z", 200))
+	req.SetPathValue("user_id", "u1")
+	// Re-wrap body with MaxBytesReader so parse hits size limit.
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = req.Body.Close()
+	req.Body = http.MaxBytesReader(nil, io.NopCloser(bytes.NewReader(body)), 40)
+	req.ContentLength = int64(len(body))
+
+	_, err = httpbinder.Bind[mappingfixture.UploadAvatarRequest](req)
+	if err == nil {
+		t.Fatal("expected size error")
+	}
+	he, ok := httpbinder.AsHTTPError(err)
+	if !ok || he.Status != http.StatusRequestEntityTooLarge {
+		t.Fatalf("want 413 HTTPError, got %#v status=%v", err, func() any {
+			if ok {
+				return he.Status
+			}
+			return nil
+		}())
+	}
+}
+
+func TestBind_CreateUser_MultipartScalars(t *testing.T) {
+	// Non-File request models still bind scalar fields from multipart form values.
+	req := buildMultipartRequest(t, "/orgs/o/users", map[string]string{
+		"name":  "Dana",
+		"email": "d@example.com",
+	}, "", "", "")
+	req.SetPathValue("org_id", "o")
+	req.Header.Set("Authorization", "tok")
+
+	got, err := httpbinder.Bind[mappingfixture.CreateUserRequest](req)
+	if err != nil {
+		t.Fatalf("Bind: %v", err)
+	}
+	if got.Name != "Dana" || got.Email != "d@example.com" {
+		t.Fatalf("multipart scalars: %+v", got)
+	}
+}
+
 func TestGenerator_EmitsTypeSpecificNoReflect(t *testing.T) {
 	dir := t.TempDir()
 	// copy types into temp package
@@ -195,6 +329,12 @@ func TestGenerator_EmitsTypeSpecificNoReflect(t *testing.T) {
 	if !strings.Contains(code, "RegisterBind[CreateUserRequest]") {
 		t.Fatalf("missing registration in:\n%s", code)
 	}
+	if !strings.Contains(code, "func bindUploadAvatarRequest") {
+		t.Fatalf("missing bindUploadAvatarRequest in:\n%s", code)
+	}
+	if !strings.Contains(code, "ParseMultipartMap") {
+		t.Fatalf("missing ParseMultipartMap in:\n%s", code)
+	}
 	if strings.Contains(code, "\"reflect\"") || strings.Contains(code, "reflect.") {
 		t.Fatalf("generated code must not use reflect:\n%s", code)
 	}
@@ -204,6 +344,7 @@ func TestGenerator_EmitsTypeSpecificNoReflect(t *testing.T) {
 		`HeaderValue(r, "Authorization")`,
 		`QueryValue(r, "name")`,
 		`QueryValue(r, "keyword")`,
+		`fileBody["image"]`,
 	} {
 		if !strings.Contains(code, needle) {
 			t.Fatalf("missing %s in generated code", needle)
