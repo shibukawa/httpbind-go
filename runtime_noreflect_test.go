@@ -29,7 +29,8 @@ func TestRuntimeMappingSources_NoFieldReflect(t *testing.T) {
 		}
 		// registry.go may import reflect only for type identity keys.
 		if e.Name() == "registry.go" {
-			if !strings.Contains(string(src), "reflect.TypeOf") {
+			// type identity only: TypeFor (preferred) or TypeOf
+			if !strings.Contains(string(src), "reflect.TypeFor") && !strings.Contains(string(src), "reflect.TypeOf") {
 				t.Fatalf("registry.go should document type-key reflect usage")
 			}
 			// ensure no StructField / FieldByName style field walking

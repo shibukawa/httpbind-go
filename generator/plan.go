@@ -32,6 +32,7 @@ type FieldPlan struct {
 	Source FieldSource // input|query|payload|path|header|cookie|method
 	Kind   string      // string|int|int64|bool|float64
 	JSON   string      // json name for responses (default wire or lowercased)
+	Check  CheckRules  // from check:"" tag; empty if absent
 }
 
 // TypePlan is the mapping plan for one struct type.
@@ -94,7 +95,10 @@ func AnalyzePackage(dir string) (*PackagePlan, error) {
 				if !ok || st.Fields == nil {
 					continue
 				}
-				tp, ok := analyzeStruct(ts.Name.Name, st)
+				tp, ok, err := analyzeStruct(ts.Name.Name, st)
+				if err != nil {
+					return nil, fmt.Errorf("%s: %w", ts.Name.Name, err)
+				}
 				if ok {
 					plan.Types = append(plan.Types, tp)
 				}
@@ -104,7 +108,7 @@ func AnalyzePackage(dir string) (*PackagePlan, error) {
 	return plan, nil
 }
 
-func analyzeStruct(name string, st *ast.StructType) (TypePlan, bool) {
+func analyzeStruct(name string, st *ast.StructType) (TypePlan, bool, error) {
 	var fields []FieldPlan
 	for _, f := range st.Fields.List {
 		if len(f.Names) == 0 {
@@ -127,19 +131,25 @@ func analyzeStruct(name string, st *ast.StructType) (TypePlan, bool) {
 			if jt := tagValue(f.Tag, "json"); jt != "" && jt != "-" {
 				jsonName = strings.Split(jt, ",")[0]
 			}
+			checkRaw := tagValue(f.Tag, "check")
+			check, err := ParseCheckTag(checkRaw, kind)
+			if err != nil {
+				return TypePlan{}, false, fmt.Errorf("field %s: %w", id.Name, err)
+			}
 			fields = append(fields, FieldPlan{
 				Name:   id.Name,
 				Wire:   wire,
 				Source: src,
 				Kind:   kind,
 				JSON:   jsonName,
+				Check:  check,
 			})
 		}
 	}
 	if len(fields) == 0 {
-		return TypePlan{}, false
+		return TypePlan{}, false, nil
 	}
-	return TypePlan{Name: name, Fields: fields}, true
+	return TypePlan{Name: name, Fields: fields}, true, nil
 }
 
 func exported(name string) bool {

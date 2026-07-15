@@ -116,6 +116,55 @@ func TestBuildOpenAPI_FromFixtureGoSource(t *testing.T) {
 	}
 }
 
+func TestBuildOpenAPI_YAMLRequiredList(t *testing.T) {
+	dir := t.TempDir()
+	src := `package sample
+
+import (
+	"net/http"
+
+	"github.com/shibukawayoshiki/httpbind-go"
+)
+
+type Req struct {
+	Name string ` + "`payload:\"name\" check:\"required\"`" + `
+}
+
+type Resp struct {
+	OK bool ` + "`json:\"ok\"`" + `
+}
+
+func init() {
+	http.HandleFunc("POST /x", func(w http.ResponseWriter, r *http.Request) {
+		_, err := httpbinder.Bind[Req](r)
+		if err != nil {
+			httpbinder.WriteError(w, r, err)
+			return
+		}
+		_ = httpbinder.Write[Resp](w, r, Resp{OK: true})
+	})
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	doc, err := generator.BuildOpenAPI(dir)
+	if err != nil {
+		t.Fatalf("BuildOpenAPI: %v", err)
+	}
+	y, err := doc.YAML()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ys := string(y)
+	if strings.Contains(ys, `required: "[name]"`) || strings.Contains(ys, `required: "[`) {
+		t.Fatalf("invalid required YAML scalar:\n%s", ys)
+	}
+	if !strings.Contains(ys, "required:\n") || !strings.Contains(ys, "- name\n") {
+		t.Fatalf("expected required YAML list:\n%s", ys)
+	}
+}
+
 func TestGenerateOpenAPI_EmitsRegisterNotHandwrittenYAML(t *testing.T) {
 	srcDir := filepath.Join("..", "internal", "openapifixture")
 	out := t.TempDir()

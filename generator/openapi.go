@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/shibukawayoshiki/httpbind-go/parser"
@@ -101,26 +102,32 @@ func buildOperation(route parser.Route, types map[string]TypePlan, schemas map[s
 			for _, f := range tp.Fields {
 				switch f.Source {
 				case SourcePath:
-					params = append(params, parameter("path", f, true))
+					params = append(params, parameter("path", f, true || f.Check.Required))
 				case SourceHeader:
-					params = append(params, parameter("header", f, false))
+					params = append(params, parameter("header", f, f.Check.Required))
 				case SourceCookie:
-					params = append(params, parameter("cookie", f, false))
+					params = append(params, parameter("cookie", f, f.Check.Required))
 				case SourceQuery:
-					params = append(params, parameter("query", f, false))
+					params = append(params, parameter("query", f, f.Check.Required))
 				case SourceInput:
-					params = append(params, parameter("query", f, false))
+					params = append(params, parameter("query", f, f.Check.Required))
 					needBody = true
 					if bodyProps == nil {
 						bodyProps = map[string]any{}
 					}
-					bodyProps[f.Wire] = schemaForKind(f.Kind)
+					bodyProps[f.Wire] = schemaForField(f)
+					if f.Check.Required {
+						bodyRequired = append(bodyRequired, f.Wire)
+					}
 				case SourcePayload:
 					needBody = true
 					if bodyProps == nil {
 						bodyProps = map[string]any{}
 					}
-					bodyProps[f.Wire] = schemaForKind(f.Kind)
+					bodyProps[f.Wire] = schemaForField(f)
+					if f.Check.Required {
+						bodyRequired = append(bodyRequired, f.Wire)
+					}
 				case SourceMethod:
 					// method tag is not an OpenAPI parameter
 				}
@@ -144,7 +151,7 @@ func buildOperation(route parser.Route, types map[string]TypePlan, schemas map[s
 			"properties": bodyProps,
 		}
 		if len(bodyRequired) > 0 {
-			mediaSchema["required"] = bodyRequired
+			mediaSchema["required"] = stringSliceAny(bodyRequired)
 		}
 		content := map[string]any{
 			"application/json": map[string]any{
@@ -250,7 +257,7 @@ func parameter(in string, f FieldPlan, required bool) map[string]any {
 		"name":     f.Wire,
 		"in":       in,
 		"required": required,
-		"schema":   schemaForKind(f.Kind),
+		"schema":   schemaForField(f),
 	}
 }
 
@@ -267,6 +274,82 @@ func schemaForKind(kind string) map[string]any {
 	}
 }
 
+// schemaForField builds an OpenAPI schema object including check-tag constraints.
+func schemaForField(f FieldPlan) map[string]any {
+	s := schemaForKind(f.Kind)
+	c := f.Check
+	if c.Min != nil {
+		s["minimum"] = *c.Min
+	}
+	if c.Max != nil {
+		s["maximum"] = *c.Max
+	}
+	if c.MinLen != nil {
+		s["minLength"] = *c.MinLen
+	}
+	if c.MaxLen != nil {
+		s["maxLength"] = *c.MaxLen
+	}
+	if c.Len != nil {
+		s["minLength"] = *c.Len
+		s["maxLength"] = *c.Len
+	}
+	if len(c.Enum) > 0 {
+		enums := make([]any, 0, len(c.Enum))
+		for _, v := range c.Enum {
+			enums = append(enums, enumJSONValue(f.Kind, v))
+		}
+		s["enum"] = enums
+	}
+	if c.Pattern != "" {
+		s["pattern"] = c.Pattern
+	}
+	if c.Email {
+		s["format"] = "email"
+	}
+	if c.UUID {
+		s["format"] = "uuid"
+	}
+	if c.Date {
+		s["format"] = "date"
+	}
+	if c.Time {
+		s["format"] = "time"
+	}
+	if c.DateTime {
+		s["format"] = "date-time"
+	}
+	if c.HasDefault {
+		s["default"] = enumJSONValue(f.Kind, c.Default)
+	}
+	return s
+}
+
+func enumJSONValue(kind, val string) any {
+	switch kind {
+	case "int", "int64":
+		n, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return val
+		}
+		return n
+	case "float64":
+		n, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			return val
+		}
+		return n
+	case "bool":
+		b, err := strconv.ParseBool(val)
+		if err != nil {
+			return val
+		}
+		return b
+	default:
+		return val
+	}
+}
+
 func ensureSchema(schemas map[string]any, name string, tp TypePlan) {
 	if name == "" {
 		return
@@ -280,17 +363,34 @@ func ensureSchema(schemas map[string]any, name string, tp TypePlan) {
 		return
 	}
 	props := map[string]any{}
+	var required []string
 	for _, f := range tp.Fields {
 		key := f.JSON
 		if key == "" {
 			key = f.Wire
 		}
-		props[key] = schemaForKind(f.Kind)
+		props[key] = schemaForField(f)
+		if f.Check.Required {
+			required = append(required, key)
+		}
 	}
-	schemas[name] = map[string]any{
+	schema := map[string]any{
 		"type":       "object",
 		"properties": props,
 	}
+	if len(required) > 0 {
+		schema["required"] = stringSliceAny(required)
+	}
+	schemas[name] = schema
+}
+
+// stringSliceAny converts []string to []any for OpenAPI document maps / YAML.
+func stringSliceAny(ss []string) []any {
+	out := make([]any, len(ss))
+	for i, s := range ss {
+		out[i] = s
+	}
+	return out
 }
 
 func schemaRef(name string) map[string]any {
@@ -362,6 +462,10 @@ func extractStreamElem(resp string) string {
 }
 
 func writeYAML(b *strings.Builder, v any, indent int) error {
+	// Normalize typed string slices so required: etc. emit as YAML lists.
+	if ss, ok := v.([]string); ok {
+		return writeYAML(b, stringSliceAny(ss), indent)
+	}
 	ind := strings.Repeat("  ", indent)
 	switch x := v.(type) {
 	case map[string]any:
@@ -372,6 +476,9 @@ func writeYAML(b *strings.Builder, v any, indent int) error {
 		sort.Strings(keys)
 		for _, k := range keys {
 			val := x[k]
+			if ss, ok := val.([]string); ok {
+				val = stringSliceAny(ss)
+			}
 			switch val.(type) {
 			case map[string]any, []any:
 				fmt.Fprintf(b, "%s%s:\n", ind, k)
@@ -384,6 +491,9 @@ func writeYAML(b *strings.Builder, v any, indent int) error {
 		}
 	case []any:
 		for _, item := range x {
+			if ss, ok := item.([]string); ok {
+				item = stringSliceAny(ss)
+			}
 			switch item.(type) {
 			case map[string]any, []any:
 				fmt.Fprintf(b, "%s-\n", ind)
