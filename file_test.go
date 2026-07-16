@@ -165,3 +165,75 @@ func TestPayloadTooLarge(t *testing.T) {
 		t.Fatalf("got %#v", err)
 	}
 }
+
+func TestMaxMultipartBodyBytes_DefaultAndSet(t *testing.T) {
+	prev := httpbinder.MaxMultipartBodyBytes()
+	t.Cleanup(func() { httpbinder.SetMaxMultipartBodyBytes(prev) })
+
+	if httpbinder.DefaultMaxMultipartBodyBytes != 1<<20 {
+		t.Fatalf("default constant should be 1MiB, got %d", httpbinder.DefaultMaxMultipartBodyBytes)
+	}
+	httpbinder.SetMaxMultipartBodyBytes(0)
+	if got := httpbinder.MaxMultipartBodyBytes(); got != httpbinder.DefaultMaxMultipartBodyBytes {
+		t.Fatalf("default: got %d want %d", got, httpbinder.DefaultMaxMultipartBodyBytes)
+	}
+
+	httpbinder.SetMaxMultipartBodyBytes(64)
+	if got := httpbinder.MaxMultipartBodyBytes(); got != 64 {
+		t.Fatalf("set 64: got %d", got)
+	}
+	httpbinder.SetMaxMultipartBodyBytes(-1)
+	if got := httpbinder.MaxMultipartBodyBytes(); got != httpbinder.DefaultMaxMultipartBodyBytes {
+		t.Fatalf("reset via negative: got %d", got)
+	}
+}
+
+func TestParseMultipartMap_EnforcesGlobalBodyLimit(t *testing.T) {
+	prev := httpbinder.MaxMultipartBodyBytes()
+	t.Cleanup(func() { httpbinder.SetMaxMultipartBodyBytes(prev) })
+	httpbinder.SetMaxMultipartBodyBytes(80)
+
+	// Build a multipart body larger than 80 bytes (file content alone is enough).
+	req := multipartRequest(t,
+		map[string]string{"title": "x"},
+		map[string]struct {
+			filename string
+			content  string
+			ctype    string
+		}{
+			"image": {filename: "big.bin", content: strings.Repeat("Z", 200), ctype: ""},
+		},
+	)
+	_, _, err := httpbinder.ParseMultipartMap(req)
+	if err == nil {
+		t.Fatal("expected oversize error from global limit")
+	}
+	he, ok := httpbinder.AsHTTPError(err)
+	if !ok || he.Status != http.StatusRequestEntityTooLarge {
+		t.Fatalf("want 413 HTTPError, got %#v", err)
+	}
+}
+
+func TestParseMultipartMap_GlobalLimitAllowsSmallBody(t *testing.T) {
+	prev := httpbinder.MaxMultipartBodyBytes()
+	t.Cleanup(func() { httpbinder.SetMaxMultipartBodyBytes(prev) })
+	httpbinder.SetMaxMultipartBodyBytes(4 << 10) // 4 KiB
+
+	req := multipartRequest(t,
+		map[string]string{"title": "ok"},
+		map[string]struct {
+			filename string
+			content  string
+			ctype    string
+		}{
+			"image": {filename: "a.txt", content: "hello", ctype: ""},
+		},
+	)
+	form, files, err := httpbinder.ParseMultipartMap(req)
+	if err != nil {
+		t.Fatalf("ParseMultipartMap: %v", err)
+	}
+	if form["title"] != "ok" || string(files["image"].Content) != "hello" {
+		t.Fatalf("form=%v files=%+v", form, files)
+	}
+}

@@ -1,6 +1,10 @@
 package mappingfixture
 
-import "github.com/shibukawa/httpbind-go"
+import (
+	"encoding/json"
+
+	"github.com/shibukawa/httpbind-go"
+)
 
 // CreateUserRequest exercises default input, path, and header sources.
 type CreateUserRequest struct {
@@ -36,4 +40,42 @@ type UploadAvatarRequest struct {
 	UserID string          `path:"user_id"`
 	Title  string          `payload:"title"`
 	Image  httpbinder.File `payload:"image"`
+}
+
+// PatchWithExtrasRequest exercises payload:"*" rest map for leftover body keys.
+type PatchWithExtrasRequest struct {
+	Name  string         `payload:"name"`
+	Email string         `payload:"email"`
+	Extra map[string]any `payload:"*"`
+}
+
+// PatchWithExtrasRawRequest exercises rest as map[string]json.RawMessage.
+type PatchWithExtrasRawRequest struct {
+	Name  string                     `payload:"name"`
+	Extra map[string]json.RawMessage `payload:"*"`
+}
+
+// NestedCustomer is a nested object in NestedOrderRequest.
+type NestedCustomer struct {
+	ID   string `payload:"id"`
+	Name string `payload:"name"`
+}
+
+// NestedLineItem is an element of NestedOrderRequest.Items.
+type NestedLineItem struct {
+	SKU string `payload:"sku"`
+	Qty int    `payload:"qty"`
+}
+
+// NestedOrderRequest exercises nested struct, slice of structs, and map[string]string.
+type NestedOrderRequest struct {
+	Customer NestedCustomer    `payload:"customer"`
+	Items    []NestedLineItem  `payload:"items"`
+	Labels   map[string]string `payload:"labels"`
+}
+
+// CodecOnlyNote is referenced only via DecodeJSON/EncodeJSON in tests.
+type CodecOnlyNote struct {
+	Text string `payload:"text"`
+	N    int    `payload:"n"`
 }

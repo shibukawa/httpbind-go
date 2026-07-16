@@ -170,12 +170,20 @@ func validateCheckAgainstKind(c CheckRules, kind string) error {
 	isNum := kind == "int" || kind == "int64" || kind == "float64"
 	isString := kind == "string"
 	isFile := kind == "file"
-	if isFile {
-		// File size/MIME rules are deferred; only required is allowed for now.
+	isRest := kind == KindRestAny || kind == KindRestRaw
+	isComposite := kind == KindStruct || kind == KindSlice || kind == KindMap
+	if isFile || isRest || isComposite {
+		// Nested/file/rest content rules deferred; only required is allowed for now.
 		if c.Min != nil || c.Max != nil || c.MinLen != nil || c.MaxLen != nil || c.Len != nil ||
 			len(c.Enum) > 0 || c.Pattern != "" || c.HasDefault ||
 			c.Email || c.UUID || c.Date || c.Time || c.DateTime {
-			return fmt.Errorf("check: only required is supported for file fields in v1")
+			what := "file"
+			if isRest {
+				what = "rest map"
+			} else if isComposite {
+				what = "nested " + kind
+			}
+			return fmt.Errorf("check: only required is supported for %s fields in v1", what)
 		}
 		return nil
 	}

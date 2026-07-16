@@ -4,10 +4,11 @@ package checkfixture
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"regexp"
 
-	httpbinder "github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/httpbind-go"
 )
 
 type jsonRaw = json.RawMessage
@@ -17,12 +18,50 @@ var checkPatternCheckRequestCode = regexp.MustCompile("^[A-Z]{3}$")
 func init() {
 	httpbinder.RegisterBind[CheckRequest](bindCheckRequest)
 	httpbinder.RegisterWrite[CheckRequest](writeCheckRequest)
+	httpbinder.RegisterDecode[CheckRequest](decodeCheckRequestBytes)
+	httpbinder.RegisterEncode[CheckRequest](encodeCheckRequest)
 	httpbinder.RegisterBind[CheckResponse](bindCheckResponse)
 	httpbinder.RegisterWrite[CheckResponse](writeCheckResponse)
+	httpbinder.RegisterDecode[CheckResponse](decodeCheckResponseBytes)
+	httpbinder.RegisterEncode[CheckResponse](encodeCheckResponse)
 	httpbinder.RegisterBind[OpenAPICheckRequest](bindOpenAPICheckRequest)
 	httpbinder.RegisterWrite[OpenAPICheckRequest](writeOpenAPICheckRequest)
+	httpbinder.RegisterDecode[OpenAPICheckRequest](decodeOpenAPICheckRequestBytes)
+	httpbinder.RegisterEncode[OpenAPICheckRequest](encodeOpenAPICheckRequest)
 	httpbinder.RegisterBind[OpenAPICheckResponse](bindOpenAPICheckResponse)
 	httpbinder.RegisterWrite[OpenAPICheckResponse](writeOpenAPICheckResponse)
+	httpbinder.RegisterDecode[OpenAPICheckResponse](decodeOpenAPICheckResponseBytes)
+	httpbinder.RegisterEncode[OpenAPICheckResponse](encodeOpenAPICheckResponse)
+}
+
+func decodeCheckRequestBytes(data []byte) (CheckRequest, error) {
+	return decodeCheckRequestJSON(json.RawMessage(data))
+}
+
+func decodeCheckRequestJSON(raw json.RawMessage) (CheckRequest, error) {
+	var out CheckRequest
+	_ = raw
+	return out, nil
+}
+
+func encodeCheckRequestMap(v CheckRequest) map[string]any {
+	body := map[string]any{}
+	body["name"] = v.Name
+	body["email"] = v.Email
+	body["age"] = v.Age
+	body["sort"] = v.Sort
+	body["code"] = v.Code
+	body["id"] = v.ID
+	body["born"] = v.Born
+	body["at"] = v.At
+	body["when"] = v.When
+	body["page"] = v.Page
+	body["optional"] = v.Optional
+	return body
+}
+
+func encodeCheckRequest(w io.Writer, v CheckRequest) error {
+	return json.NewEncoder(w).Encode(encodeCheckRequestMap(v))
 }
 
 func bindCheckRequest(r *http.Request) (CheckRequest, error) {
@@ -195,20 +234,37 @@ func bindCheckRequest(r *http.Request) (CheckRequest, error) {
 
 func writeCheckRequest(w http.ResponseWriter, r *http.Request, v CheckRequest) error {
 	_ = r
-	body := map[string]any{
-		"name":     v.Name,
-		"email":    v.Email,
-		"age":      v.Age,
-		"sort":     v.Sort,
-		"code":     v.Code,
-		"id":       v.ID,
-		"born":     v.Born,
-		"at":       v.At,
-		"when":     v.When,
-		"page":     v.Page,
-		"optional": v.Optional,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeCheckRequestMap(v))
+}
+
+func decodeCheckResponseBytes(data []byte) (CheckResponse, error) {
+	return decodeCheckResponseJSON(json.RawMessage(data))
+}
+
+func decodeCheckResponseJSON(raw json.RawMessage) (CheckResponse, error) {
+	var out CheckResponse
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["ok"]; ok {
+		v, err := httpbinder.DecodeJSONBool(raw)
+		if err != nil {
+			return out, httpbinder.BindError("oK", "payload", "invalid bool")
+		}
+		out.OK = v
+	}
+	return out, nil
+}
+
+func encodeCheckResponseMap(v CheckResponse) map[string]any {
+	body := map[string]any{}
+	body["ok"] = v.OK
+	return body
+}
+
+func encodeCheckResponse(w io.Writer, v CheckResponse) error {
+	return json.NewEncoder(w).Encode(encodeCheckResponseMap(v))
 }
 
 func bindCheckResponse(r *http.Request) (CheckResponse, error) {
@@ -278,10 +334,54 @@ func bindCheckResponse(r *http.Request) (CheckResponse, error) {
 
 func writeCheckResponse(w http.ResponseWriter, r *http.Request, v CheckResponse) error {
 	_ = r
-	body := map[string]any{
-		"ok": v.OK,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeCheckResponseMap(v))
+}
+
+func decodeOpenAPICheckRequestBytes(data []byte) (OpenAPICheckRequest, error) {
+	return decodeOpenAPICheckRequestJSON(json.RawMessage(data))
+}
+
+func decodeOpenAPICheckRequestJSON(raw json.RawMessage) (OpenAPICheckRequest, error) {
+	var out OpenAPICheckRequest
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["name"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("name", "payload", "invalid string")
+		}
+		out.Name = v
+	}
+	if raw, ok := m["age"]; ok {
+		v, err := httpbinder.DecodeJSONInt(raw)
+		if err != nil {
+			return out, httpbinder.BindError("age", "payload", "invalid int")
+		}
+		out.Age = v
+	}
+	if raw, ok := m["email"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("email", "payload", "invalid string")
+		}
+		out.Email = v
+	}
+	return out, nil
+}
+
+func encodeOpenAPICheckRequestMap(v OpenAPICheckRequest) map[string]any {
+	body := map[string]any{}
+	body["name"] = v.Name
+	body["age"] = v.Age
+	body["sort"] = v.Sort
+	body["email"] = v.Email
+	return body
+}
+
+func encodeOpenAPICheckRequest(w io.Writer, v OpenAPICheckRequest) error {
+	return json.NewEncoder(w).Encode(encodeOpenAPICheckRequestMap(v))
 }
 
 func bindOpenAPICheckRequest(r *http.Request) (OpenAPICheckRequest, error) {
@@ -429,13 +529,37 @@ func bindOpenAPICheckRequest(r *http.Request) (OpenAPICheckRequest, error) {
 
 func writeOpenAPICheckRequest(w http.ResponseWriter, r *http.Request, v OpenAPICheckRequest) error {
 	_ = r
-	body := map[string]any{
-		"name":  v.Name,
-		"age":   v.Age,
-		"sort":  v.Sort,
-		"email": v.Email,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeOpenAPICheckRequestMap(v))
+}
+
+func decodeOpenAPICheckResponseBytes(data []byte) (OpenAPICheckResponse, error) {
+	return decodeOpenAPICheckResponseJSON(json.RawMessage(data))
+}
+
+func decodeOpenAPICheckResponseJSON(raw json.RawMessage) (OpenAPICheckResponse, error) {
+	var out OpenAPICheckResponse
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["ok"]; ok {
+		v, err := httpbinder.DecodeJSONBool(raw)
+		if err != nil {
+			return out, httpbinder.BindError("oK", "payload", "invalid bool")
+		}
+		out.OK = v
+	}
+	return out, nil
+}
+
+func encodeOpenAPICheckResponseMap(v OpenAPICheckResponse) map[string]any {
+	body := map[string]any{}
+	body["ok"] = v.OK
+	return body
+}
+
+func encodeOpenAPICheckResponse(w io.Writer, v OpenAPICheckResponse) error {
+	return json.NewEncoder(w).Encode(encodeOpenAPICheckResponseMap(v))
 }
 
 func bindOpenAPICheckResponse(r *http.Request) (OpenAPICheckResponse, error) {
@@ -505,8 +629,5 @@ func bindOpenAPICheckResponse(r *http.Request) (OpenAPICheckResponse, error) {
 
 func writeOpenAPICheckResponse(w http.ResponseWriter, r *http.Request, v OpenAPICheckResponse) error {
 	_ = r
-	body := map[string]any{
-		"ok": v.OK,
-	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeOpenAPICheckResponseMap(v))
 }

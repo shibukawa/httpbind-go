@@ -4,6 +4,7 @@ package mappingfixture
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/shibukawa/httpbind-go"
@@ -14,14 +15,88 @@ type jsonRaw = json.RawMessage
 func init() {
 	httpbinder.RegisterBind[CreateUserRequest](bindCreateUserRequest)
 	httpbinder.RegisterWrite[CreateUserRequest](writeCreateUserRequest)
+	httpbinder.RegisterDecode[CreateUserRequest](decodeCreateUserRequestBytes)
+	httpbinder.RegisterEncode[CreateUserRequest](encodeCreateUserRequest)
 	httpbinder.RegisterBind[CreateUserResponse](bindCreateUserResponse)
 	httpbinder.RegisterWrite[CreateUserResponse](writeCreateUserResponse)
+	httpbinder.RegisterDecode[CreateUserResponse](decodeCreateUserResponseBytes)
+	httpbinder.RegisterEncode[CreateUserResponse](encodeCreateUserResponse)
 	httpbinder.RegisterBind[SearchRequest](bindSearchRequest)
 	httpbinder.RegisterWrite[SearchRequest](writeSearchRequest)
+	httpbinder.RegisterDecode[SearchRequest](decodeSearchRequestBytes)
+	httpbinder.RegisterEncode[SearchRequest](encodeSearchRequest)
 	httpbinder.RegisterBind[SearchResponse](bindSearchResponse)
 	httpbinder.RegisterWrite[SearchResponse](writeSearchResponse)
+	httpbinder.RegisterDecode[SearchResponse](decodeSearchResponseBytes)
+	httpbinder.RegisterEncode[SearchResponse](encodeSearchResponse)
 	httpbinder.RegisterBind[UploadAvatarRequest](bindUploadAvatarRequest)
 	httpbinder.RegisterWrite[UploadAvatarRequest](writeUploadAvatarRequest)
+	httpbinder.RegisterDecode[UploadAvatarRequest](decodeUploadAvatarRequestBytes)
+	httpbinder.RegisterEncode[UploadAvatarRequest](encodeUploadAvatarRequest)
+	httpbinder.RegisterBind[PatchWithExtrasRequest](bindPatchWithExtrasRequest)
+	httpbinder.RegisterWrite[PatchWithExtrasRequest](writePatchWithExtrasRequest)
+	httpbinder.RegisterDecode[PatchWithExtrasRequest](decodePatchWithExtrasRequestBytes)
+	httpbinder.RegisterEncode[PatchWithExtrasRequest](encodePatchWithExtrasRequest)
+	httpbinder.RegisterBind[PatchWithExtrasRawRequest](bindPatchWithExtrasRawRequest)
+	httpbinder.RegisterWrite[PatchWithExtrasRawRequest](writePatchWithExtrasRawRequest)
+	httpbinder.RegisterDecode[PatchWithExtrasRawRequest](decodePatchWithExtrasRawRequestBytes)
+	httpbinder.RegisterEncode[PatchWithExtrasRawRequest](encodePatchWithExtrasRawRequest)
+	httpbinder.RegisterBind[NestedCustomer](bindNestedCustomer)
+	httpbinder.RegisterWrite[NestedCustomer](writeNestedCustomer)
+	httpbinder.RegisterDecode[NestedCustomer](decodeNestedCustomerBytes)
+	httpbinder.RegisterEncode[NestedCustomer](encodeNestedCustomer)
+	httpbinder.RegisterBind[NestedLineItem](bindNestedLineItem)
+	httpbinder.RegisterWrite[NestedLineItem](writeNestedLineItem)
+	httpbinder.RegisterDecode[NestedLineItem](decodeNestedLineItemBytes)
+	httpbinder.RegisterEncode[NestedLineItem](encodeNestedLineItem)
+	httpbinder.RegisterBind[NestedOrderRequest](bindNestedOrderRequest)
+	httpbinder.RegisterWrite[NestedOrderRequest](writeNestedOrderRequest)
+	httpbinder.RegisterDecode[NestedOrderRequest](decodeNestedOrderRequestBytes)
+	httpbinder.RegisterEncode[NestedOrderRequest](encodeNestedOrderRequest)
+	httpbinder.RegisterBind[CodecOnlyNote](bindCodecOnlyNote)
+	httpbinder.RegisterWrite[CodecOnlyNote](writeCodecOnlyNote)
+	httpbinder.RegisterDecode[CodecOnlyNote](decodeCodecOnlyNoteBytes)
+	httpbinder.RegisterEncode[CodecOnlyNote](encodeCodecOnlyNote)
+}
+
+func decodeCreateUserRequestBytes(data []byte) (CreateUserRequest, error) {
+	return decodeCreateUserRequestJSON(json.RawMessage(data))
+}
+
+func decodeCreateUserRequestJSON(raw json.RawMessage) (CreateUserRequest, error) {
+	var out CreateUserRequest
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
+	}
+	if raw, ok := m["name"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("name", "payload", "invalid string")
+		}
+		out.Name = v
+	}
+	if raw, ok := m["email"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("email", "payload", "invalid string")
+		}
+		out.Email = v
+	}
+	return out, nil
+}
+
+func encodeCreateUserRequestMap(v CreateUserRequest) map[string]any {
+	body := map[string]any{}
+	body["name"] = v.Name
+	body["email"] = v.Email
+	body["org_id"] = v.OrgID
+	body["Authorization"] = v.Token
+	return body
+}
+
+func encodeCreateUserRequest(w io.Writer, v CreateUserRequest) error {
+	return json.NewEncoder(w).Encode(encodeCreateUserRequestMap(v))
 }
 
 func bindCreateUserRequest(r *http.Request) (CreateUserRequest, error) {
@@ -103,13 +178,53 @@ func bindCreateUserRequest(r *http.Request) (CreateUserRequest, error) {
 
 func writeCreateUserRequest(w http.ResponseWriter, r *http.Request, v CreateUserRequest) error {
 	_ = r
-	body := map[string]any{
-		"name":          v.Name,
-		"email":         v.Email,
-		"org_id":        v.OrgID,
-		"Authorization": v.Token,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeCreateUserRequestMap(v))
+}
+
+func decodeCreateUserResponseBytes(data []byte) (CreateUserResponse, error) {
+	return decodeCreateUserResponseJSON(json.RawMessage(data))
+}
+
+func decodeCreateUserResponseJSON(raw json.RawMessage) (CreateUserResponse, error) {
+	var out CreateUserResponse
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["id"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("iD", "payload", "invalid string")
+		}
+		out.ID = v
+	}
+	if raw, ok := m["name"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("name", "payload", "invalid string")
+		}
+		out.Name = v
+	}
+	if raw, ok := m["email"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("email", "payload", "invalid string")
+		}
+		out.Email = v
+	}
+	return out, nil
+}
+
+func encodeCreateUserResponseMap(v CreateUserResponse) map[string]any {
+	body := map[string]any{}
+	body["id"] = v.ID
+	body["name"] = v.Name
+	body["email"] = v.Email
+	return body
+}
+
+func encodeCreateUserResponse(w io.Writer, v CreateUserResponse) error {
+	return json.NewEncoder(w).Encode(encodeCreateUserResponseMap(v))
 }
 
 func bindCreateUserResponse(r *http.Request) (CreateUserResponse, error) {
@@ -207,12 +322,39 @@ func bindCreateUserResponse(r *http.Request) (CreateUserResponse, error) {
 
 func writeCreateUserResponse(w http.ResponseWriter, r *http.Request, v CreateUserResponse) error {
 	_ = r
-	body := map[string]any{
-		"id":    v.ID,
-		"name":  v.Name,
-		"email": v.Email,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeCreateUserResponseMap(v))
+}
+
+func decodeSearchRequestBytes(data []byte) (SearchRequest, error) {
+	return decodeSearchRequestJSON(json.RawMessage(data))
+}
+
+func decodeSearchRequestJSON(raw json.RawMessage) (SearchRequest, error) {
+	var out SearchRequest
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["filter"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("filter", "payload", "invalid string")
+		}
+		out.Filter = v
+	}
+	return out, nil
+}
+
+func encodeSearchRequestMap(v SearchRequest) map[string]any {
+	body := map[string]any{}
+	body["keyword"] = v.Keyword
+	body["page"] = v.Page
+	body["filter"] = v.Filter
+	return body
+}
+
+func encodeSearchRequest(w io.Writer, v SearchRequest) error {
+	return json.NewEncoder(w).Encode(encodeSearchRequestMap(v))
 }
 
 func bindSearchRequest(r *http.Request) (SearchRequest, error) {
@@ -280,12 +422,53 @@ func bindSearchRequest(r *http.Request) (SearchRequest, error) {
 
 func writeSearchRequest(w http.ResponseWriter, r *http.Request, v SearchRequest) error {
 	_ = r
-	body := map[string]any{
-		"keyword": v.Keyword,
-		"page":    v.Page,
-		"filter":  v.Filter,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeSearchRequestMap(v))
+}
+
+func decodeSearchResponseBytes(data []byte) (SearchResponse, error) {
+	return decodeSearchResponseJSON(json.RawMessage(data))
+}
+
+func decodeSearchResponseJSON(raw json.RawMessage) (SearchResponse, error) {
+	var out SearchResponse
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["keyword"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("keyword", "payload", "invalid string")
+		}
+		out.Keyword = v
+	}
+	if raw, ok := m["page"]; ok {
+		v, err := httpbinder.DecodeJSONInt(raw)
+		if err != nil {
+			return out, httpbinder.BindError("page", "payload", "invalid int")
+		}
+		out.Page = v
+	}
+	if raw, ok := m["filter"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("filter", "payload", "invalid string")
+		}
+		out.Filter = v
+	}
+	return out, nil
+}
+
+func encodeSearchResponseMap(v SearchResponse) map[string]any {
+	body := map[string]any{}
+	body["keyword"] = v.Keyword
+	body["page"] = v.Page
+	body["filter"] = v.Filter
+	return body
+}
+
+func encodeSearchResponse(w io.Writer, v SearchResponse) error {
+	return json.NewEncoder(w).Encode(encodeSearchResponseMap(v))
 }
 
 func bindSearchResponse(r *http.Request) (SearchResponse, error) {
@@ -391,12 +574,39 @@ func bindSearchResponse(r *http.Request) (SearchResponse, error) {
 
 func writeSearchResponse(w http.ResponseWriter, r *http.Request, v SearchResponse) error {
 	_ = r
-	body := map[string]any{
-		"keyword": v.Keyword,
-		"page":    v.Page,
-		"filter":  v.Filter,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeSearchResponseMap(v))
+}
+
+func decodeUploadAvatarRequestBytes(data []byte) (UploadAvatarRequest, error) {
+	return decodeUploadAvatarRequestJSON(json.RawMessage(data))
+}
+
+func decodeUploadAvatarRequestJSON(raw json.RawMessage) (UploadAvatarRequest, error) {
+	var out UploadAvatarRequest
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["title"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("title", "payload", "invalid string")
+		}
+		out.Title = v
+	}
+	return out, nil
+}
+
+func encodeUploadAvatarRequestMap(v UploadAvatarRequest) map[string]any {
+	body := map[string]any{}
+	body["user_id"] = v.UserID
+	body["title"] = v.Title
+	body["image"] = v.Image
+	return body
+}
+
+func encodeUploadAvatarRequest(w io.Writer, v UploadAvatarRequest) error {
+	return json.NewEncoder(w).Encode(encodeUploadAvatarRequestMap(v))
 }
 
 func bindUploadAvatarRequest(r *http.Request) (UploadAvatarRequest, error) {
@@ -465,10 +675,704 @@ func bindUploadAvatarRequest(r *http.Request) (UploadAvatarRequest, error) {
 
 func writeUploadAvatarRequest(w http.ResponseWriter, r *http.Request, v UploadAvatarRequest) error {
 	_ = r
-	body := map[string]any{
-		"user_id": v.UserID,
-		"title":   v.Title,
-		"image":   v.Image,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeUploadAvatarRequestMap(v))
+}
+
+func decodePatchWithExtrasRequestBytes(data []byte) (PatchWithExtrasRequest, error) {
+	return decodePatchWithExtrasRequestJSON(json.RawMessage(data))
+}
+
+func decodePatchWithExtrasRequestJSON(raw json.RawMessage) (PatchWithExtrasRequest, error) {
+	var out PatchWithExtrasRequest
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["name"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("name", "payload", "invalid string")
+		}
+		out.Name = v
+	}
+	if raw, ok := m["email"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("email", "payload", "invalid string")
+		}
+		out.Email = v
+	}
+	{
+		rm, err := httpbinder.RestJSONAny(m, []string{"name", "email"})
+		if err != nil {
+			return out, err
+		}
+		out.Extra = rm
+	}
+	return out, nil
+}
+
+func encodePatchWithExtrasRequestMap(v PatchWithExtrasRequest) map[string]any {
+	body := map[string]any{}
+	body["name"] = v.Name
+	body["email"] = v.Email
+	for k, val := range v.Extra {
+		body[k] = val
+	}
+	return body
+}
+
+func encodePatchWithExtrasRequest(w io.Writer, v PatchWithExtrasRequest) error {
+	return json.NewEncoder(w).Encode(encodePatchWithExtrasRequestMap(v))
+}
+
+func bindPatchWithExtrasRequest(r *http.Request) (PatchWithExtrasRequest, error) {
+	var out PatchWithExtrasRequest
+	var jsonBody map[string]jsonRaw
+	var formBody map[string]string
+	var bodyRead bool
+	readBody := func() error {
+		if bodyRead {
+			return nil
+		}
+		bodyRead = true
+		if httpbinder.IsJSONRequest(r) {
+			m, err := httpbinder.ReadJSONMap(r)
+			if err != nil {
+				return err
+			}
+			jsonBody = m
+			return nil
+		}
+		if httpbinder.IsFormRequest(r) {
+			m, err := httpbinder.ParseFormMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		return nil
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if raw, ok := jsonBody["name"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("name", "payload", "invalid string")
+		}
+		out.Name = v
+	} else if formBody != nil {
+		if fv, ok := formBody["name"]; ok {
+			out.Name = fv
+		}
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if raw, ok := jsonBody["email"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("email", "payload", "invalid string")
+		}
+		out.Email = v
+	} else if formBody != nil {
+		if fv, ok := formBody["email"]; ok {
+			out.Email = fv
+		}
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if jsonBody != nil {
+		m, err := httpbinder.RestJSONAny(jsonBody, []string{"name", "email"})
+		if err != nil {
+			return out, err
+		}
+		out.Extra = m
+	} else if formBody != nil {
+		out.Extra = httpbinder.RestFormAny(formBody, []string{"name", "email"})
+	} else {
+		out.Extra = map[string]any{}
+	}
+	return out, nil
+}
+
+func writePatchWithExtrasRequest(w http.ResponseWriter, r *http.Request, v PatchWithExtrasRequest) error {
+	_ = r
+	return httpbinder.WriteJSON(w, http.StatusOK, encodePatchWithExtrasRequestMap(v))
+}
+
+func decodePatchWithExtrasRawRequestBytes(data []byte) (PatchWithExtrasRawRequest, error) {
+	return decodePatchWithExtrasRawRequestJSON(json.RawMessage(data))
+}
+
+func decodePatchWithExtrasRawRequestJSON(raw json.RawMessage) (PatchWithExtrasRawRequest, error) {
+	var out PatchWithExtrasRawRequest
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
+	}
+	if raw, ok := m["name"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("name", "payload", "invalid string")
+		}
+		out.Name = v
+	}
+	out.Extra = httpbinder.RestJSONRaw(m, []string{"name"})
+	return out, nil
+}
+
+func encodePatchWithExtrasRawRequestMap(v PatchWithExtrasRawRequest) map[string]any {
+	body := map[string]any{}
+	body["name"] = v.Name
+	for k, val := range v.Extra {
+		body[k] = val
+	}
+	return body
+}
+
+func encodePatchWithExtrasRawRequest(w io.Writer, v PatchWithExtrasRawRequest) error {
+	return json.NewEncoder(w).Encode(encodePatchWithExtrasRawRequestMap(v))
+}
+
+func bindPatchWithExtrasRawRequest(r *http.Request) (PatchWithExtrasRawRequest, error) {
+	var out PatchWithExtrasRawRequest
+	var jsonBody map[string]jsonRaw
+	var formBody map[string]string
+	var bodyRead bool
+	readBody := func() error {
+		if bodyRead {
+			return nil
+		}
+		bodyRead = true
+		if httpbinder.IsJSONRequest(r) {
+			m, err := httpbinder.ReadJSONMap(r)
+			if err != nil {
+				return err
+			}
+			jsonBody = m
+			return nil
+		}
+		if httpbinder.IsFormRequest(r) {
+			m, err := httpbinder.ParseFormMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		return nil
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if raw, ok := jsonBody["name"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("name", "payload", "invalid string")
+		}
+		out.Name = v
+	} else if formBody != nil {
+		if fv, ok := formBody["name"]; ok {
+			out.Name = fv
+		}
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if jsonBody != nil {
+		out.Extra = httpbinder.RestJSONRaw(jsonBody, []string{"name"})
+	} else if formBody != nil {
+		out.Extra = httpbinder.RestFormRaw(formBody, []string{"name"})
+	} else {
+		out.Extra = map[string]json.RawMessage{}
+	}
+	return out, nil
+}
+
+func writePatchWithExtrasRawRequest(w http.ResponseWriter, r *http.Request, v PatchWithExtrasRawRequest) error {
+	_ = r
+	return httpbinder.WriteJSON(w, http.StatusOK, encodePatchWithExtrasRawRequestMap(v))
+}
+
+func decodeNestedCustomerBytes(data []byte) (NestedCustomer, error) {
+	return decodeNestedCustomerJSON(json.RawMessage(data))
+}
+
+func decodeNestedCustomerJSON(raw json.RawMessage) (NestedCustomer, error) {
+	var out NestedCustomer
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
+	}
+	if raw, ok := m["id"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("id", "payload", "invalid string")
+		}
+		out.ID = v
+	}
+	if raw, ok := m["name"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("name", "payload", "invalid string")
+		}
+		out.Name = v
+	}
+	return out, nil
+}
+
+func encodeNestedCustomerMap(v NestedCustomer) map[string]any {
+	body := map[string]any{}
+	body["id"] = v.ID
+	body["name"] = v.Name
+	return body
+}
+
+func encodeNestedCustomer(w io.Writer, v NestedCustomer) error {
+	return json.NewEncoder(w).Encode(encodeNestedCustomerMap(v))
+}
+
+func bindNestedCustomer(r *http.Request) (NestedCustomer, error) {
+	var out NestedCustomer
+	var jsonBody map[string]jsonRaw
+	var formBody map[string]string
+	var bodyRead bool
+	readBody := func() error {
+		if bodyRead {
+			return nil
+		}
+		bodyRead = true
+		if httpbinder.IsJSONRequest(r) {
+			m, err := httpbinder.ReadJSONMap(r)
+			if err != nil {
+				return err
+			}
+			jsonBody = m
+			return nil
+		}
+		if httpbinder.IsFormRequest(r) {
+			m, err := httpbinder.ParseFormMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		return nil
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if raw, ok := jsonBody["id"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("id", "payload", "invalid string")
+		}
+		out.ID = v
+	} else if formBody != nil {
+		if fv, ok := formBody["id"]; ok {
+			out.ID = fv
+		}
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if raw, ok := jsonBody["name"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("name", "payload", "invalid string")
+		}
+		out.Name = v
+	} else if formBody != nil {
+		if fv, ok := formBody["name"]; ok {
+			out.Name = fv
+		}
+	}
+	return out, nil
+}
+
+func writeNestedCustomer(w http.ResponseWriter, r *http.Request, v NestedCustomer) error {
+	_ = r
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeNestedCustomerMap(v))
+}
+
+func decodeNestedLineItemBytes(data []byte) (NestedLineItem, error) {
+	return decodeNestedLineItemJSON(json.RawMessage(data))
+}
+
+func decodeNestedLineItemJSON(raw json.RawMessage) (NestedLineItem, error) {
+	var out NestedLineItem
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
+	}
+	if raw, ok := m["sku"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("sku", "payload", "invalid string")
+		}
+		out.SKU = v
+	}
+	if raw, ok := m["qty"]; ok {
+		v, err := httpbinder.DecodeJSONInt(raw)
+		if err != nil {
+			return out, httpbinder.BindError("qty", "payload", "invalid int")
+		}
+		out.Qty = v
+	}
+	return out, nil
+}
+
+func encodeNestedLineItemMap(v NestedLineItem) map[string]any {
+	body := map[string]any{}
+	body["sku"] = v.SKU
+	body["qty"] = v.Qty
+	return body
+}
+
+func encodeNestedLineItem(w io.Writer, v NestedLineItem) error {
+	return json.NewEncoder(w).Encode(encodeNestedLineItemMap(v))
+}
+
+func bindNestedLineItem(r *http.Request) (NestedLineItem, error) {
+	var out NestedLineItem
+	var jsonBody map[string]jsonRaw
+	var formBody map[string]string
+	var bodyRead bool
+	readBody := func() error {
+		if bodyRead {
+			return nil
+		}
+		bodyRead = true
+		if httpbinder.IsJSONRequest(r) {
+			m, err := httpbinder.ReadJSONMap(r)
+			if err != nil {
+				return err
+			}
+			jsonBody = m
+			return nil
+		}
+		if httpbinder.IsFormRequest(r) {
+			m, err := httpbinder.ParseFormMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		return nil
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if raw, ok := jsonBody["sku"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("sku", "payload", "invalid string")
+		}
+		out.SKU = v
+	} else if formBody != nil {
+		if fv, ok := formBody["sku"]; ok {
+			out.SKU = fv
+		}
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if raw, ok := jsonBody["qty"]; ok {
+		v, err := httpbinder.DecodeJSONInt(raw)
+		if err != nil {
+			return out, httpbinder.BindError("qty", "payload", "invalid int")
+		}
+		out.Qty = v
+	} else if formBody != nil {
+		if fv, ok := formBody["qty"]; ok {
+			v, err := httpbinder.ParseInt(fv)
+			if err != nil {
+				return out, httpbinder.BindError("qty", "payload", "invalid int")
+			}
+			out.Qty = v
+		}
+	}
+	return out, nil
+}
+
+func writeNestedLineItem(w http.ResponseWriter, r *http.Request, v NestedLineItem) error {
+	_ = r
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeNestedLineItemMap(v))
+}
+
+func decodeNestedOrderRequestBytes(data []byte) (NestedOrderRequest, error) {
+	return decodeNestedOrderRequestJSON(json.RawMessage(data))
+}
+
+func decodeNestedOrderRequestJSON(raw json.RawMessage) (NestedOrderRequest, error) {
+	var out NestedOrderRequest
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
+	}
+	if raw, ok := m["customer"]; ok {
+		v, err := decodeNestedCustomerJSON(raw)
+		if err != nil {
+			return out, err
+		}
+		out.Customer = v
+	}
+	if raw, ok := m["items"]; ok {
+		arr, err := httpbinder.RawJSONArray(raw)
+		if err != nil {
+			return out, err
+		}
+		slice := make([]NestedLineItem, 0, len(arr))
+		for _, el := range arr {
+			item, err := decodeNestedLineItemJSON(el)
+			if err != nil {
+				return out, err
+			}
+			slice = append(slice, item)
+		}
+		out.Items = slice
+	}
+	if raw, ok := m["labels"]; ok {
+		v, err := httpbinder.DecodeJSONMapStringString(raw)
+		if err != nil {
+			return out, err
+		}
+		out.Labels = v
+	}
+	return out, nil
+}
+
+func encodeNestedOrderRequestMap(v NestedOrderRequest) map[string]any {
+	body := map[string]any{}
+	body["customer"] = encodeNestedCustomerMap(v.Customer)
+	{
+		arr := make([]any, len(v.Items))
+		for i := range v.Items {
+			arr[i] = encodeNestedLineItemMap(v.Items[i])
+		}
+		body["items"] = arr
+	}
+	body["labels"] = v.Labels
+	return body
+}
+
+func encodeNestedOrderRequest(w io.Writer, v NestedOrderRequest) error {
+	return json.NewEncoder(w).Encode(encodeNestedOrderRequestMap(v))
+}
+
+func bindNestedOrderRequest(r *http.Request) (NestedOrderRequest, error) {
+	var out NestedOrderRequest
+	var jsonBody map[string]jsonRaw
+	var bodyRead bool
+	readBody := func() error {
+		if bodyRead {
+			return nil
+		}
+		bodyRead = true
+		if httpbinder.IsJSONRequest(r) {
+			m, err := httpbinder.ReadJSONMap(r)
+			if err != nil {
+				return err
+			}
+			jsonBody = m
+			return nil
+		}
+		return nil
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if raw, ok := jsonBody["customer"]; ok {
+		v, err := decodeNestedCustomerJSON(raw)
+		if err != nil {
+			return out, err
+		}
+		out.Customer = v
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if raw, ok := jsonBody["items"]; ok {
+		arr, err := httpbinder.RawJSONArray(raw)
+		if err != nil {
+			return out, err
+		}
+		slice := make([]NestedLineItem, 0, len(arr))
+		for _, el := range arr {
+			item, err := decodeNestedLineItemJSON(el)
+			if err != nil {
+				return out, err
+			}
+			slice = append(slice, item)
+		}
+		out.Items = slice
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if raw, ok := jsonBody["labels"]; ok {
+		v, err := httpbinder.DecodeJSONMapStringString(raw)
+		if err != nil {
+			return out, err
+		}
+		out.Labels = v
+	}
+	return out, nil
+}
+
+func writeNestedOrderRequest(w http.ResponseWriter, r *http.Request, v NestedOrderRequest) error {
+	_ = r
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeNestedOrderRequestMap(v))
+}
+
+func decodeCodecOnlyNoteBytes(data []byte) (CodecOnlyNote, error) {
+	return decodeCodecOnlyNoteJSON(json.RawMessage(data))
+}
+
+func decodeCodecOnlyNoteJSON(raw json.RawMessage) (CodecOnlyNote, error) {
+	var out CodecOnlyNote
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
+	}
+	if raw, ok := m["text"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("text", "payload", "invalid string")
+		}
+		out.Text = v
+	}
+	if raw, ok := m["n"]; ok {
+		v, err := httpbinder.DecodeJSONInt(raw)
+		if err != nil {
+			return out, httpbinder.BindError("n", "payload", "invalid int")
+		}
+		out.N = v
+	}
+	return out, nil
+}
+
+func encodeCodecOnlyNoteMap(v CodecOnlyNote) map[string]any {
+	body := map[string]any{}
+	body["text"] = v.Text
+	body["n"] = v.N
+	return body
+}
+
+func encodeCodecOnlyNote(w io.Writer, v CodecOnlyNote) error {
+	return json.NewEncoder(w).Encode(encodeCodecOnlyNoteMap(v))
+}
+
+func bindCodecOnlyNote(r *http.Request) (CodecOnlyNote, error) {
+	var out CodecOnlyNote
+	var jsonBody map[string]jsonRaw
+	var formBody map[string]string
+	var bodyRead bool
+	readBody := func() error {
+		if bodyRead {
+			return nil
+		}
+		bodyRead = true
+		if httpbinder.IsJSONRequest(r) {
+			m, err := httpbinder.ReadJSONMap(r)
+			if err != nil {
+				return err
+			}
+			jsonBody = m
+			return nil
+		}
+		if httpbinder.IsFormRequest(r) {
+			m, err := httpbinder.ParseFormMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		if httpbinder.IsMultipartRequest(r) {
+			m, _, err := httpbinder.ParseMultipartMap(r)
+			if err != nil {
+				return err
+			}
+			formBody = m
+			return nil
+		}
+		return nil
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if raw, ok := jsonBody["text"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("text", "payload", "invalid string")
+		}
+		out.Text = v
+	} else if formBody != nil {
+		if fv, ok := formBody["text"]; ok {
+			out.Text = fv
+		}
+	}
+	if err := readBody(); err != nil {
+		return out, err
+	}
+	if raw, ok := jsonBody["n"]; ok {
+		v, err := httpbinder.DecodeJSONInt(raw)
+		if err != nil {
+			return out, httpbinder.BindError("n", "payload", "invalid int")
+		}
+		out.N = v
+	} else if formBody != nil {
+		if fv, ok := formBody["n"]; ok {
+			v, err := httpbinder.ParseInt(fv)
+			if err != nil {
+				return out, httpbinder.BindError("n", "payload", "invalid int")
+			}
+			out.N = v
+		}
+	}
+	return out, nil
+}
+
+func writeCodecOnlyNote(w http.ResponseWriter, r *http.Request, v CodecOnlyNote) error {
+	_ = r
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeCodecOnlyNoteMap(v))
 }

@@ -55,7 +55,7 @@ go run ./cmd/httpbinder-gen -dir . -openapi
 | （なし）または `input:"name"` | **query + payload** | デフォルト。payload は JSON・`application/x-www-form-urlencoded`・`multipart/form-data` を含む。通常のユーザー入力フィールドではタグ省略可。 |
 | `query:"page"` | query のみ | ボディからは読まない。 |
 | `payload:"name"` | ボディのみ | `Content-Type` に応じて JSON / form / multipart。query 文字列からは読まない。 |
-| `payload:"image"` と `httpbinder.File` | multipart のファイルパート | 名前付きパートからファイル名・Content-Type・サイズ・バイト列を bind。payload のみ（query 不可）。 |
+| `payload:"image"` と `httpbinder.File` | multipart のファイルパート | 名前付きパートからファイル名・Content-Type・サイズ・バイト列を bind。payload のみ（query 不可）。multipart ボディ上限はデフォルト **1 MiB**。`httpbinder.SetMaxMultipartBodyBytes` で変更可。 |
 | `path:"org_id"` | path パラメータ | ルートパターンの `{org_id}`（相当）と対応。 |
 | `header:"Authorization"` | リクエストヘッダ | タグ値がヘッダ名。 |
 | `cookie:"session"` | cookie | タグ値が cookie 名。 |
@@ -152,7 +152,7 @@ curl 例の詳細は [`examples/demo/README.md`](examples/demo/README.md) を参
 | ツールチェイン | TinyGo 0.40 は Go ≤ 1.25 が必要（`GOTOOLCHAIN=go1.25.4`） |
 | ストリーミング | `NewStream` はホストの `go test` を推奨。TinyGo 行列は未整備 |
 | ServeMux | TinyGo 下では `ServeHTTP` + `SetPathValue` でのハンドラ試験を推奨 |
-| Multipart `File` | `httpbinder.File`（`payload`）で対応。サイズ/MIME の `check` は未対応 |
+| Multipart `File` | `httpbinder.File`（`payload`）で対応。サイズ/MIME の `check` は未対応。ボディ上限のデフォルトは **1 MiB**（`SetMaxMultipartBodyBytes`） |
 | ジェネレータ | ホスト側のみ（`go run` / `go test`） |
 
 ## ライセンス

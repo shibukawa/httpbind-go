@@ -4,9 +4,10 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 
-	httpbinder "github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/httpbind-go"
 )
 
 type jsonRaw = json.RawMessage
@@ -14,30 +15,96 @@ type jsonRaw = json.RawMessage
 func init() {
 	httpbinder.RegisterBind[CreateUserRequest](bindCreateUserRequest)
 	httpbinder.RegisterWrite[CreateUserRequest](writeCreateUserRequest)
+	httpbinder.RegisterDecode[CreateUserRequest](decodeCreateUserRequestBytes)
+	httpbinder.RegisterEncode[CreateUserRequest](encodeCreateUserRequest)
 	httpbinder.RegisterBind[CreateUserResponse](bindCreateUserResponse)
 	httpbinder.RegisterWrite[CreateUserResponse](writeCreateUserResponse)
+	httpbinder.RegisterDecode[CreateUserResponse](decodeCreateUserResponseBytes)
+	httpbinder.RegisterEncode[CreateUserResponse](encodeCreateUserResponse)
 	httpbinder.RegisterBind[SearchRequest](bindSearchRequest)
 	httpbinder.RegisterWrite[SearchRequest](writeSearchRequest)
+	httpbinder.RegisterDecode[SearchRequest](decodeSearchRequestBytes)
+	httpbinder.RegisterEncode[SearchRequest](encodeSearchRequest)
 	httpbinder.RegisterBind[SearchResponse](bindSearchResponse)
 	httpbinder.RegisterWrite[SearchResponse](writeSearchResponse)
+	httpbinder.RegisterDecode[SearchResponse](decodeSearchResponseBytes)
+	httpbinder.RegisterEncode[SearchResponse](encodeSearchResponse)
 	httpbinder.RegisterBind[EchoRequest](bindEchoRequest)
 	httpbinder.RegisterWrite[EchoRequest](writeEchoRequest)
+	httpbinder.RegisterDecode[EchoRequest](decodeEchoRequestBytes)
+	httpbinder.RegisterEncode[EchoRequest](encodeEchoRequest)
 	httpbinder.RegisterBind[EchoResponse](bindEchoResponse)
 	httpbinder.RegisterWrite[EchoResponse](writeEchoResponse)
+	httpbinder.RegisterDecode[EchoResponse](decodeEchoResponseBytes)
+	httpbinder.RegisterEncode[EchoResponse](encodeEchoResponse)
 	httpbinder.RegisterBind[SessionRequest](bindSessionRequest)
 	httpbinder.RegisterWrite[SessionRequest](writeSessionRequest)
+	httpbinder.RegisterDecode[SessionRequest](decodeSessionRequestBytes)
+	httpbinder.RegisterEncode[SessionRequest](encodeSessionRequest)
 	httpbinder.RegisterBind[SessionResponse](bindSessionResponse)
 	httpbinder.RegisterWrite[SessionResponse](writeSessionResponse)
+	httpbinder.RegisterDecode[SessionResponse](decodeSessionResponseBytes)
+	httpbinder.RegisterEncode[SessionResponse](encodeSessionResponse)
 	httpbinder.RegisterBind[UserGetRequest](bindUserGetRequest)
 	httpbinder.RegisterWrite[UserGetRequest](writeUserGetRequest)
+	httpbinder.RegisterDecode[UserGetRequest](decodeUserGetRequestBytes)
+	httpbinder.RegisterEncode[UserGetRequest](encodeUserGetRequest)
 	httpbinder.RegisterBind[UserGetResponse](bindUserGetResponse)
 	httpbinder.RegisterWrite[UserGetResponse](writeUserGetResponse)
+	httpbinder.RegisterDecode[UserGetResponse](decodeUserGetResponseBytes)
+	httpbinder.RegisterEncode[UserGetResponse](encodeUserGetResponse)
 	httpbinder.RegisterBind[ChatRequest](bindChatRequest)
 	httpbinder.RegisterWrite[ChatRequest](writeChatRequest)
+	httpbinder.RegisterDecode[ChatRequest](decodeChatRequestBytes)
+	httpbinder.RegisterEncode[ChatRequest](encodeChatRequest)
 	httpbinder.RegisterBind[ChatEvent](bindChatEvent)
 	httpbinder.RegisterWrite[ChatEvent](writeChatEvent)
+	httpbinder.RegisterDecode[ChatEvent](decodeChatEventBytes)
+	httpbinder.RegisterEncode[ChatEvent](encodeChatEvent)
 	httpbinder.RegisterBind[HealthResponse](bindHealthResponse)
 	httpbinder.RegisterWrite[HealthResponse](writeHealthResponse)
+	httpbinder.RegisterDecode[HealthResponse](decodeHealthResponseBytes)
+	httpbinder.RegisterEncode[HealthResponse](encodeHealthResponse)
+}
+
+func decodeCreateUserRequestBytes(data []byte) (CreateUserRequest, error) {
+	return decodeCreateUserRequestJSON(json.RawMessage(data))
+}
+
+func decodeCreateUserRequestJSON(raw json.RawMessage) (CreateUserRequest, error) {
+	var out CreateUserRequest
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
+	}
+	if raw, ok := m["name"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("name", "payload", "invalid string")
+		}
+		out.Name = v
+	}
+	if raw, ok := m["email"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("email", "payload", "invalid string")
+		}
+		out.Email = v
+	}
+	return out, nil
+}
+
+func encodeCreateUserRequestMap(v CreateUserRequest) map[string]any {
+	body := map[string]any{}
+	body["name"] = v.Name
+	body["email"] = v.Email
+	body["org_id"] = v.OrgID
+	body["Authorization"] = v.Token
+	return body
+}
+
+func encodeCreateUserRequest(w io.Writer, v CreateUserRequest) error {
+	return json.NewEncoder(w).Encode(encodeCreateUserRequestMap(v))
 }
 
 func bindCreateUserRequest(r *http.Request) (CreateUserRequest, error) {
@@ -119,13 +186,61 @@ func bindCreateUserRequest(r *http.Request) (CreateUserRequest, error) {
 
 func writeCreateUserRequest(w http.ResponseWriter, r *http.Request, v CreateUserRequest) error {
 	_ = r
-	body := map[string]any{
-		"name":          v.Name,
-		"email":         v.Email,
-		"org_id":        v.OrgID,
-		"Authorization": v.Token,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeCreateUserRequestMap(v))
+}
+
+func decodeCreateUserResponseBytes(data []byte) (CreateUserResponse, error) {
+	return decodeCreateUserResponseJSON(json.RawMessage(data))
+}
+
+func decodeCreateUserResponseJSON(raw json.RawMessage) (CreateUserResponse, error) {
+	var out CreateUserResponse
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["id"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("iD", "payload", "invalid string")
+		}
+		out.ID = v
+	}
+	if raw, ok := m["name"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("name", "payload", "invalid string")
+		}
+		out.Name = v
+	}
+	if raw, ok := m["email"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("email", "payload", "invalid string")
+		}
+		out.Email = v
+	}
+	if raw, ok := m["org_id"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("orgID", "payload", "invalid string")
+		}
+		out.OrgID = v
+	}
+	return out, nil
+}
+
+func encodeCreateUserResponseMap(v CreateUserResponse) map[string]any {
+	body := map[string]any{}
+	body["id"] = v.ID
+	body["name"] = v.Name
+	body["email"] = v.Email
+	body["org_id"] = v.OrgID
+	return body
+}
+
+func encodeCreateUserResponse(w io.Writer, v CreateUserResponse) error {
+	return json.NewEncoder(w).Encode(encodeCreateUserResponseMap(v))
 }
 
 func bindCreateUserResponse(r *http.Request) (CreateUserResponse, error) {
@@ -241,13 +356,39 @@ func bindCreateUserResponse(r *http.Request) (CreateUserResponse, error) {
 
 func writeCreateUserResponse(w http.ResponseWriter, r *http.Request, v CreateUserResponse) error {
 	_ = r
-	body := map[string]any{
-		"id":     v.ID,
-		"name":   v.Name,
-		"email":  v.Email,
-		"org_id": v.OrgID,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeCreateUserResponseMap(v))
+}
+
+func decodeSearchRequestBytes(data []byte) (SearchRequest, error) {
+	return decodeSearchRequestJSON(json.RawMessage(data))
+}
+
+func decodeSearchRequestJSON(raw json.RawMessage) (SearchRequest, error) {
+	var out SearchRequest
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["filter"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("filter", "payload", "invalid string")
+		}
+		out.Filter = v
+	}
+	return out, nil
+}
+
+func encodeSearchRequestMap(v SearchRequest) map[string]any {
+	body := map[string]any{}
+	body["keyword"] = v.Keyword
+	body["page"] = v.Page
+	body["filter"] = v.Filter
+	return body
+}
+
+func encodeSearchRequest(w io.Writer, v SearchRequest) error {
+	return json.NewEncoder(w).Encode(encodeSearchRequestMap(v))
 }
 
 func bindSearchRequest(r *http.Request) (SearchRequest, error) {
@@ -315,12 +456,61 @@ func bindSearchRequest(r *http.Request) (SearchRequest, error) {
 
 func writeSearchRequest(w http.ResponseWriter, r *http.Request, v SearchRequest) error {
 	_ = r
-	body := map[string]any{
-		"keyword": v.Keyword,
-		"page":    v.Page,
-		"filter":  v.Filter,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeSearchRequestMap(v))
+}
+
+func decodeSearchResponseBytes(data []byte) (SearchResponse, error) {
+	return decodeSearchResponseJSON(json.RawMessage(data))
+}
+
+func decodeSearchResponseJSON(raw json.RawMessage) (SearchResponse, error) {
+	var out SearchResponse
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["keyword"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("keyword", "payload", "invalid string")
+		}
+		out.Keyword = v
+	}
+	if raw, ok := m["page"]; ok {
+		v, err := httpbinder.DecodeJSONInt(raw)
+		if err != nil {
+			return out, httpbinder.BindError("page", "payload", "invalid int")
+		}
+		out.Page = v
+	}
+	if raw, ok := m["filter"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("filter", "payload", "invalid string")
+		}
+		out.Filter = v
+	}
+	if raw, ok := m["hits"]; ok {
+		v, err := httpbinder.DecodeJSONInt(raw)
+		if err != nil {
+			return out, httpbinder.BindError("hits", "payload", "invalid int")
+		}
+		out.Hits = v
+	}
+	return out, nil
+}
+
+func encodeSearchResponseMap(v SearchResponse) map[string]any {
+	body := map[string]any{}
+	body["keyword"] = v.Keyword
+	body["page"] = v.Page
+	body["filter"] = v.Filter
+	body["hits"] = v.Hits
+	return body
+}
+
+func encodeSearchResponse(w io.Writer, v SearchResponse) error {
+	return json.NewEncoder(w).Encode(encodeSearchResponseMap(v))
 }
 
 func bindSearchResponse(r *http.Request) (SearchResponse, error) {
@@ -452,13 +642,38 @@ func bindSearchResponse(r *http.Request) (SearchResponse, error) {
 
 func writeSearchResponse(w http.ResponseWriter, r *http.Request, v SearchResponse) error {
 	_ = r
-	body := map[string]any{
-		"keyword": v.Keyword,
-		"page":    v.Page,
-		"filter":  v.Filter,
-		"hits":    v.Hits,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeSearchResponseMap(v))
+}
+
+func decodeEchoRequestBytes(data []byte) (EchoRequest, error) {
+	return decodeEchoRequestJSON(json.RawMessage(data))
+}
+
+func decodeEchoRequestJSON(raw json.RawMessage) (EchoRequest, error) {
+	var out EchoRequest
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["message"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("message", "payload", "invalid string")
+		}
+		out.Message = v
+	}
+	return out, nil
+}
+
+func encodeEchoRequestMap(v EchoRequest) map[string]any {
+	body := map[string]any{}
+	body["message"] = v.Message
+	body["n"] = v.N
+	return body
+}
+
+func encodeEchoRequest(w io.Writer, v EchoRequest) error {
+	return json.NewEncoder(w).Encode(encodeEchoRequestMap(v))
 }
 
 func bindEchoRequest(r *http.Request) (EchoRequest, error) {
@@ -527,11 +742,45 @@ func bindEchoRequest(r *http.Request) (EchoRequest, error) {
 
 func writeEchoRequest(w http.ResponseWriter, r *http.Request, v EchoRequest) error {
 	_ = r
-	body := map[string]any{
-		"message": v.Message,
-		"n":       v.N,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeEchoRequestMap(v))
+}
+
+func decodeEchoResponseBytes(data []byte) (EchoResponse, error) {
+	return decodeEchoResponseJSON(json.RawMessage(data))
+}
+
+func decodeEchoResponseJSON(raw json.RawMessage) (EchoResponse, error) {
+	var out EchoResponse
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["message"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("message", "payload", "invalid string")
+		}
+		out.Message = v
+	}
+	if raw, ok := m["n"]; ok {
+		v, err := httpbinder.DecodeJSONInt(raw)
+		if err != nil {
+			return out, httpbinder.BindError("n", "payload", "invalid int")
+		}
+		out.N = v
+	}
+	return out, nil
+}
+
+func encodeEchoResponseMap(v EchoResponse) map[string]any {
+	body := map[string]any{}
+	body["message"] = v.Message
+	body["n"] = v.N
+	return body
+}
+
+func encodeEchoResponse(w io.Writer, v EchoResponse) error {
+	return json.NewEncoder(w).Encode(encodeEchoResponseMap(v))
 }
 
 func bindEchoResponse(r *http.Request) (EchoResponse, error) {
@@ -619,11 +868,27 @@ func bindEchoResponse(r *http.Request) (EchoResponse, error) {
 
 func writeEchoResponse(w http.ResponseWriter, r *http.Request, v EchoResponse) error {
 	_ = r
-	body := map[string]any{
-		"message": v.Message,
-		"n":       v.N,
-	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeEchoResponseMap(v))
+}
+
+func decodeSessionRequestBytes(data []byte) (SessionRequest, error) {
+	return decodeSessionRequestJSON(json.RawMessage(data))
+}
+
+func decodeSessionRequestJSON(raw json.RawMessage) (SessionRequest, error) {
+	var out SessionRequest
+	_ = raw
+	return out, nil
+}
+
+func encodeSessionRequestMap(v SessionRequest) map[string]any {
+	body := map[string]any{}
+	body["session"] = v.Session
+	return body
+}
+
+func encodeSessionRequest(w io.Writer, v SessionRequest) error {
+	return json.NewEncoder(w).Encode(encodeSessionRequestMap(v))
 }
 
 func bindSessionRequest(r *http.Request) (SessionRequest, error) {
@@ -636,10 +901,45 @@ func bindSessionRequest(r *http.Request) (SessionRequest, error) {
 
 func writeSessionRequest(w http.ResponseWriter, r *http.Request, v SessionRequest) error {
 	_ = r
-	body := map[string]any{
-		"session": v.Session,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeSessionRequestMap(v))
+}
+
+func decodeSessionResponseBytes(data []byte) (SessionResponse, error) {
+	return decodeSessionResponseJSON(json.RawMessage(data))
+}
+
+func decodeSessionResponseJSON(raw json.RawMessage) (SessionResponse, error) {
+	var out SessionResponse
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["session"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("session", "payload", "invalid string")
+		}
+		out.Session = v
+	}
+	if raw, ok := m["ok"]; ok {
+		v, err := httpbinder.DecodeJSONBool(raw)
+		if err != nil {
+			return out, httpbinder.BindError("oK", "payload", "invalid bool")
+		}
+		out.OK = v
+	}
+	return out, nil
+}
+
+func encodeSessionResponseMap(v SessionResponse) map[string]any {
+	body := map[string]any{}
+	body["session"] = v.Session
+	body["ok"] = v.OK
+	return body
+}
+
+func encodeSessionResponse(w io.Writer, v SessionResponse) error {
+	return json.NewEncoder(w).Encode(encodeSessionResponseMap(v))
 }
 
 func bindSessionResponse(r *http.Request) (SessionResponse, error) {
@@ -727,11 +1027,27 @@ func bindSessionResponse(r *http.Request) (SessionResponse, error) {
 
 func writeSessionResponse(w http.ResponseWriter, r *http.Request, v SessionResponse) error {
 	_ = r
-	body := map[string]any{
-		"session": v.Session,
-		"ok":      v.OK,
-	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeSessionResponseMap(v))
+}
+
+func decodeUserGetRequestBytes(data []byte) (UserGetRequest, error) {
+	return decodeUserGetRequestJSON(json.RawMessage(data))
+}
+
+func decodeUserGetRequestJSON(raw json.RawMessage) (UserGetRequest, error) {
+	var out UserGetRequest
+	_ = raw
+	return out, nil
+}
+
+func encodeUserGetRequestMap(v UserGetRequest) map[string]any {
+	body := map[string]any{}
+	body["id"] = v.ID
+	return body
+}
+
+func encodeUserGetRequest(w io.Writer, v UserGetRequest) error {
+	return json.NewEncoder(w).Encode(encodeUserGetRequestMap(v))
 }
 
 func bindUserGetRequest(r *http.Request) (UserGetRequest, error) {
@@ -742,10 +1058,45 @@ func bindUserGetRequest(r *http.Request) (UserGetRequest, error) {
 
 func writeUserGetRequest(w http.ResponseWriter, r *http.Request, v UserGetRequest) error {
 	_ = r
-	body := map[string]any{
-		"id": v.ID,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeUserGetRequestMap(v))
+}
+
+func decodeUserGetResponseBytes(data []byte) (UserGetResponse, error) {
+	return decodeUserGetResponseJSON(json.RawMessage(data))
+}
+
+func decodeUserGetResponseJSON(raw json.RawMessage) (UserGetResponse, error) {
+	var out UserGetResponse
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["id"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("iD", "payload", "invalid string")
+		}
+		out.ID = v
+	}
+	if raw, ok := m["name"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("name", "payload", "invalid string")
+		}
+		out.Name = v
+	}
+	return out, nil
+}
+
+func encodeUserGetResponseMap(v UserGetResponse) map[string]any {
+	body := map[string]any{}
+	body["id"] = v.ID
+	body["name"] = v.Name
+	return body
+}
+
+func encodeUserGetResponse(w io.Writer, v UserGetResponse) error {
+	return json.NewEncoder(w).Encode(encodeUserGetResponseMap(v))
 }
 
 func bindUserGetResponse(r *http.Request) (UserGetResponse, error) {
@@ -825,11 +1176,37 @@ func bindUserGetResponse(r *http.Request) (UserGetResponse, error) {
 
 func writeUserGetResponse(w http.ResponseWriter, r *http.Request, v UserGetResponse) error {
 	_ = r
-	body := map[string]any{
-		"id":   v.ID,
-		"name": v.Name,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeUserGetResponseMap(v))
+}
+
+func decodeChatRequestBytes(data []byte) (ChatRequest, error) {
+	return decodeChatRequestJSON(json.RawMessage(data))
+}
+
+func decodeChatRequestJSON(raw json.RawMessage) (ChatRequest, error) {
+	var out ChatRequest
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["message"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("message", "payload", "invalid string")
+		}
+		out.Message = v
+	}
+	return out, nil
+}
+
+func encodeChatRequestMap(v ChatRequest) map[string]any {
+	body := map[string]any{}
+	body["message"] = v.Message
+	return body
+}
+
+func encodeChatRequest(w io.Writer, v ChatRequest) error {
+	return json.NewEncoder(w).Encode(encodeChatRequestMap(v))
 }
 
 func bindChatRequest(r *http.Request) (ChatRequest, error) {
@@ -891,10 +1268,45 @@ func bindChatRequest(r *http.Request) (ChatRequest, error) {
 
 func writeChatRequest(w http.ResponseWriter, r *http.Request, v ChatRequest) error {
 	_ = r
-	body := map[string]any{
-		"message": v.Message,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeChatRequestMap(v))
+}
+
+func decodeChatEventBytes(data []byte) (ChatEvent, error) {
+	return decodeChatEventJSON(json.RawMessage(data))
+}
+
+func decodeChatEventJSON(raw json.RawMessage) (ChatEvent, error) {
+	var out ChatEvent
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["type"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("type", "payload", "invalid string")
+		}
+		out.Type = v
+	}
+	if raw, ok := m["delta"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("delta", "payload", "invalid string")
+		}
+		out.Delta = v
+	}
+	return out, nil
+}
+
+func encodeChatEventMap(v ChatEvent) map[string]any {
+	body := map[string]any{}
+	body["type"] = v.Type
+	body["delta"] = v.Delta
+	return body
+}
+
+func encodeChatEvent(w io.Writer, v ChatEvent) error {
+	return json.NewEncoder(w).Encode(encodeChatEventMap(v))
 }
 
 func bindChatEvent(r *http.Request) (ChatEvent, error) {
@@ -974,11 +1386,37 @@ func bindChatEvent(r *http.Request) (ChatEvent, error) {
 
 func writeChatEvent(w http.ResponseWriter, r *http.Request, v ChatEvent) error {
 	_ = r
-	body := map[string]any{
-		"type":  v.Type,
-		"delta": v.Delta,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeChatEventMap(v))
+}
+
+func decodeHealthResponseBytes(data []byte) (HealthResponse, error) {
+	return decodeHealthResponseJSON(json.RawMessage(data))
+}
+
+func decodeHealthResponseJSON(raw json.RawMessage) (HealthResponse, error) {
+	var out HealthResponse
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["status"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("status", "payload", "invalid string")
+		}
+		out.Status = v
+	}
+	return out, nil
+}
+
+func encodeHealthResponseMap(v HealthResponse) map[string]any {
+	body := map[string]any{}
+	body["status"] = v.Status
+	return body
+}
+
+func encodeHealthResponse(w io.Writer, v HealthResponse) error {
+	return json.NewEncoder(w).Encode(encodeHealthResponseMap(v))
 }
 
 func bindHealthResponse(r *http.Request) (HealthResponse, error) {
@@ -1040,8 +1478,5 @@ func bindHealthResponse(r *http.Request) (HealthResponse, error) {
 
 func writeHealthResponse(w http.ResponseWriter, r *http.Request, v HealthResponse) error {
 	_ = r
-	body := map[string]any{
-		"status": v.Status,
-	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeHealthResponseMap(v))
 }

@@ -2,54 +2,123 @@ package httpbinder
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 )
 
 // DefaultMultipartMaxMemory is the maxMemory argument passed to
-// http.Request.ParseMultipartForm for generated binders (32 MiB).
-// Larger file parts spill to temporary files; request body caps are separate
-// (e.g. http.MaxBytesReader / MaxBytesHandler).
+// http.Request.ParseMultipartForm (how much of the form stays in RAM before
+// spilling file parts to temp files). This is not a body size cap; see
+// DefaultMaxMultipartBodyBytes.
 const DefaultMultipartMaxMemory int64 = 32 << 20
+
+// DefaultMaxMultipartBodyBytes is the default cap on multipart request bodies
+// enforced by ParseMultipartMap (1 MiB). Override with SetMaxMultipartBodyBytes.
+// Without this, io.ReadAll / unrestricted ParseMultipartForm would accept
+// arbitrarily large bodies inside httpbind-go alone.
+const DefaultMaxMultipartBodyBytes int64 = 1 << 20
+
+// maxMultipartBodyBytes holds the process-wide multipart body limit.
+// Zero means "use DefaultMaxMultipartBodyBytes".
+var maxMultipartBodyBytes atomic.Int64
+
+// SetMaxMultipartBodyBytes sets the global multipart body size limit used by
+// ParseMultipartMap (and generated binders). The limit wraps r.Body with
+// http.MaxBytesReader and bounds per-file reads.
+//
+//	n > 0  → use n bytes
+//	n <= 0 → restore DefaultMaxMultipartBodyBytes (1 MiB)
+func SetMaxMultipartBodyBytes(n int64) {
+	if n <= 0 {
+		maxMultipartBodyBytes.Store(0)
+		return
+	}
+	maxMultipartBodyBytes.Store(n)
+}
+
+// MaxMultipartBodyBytes returns the effective global multipart body limit.
+func MaxMultipartBodyBytes() int64 {
+	n := maxMultipartBodyBytes.Load()
+	if n <= 0 {
+		return DefaultMaxMultipartBodyBytes
+	}
+	return n
+}
 
 // Content-type helpers and scalar parsers used by generated binders.
 // These do not inspect application struct fields via reflect.
 
-// IsJSONRequest reports whether the request body should be treated as JSON.
-func IsJSONRequest(r *http.Request) bool {
-	ct := r.Header.Get("Content-Type")
-	if ct == "" {
+// mediaType returns the lowercase type/subtype of a Content-Type header value
+// (parameters after ';' are stripped).
+func mediaType(ct string) string {
+	media, _, _ := strings.Cut(ct, ";")
+	return strings.TrimSpace(strings.ToLower(media))
+}
+
+// isJSONMediaType reports whether media is JSON or a +json structured syntax
+// suffix type (RFC 6839), e.g. application/json, application/problem+json,
+// application/vnd.api+json. text/json is also accepted.
+func isJSONMediaType(media string) bool {
+	if media == "" {
 		return false
 	}
-	media, _, _ := strings.Cut(ct, ";")
-	media = strings.TrimSpace(strings.ToLower(media))
-	return media == "application/json"
+	switch media {
+	case "application/json", "text/json":
+		return true
+	}
+	// "+json" structured syntax suffix (not "+jsonl", "+json-seq", etc.).
+	return strings.HasSuffix(media, "+json")
+}
+
+// IsJSONRequest reports whether the request body should be treated as JSON.
+// Matches application/json, text/json, and *+json types such as
+// application/problem+json (RFC 7807 / RFC 9457).
+func IsJSONRequest(r *http.Request) bool {
+	return isJSONMediaType(mediaType(r.Header.Get("Content-Type")))
 }
 
 // IsFormRequest reports application/x-www-form-urlencoded.
 func IsFormRequest(r *http.Request) bool {
-	ct := r.Header.Get("Content-Type")
-	media, _, _ := strings.Cut(ct, ";")
-	media = strings.TrimSpace(strings.ToLower(media))
-	return media == "application/x-www-form-urlencoded"
+	return mediaType(r.Header.Get("Content-Type")) == "application/x-www-form-urlencoded"
 }
 
 // IsMultipartRequest reports multipart/form-data.
 func IsMultipartRequest(r *http.Request) bool {
-	ct := r.Header.Get("Content-Type")
-	media, _, _ := strings.Cut(ct, ";")
-	media = strings.TrimSpace(strings.ToLower(media))
-	return media == "multipart/form-data"
+	return mediaType(r.Header.Get("Content-Type")) == "multipart/form-data"
 }
 
 // ParseMultipartMap parses a multipart/form-data body into scalar form fields
 // (first value wins) and named file parts (first file wins per field name).
-// Oversized bodies (MaxBytesReader / message-too-large) map to HTTP 413.
+//
+// The request body is capped at MaxMultipartBodyBytes() so httpbind-go itself
+// enforces a size limit (default 1 MiB): Content-Length is checked when known,
+// r.Body is wrapped with http.MaxBytesReader, and per-file reads use LimitReader.
+// Oversized bodies and oversize file parts map to HTTP 413.
 func ParseMultipartMap(r *http.Request) (form map[string]string, files map[string]File, err error) {
-	if err := r.ParseMultipartForm(DefaultMultipartMaxMemory); err != nil {
+	limit := MaxMultipartBodyBytes()
+	if limit > 0 {
+		if r.ContentLength > limit {
+			return nil, nil, PayloadTooLarge(Problem{
+				Code:    "payload_too_large",
+				Message: "multipart body too large",
+			}, nil)
+		}
+		if r.Body != nil {
+			// nil ResponseWriter: MaxBytesReader still enforces the byte cap
+			// (covers missing/incorrect Content-Length).
+			r.Body = http.MaxBytesReader(nil, r.Body, limit)
+		}
+	}
+	maxMem := DefaultMultipartMaxMemory
+	if limit > 0 && limit < maxMem {
+		maxMem = limit
+	}
+	if err := r.ParseMultipartForm(maxMem); err != nil {
 		return nil, nil, multipartParseError(err)
 	}
 	form = make(map[string]string)
@@ -66,8 +135,14 @@ func ParseMultipartMap(r *http.Request) (form map[string]string, files map[strin
 		if len(fhs) == 0 {
 			continue
 		}
-		f, err := fileFromHeader(fhs[0])
+		f, err := fileFromHeader(fhs[0], limit)
 		if err != nil {
+			if errors.Is(err, errFileTooLarge) || isRequestTooLarge(err) {
+				return nil, nil, PayloadTooLarge(Problem{
+					Code:    "payload_too_large",
+					Message: "multipart file too large",
+				}, err)
+			}
 			return nil, nil, BindError(k, "payload", "unreadable file")
 		}
 		files[k] = f
@@ -75,15 +150,34 @@ func ParseMultipartMap(r *http.Request) (form map[string]string, files map[strin
 	return form, files, nil
 }
 
-func fileFromHeader(fh *multipart.FileHeader) (File, error) {
+// errFileTooLarge is returned when a single file part exceeds MaxMultipartBodyBytes.
+var errFileTooLarge = errors.New("httpbinder: multipart file too large")
+
+func fileFromHeader(fh *multipart.FileHeader, limit int64) (File, error) {
+	if limit > 0 && fh.Size > limit {
+		return File{}, errFileTooLarge
+	}
 	rc, err := fh.Open()
 	if err != nil {
 		return File{}, err
 	}
 	defer rc.Close()
-	data, err := io.ReadAll(rc)
-	if err != nil {
-		return File{}, err
+
+	var data []byte
+	if limit > 0 {
+		// Read at most limit+1 bytes so we can detect oversize without ReadAll.
+		data, err = io.ReadAll(io.LimitReader(rc, limit+1))
+		if err != nil {
+			return File{}, err
+		}
+		if int64(len(data)) > limit {
+			return File{}, errFileTooLarge
+		}
+	} else {
+		data, err = io.ReadAll(rc)
+		if err != nil {
+			return File{}, err
+		}
 	}
 	ct := fh.Header.Get("Content-Type")
 	size := fh.Size
@@ -130,8 +224,116 @@ func isRequestTooLarge(err error) bool {
 	return false
 }
 
+// RawJSONMap decodes a JSON object RawMessage into a map of raw fields.
+func RawJSONMap(raw json.RawMessage) (map[string]json.RawMessage, error) {
+	if len(raw) == 0 {
+		return map[string]json.RawMessage{}, nil
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid JSON object"}, err)
+	}
+	if m == nil {
+		return nil, BadRequest(Problem{Code: "json_parse", Message: "JSON value must be an object"}, nil)
+	}
+	return m, nil
+}
+
+// BytesJSONMap decodes a full JSON document (bytes) as an object map.
+func BytesJSONMap(data []byte) (map[string]json.RawMessage, error) {
+	return RawJSONMap(json.RawMessage(data))
+}
+
+// RawJSONArray decodes a JSON array RawMessage into element raw values.
+func RawJSONArray(raw json.RawMessage) ([]json.RawMessage, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var arr []json.RawMessage
+	if err := json.Unmarshal(raw, &arr); err != nil {
+		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid JSON array"}, err)
+	}
+	return arr, nil
+}
+
+// DecodeJSONMapStringString decodes a JSON object with string values.
+func DecodeJSONMapStringString(raw json.RawMessage) (map[string]string, error) {
+	if len(raw) == 0 {
+		return map[string]string{}, nil
+	}
+	var m map[string]string
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid string map"}, err)
+	}
+	if m == nil {
+		m = map[string]string{}
+	}
+	return m, nil
+}
+
+// DecodeJSONStringSlice decodes a JSON array of strings.
+func DecodeJSONStringSlice(raw json.RawMessage) ([]string, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var s []string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid string array"}, err)
+	}
+	return s, nil
+}
+
+// DecodeJSONIntSlice decodes a JSON array of ints.
+func DecodeJSONIntSlice(raw json.RawMessage) ([]int, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var s []int
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid int array"}, err)
+	}
+	return s, nil
+}
+
+// DecodeJSONInt64Slice decodes a JSON array of int64.
+func DecodeJSONInt64Slice(raw json.RawMessage) ([]int64, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var s []int64
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid int64 array"}, err)
+	}
+	return s, nil
+}
+
+// DecodeJSONBoolSlice decodes a JSON array of bools.
+func DecodeJSONBoolSlice(raw json.RawMessage) ([]bool, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var s []bool
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid bool array"}, err)
+	}
+	return s, nil
+}
+
+// DecodeJSONFloat64Slice decodes a JSON array of float64.
+func DecodeJSONFloat64Slice(raw json.RawMessage) ([]float64, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var s []float64
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid float64 array"}, err)
+	}
+	return s, nil
+}
+
 // ReadJSONMap decodes a JSON object body into a map of raw messages.
 // Used by generated binders so they can pick named fields without reflect on T.
+// Non-object JSON (arrays, scalars) fails with 400 — required when payload:"*" rest maps are used.
 func ReadJSONMap(r *http.Request) (map[string]json.RawMessage, error) {
 	if r.Body == nil {
 		return map[string]json.RawMessage{}, nil
@@ -148,10 +350,101 @@ func ReadJSONMap(r *http.Request) (map[string]json.RawMessage, error) {
 	if err := json.Unmarshal(data, &m); err != nil {
 		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid JSON body"}, err)
 	}
+	// encoding/json decodes JSON null into a nil map. Null (and non-objects)
+	// must not be treated as an empty object — payload:"*" rest binding and
+	// object-shaped models require a real JSON object (or empty body).
 	if m == nil {
-		m = map[string]json.RawMessage{}
+		return nil, BadRequest(Problem{Code: "json_parse", Message: "JSON body must be an object"}, nil)
 	}
 	return m, nil
+}
+
+// RestJSONAny builds map[string]any from leftover JSON object keys not in exclude.
+// Nested JSON values are decoded into any (objects/arrays/numbers/bools/strings/null).
+// Prefer non-nil empty map when nothing remains.
+func RestJSONAny(jsonBody map[string]json.RawMessage, exclude []string) (map[string]any, error) {
+	out := make(map[string]any)
+	if jsonBody == nil {
+		return out, nil
+	}
+	skip := excludeSet(exclude)
+	for k, raw := range jsonBody {
+		if skip[k] {
+			continue
+		}
+		var v any
+		if len(raw) == 0 || string(raw) == "null" {
+			out[k] = nil
+			continue
+		}
+		if err := json.Unmarshal(raw, &v); err != nil {
+			return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid JSON rest value"}, err)
+		}
+		out[k] = v
+	}
+	return out, nil
+}
+
+// RestJSONRaw builds map[string]json.RawMessage from leftover JSON object keys not in exclude.
+func RestJSONRaw(jsonBody map[string]json.RawMessage, exclude []string) map[string]json.RawMessage {
+	out := make(map[string]json.RawMessage)
+	if jsonBody == nil {
+		return out
+	}
+	skip := excludeSet(exclude)
+	for k, raw := range jsonBody {
+		if skip[k] {
+			continue
+		}
+		// Copy bytes so callers can mutate independently.
+		cp := make(json.RawMessage, len(raw))
+		copy(cp, raw)
+		out[k] = cp
+	}
+	return out
+}
+
+// RestFormAny builds map[string]any from leftover form keys not in exclude (string values).
+func RestFormAny(formBody map[string]string, exclude []string) map[string]any {
+	out := make(map[string]any)
+	if formBody == nil {
+		return out
+	}
+	skip := excludeSet(exclude)
+	for k, v := range formBody {
+		if skip[k] {
+			continue
+		}
+		out[k] = v
+	}
+	return out
+}
+
+// RestFormRaw builds map[string]json.RawMessage from leftover form keys (JSON-encoded strings).
+func RestFormRaw(formBody map[string]string, exclude []string) map[string]json.RawMessage {
+	out := make(map[string]json.RawMessage)
+	if formBody == nil {
+		return out
+	}
+	skip := excludeSet(exclude)
+	for k, v := range formBody {
+		if skip[k] {
+			continue
+		}
+		b, _ := json.Marshal(v)
+		out[k] = json.RawMessage(b)
+	}
+	return out
+}
+
+func excludeSet(exclude []string) map[string]bool {
+	skip := make(map[string]bool, len(exclude))
+	for _, k := range exclude {
+		if k != "" && k != "*" {
+			skip[k] = true
+		}
+	}
+	return skip
 }
 
 // ParseFormMap parses urlencoded form body into a flat map (first value wins).

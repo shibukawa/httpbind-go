@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"go/format"
 	"strconv"
+	"strings"
 )
 
-// Emit generates Go source for type-specific binders and writers.
+// Emit generates Go source for type-specific binders, writers, and JSON codecs.
 // The output does not import "reflect".
 func Emit(plan *PackagePlan) ([]byte, error) {
 	if plan == nil {
@@ -32,6 +33,7 @@ func Emit(plan *PackagePlan) ([]byte, error) {
 
 	b.WriteString("import (\n")
 	b.WriteString("\t\"encoding/json\"\n")
+	b.WriteString("\t\"io\"\n")
 	if needRegexp {
 		b.WriteString("\t\"regexp\"\n")
 	}
@@ -40,7 +42,6 @@ func Emit(plan *PackagePlan) ([]byte, error) {
 	b.WriteString(")\n\n")
 	b.WriteString("type jsonRaw = json.RawMessage\n\n")
 
-	// package-level compiled patterns
 	for _, t := range plan.Types {
 		for _, f := range t.Fields {
 			if f.Check.Pattern == "" {
@@ -57,12 +58,22 @@ func Emit(plan *PackagePlan) ([]byte, error) {
 	for _, t := range plan.Types {
 		fmt.Fprintf(&b, "\thttpbinder.RegisterBind[%s](bind%s)\n", t.Name, t.Name)
 		fmt.Fprintf(&b, "\thttpbinder.RegisterWrite[%s](write%s)\n", t.Name, t.Name)
+		fmt.Fprintf(&b, "\thttpbinder.RegisterDecode[%s](decode%sBytes)\n", t.Name, t.Name)
+		fmt.Fprintf(&b, "\thttpbinder.RegisterEncode[%s](encode%s)\n", t.Name, t.Name)
 	}
 	b.WriteString("}\n\n")
 
+	// Index types for nested encode helpers
+	types := map[string]TypePlan{}
 	for _, t := range plan.Types {
-		emitBinder(&b, t)
-		emitWriter(&b, t)
+		types[t.Name] = t
+	}
+
+	for _, t := range plan.Types {
+		emitDecodeJSON(&b, t, types)
+		emitEncode(&b, t, types)
+		emitBinder(&b, t, types)
+		emitWriter(&b, t, types)
 	}
 
 	formatted, err := format.Source(b.Bytes())
@@ -72,7 +83,232 @@ func Emit(plan *PackagePlan) ([]byte, error) {
 	return formatted, nil
 }
 
-func emitBinder(b *bytes.Buffer, t TypePlan) {
+func emitDecodeJSON(b *bytes.Buffer, t TypePlan, types map[string]TypePlan) {
+	fmt.Fprintf(b, "func decode%sBytes(data []byte) (%s, error) {\n", t.Name, t.Name)
+	fmt.Fprintf(b, "\treturn decode%sJSON(json.RawMessage(data))\n}\n\n", t.Name)
+
+	fmt.Fprintf(b, "func decode%sJSON(raw json.RawMessage) (%s, error) {\n", t.Name, t.Name)
+	fmt.Fprintf(b, "\tvar out %s\n", t.Name)
+	if documentFieldCount(t) == 0 {
+		// No JSON document fields (e.g. cookie/path-only models).
+		b.WriteString("\t_ = raw\n")
+		b.WriteString("\treturn out, nil\n}\n\n")
+		return
+	}
+	b.WriteString("\tm, err := httpbinder.RawJSONMap(raw)\n")
+	b.WriteString("\tif err != nil {\n\t\treturn out, err\n\t}\n")
+	emitFillFromJSONMap(b, t, types, "m", "\t")
+	b.WriteString("\treturn out, nil\n}\n\n")
+}
+
+func documentFieldCount(t TypePlan) int {
+	n := 0
+	for _, f := range t.Fields {
+		if isDocumentField(f) {
+			n++
+		}
+	}
+	return n
+}
+
+func isDocumentField(f FieldPlan) bool {
+	if f.Source == SourcePath || f.Source == SourceHeader || f.Source == SourceCookie || f.Source == SourceMethod || f.Source == SourceQuery {
+		return false
+	}
+	if f.Kind == "file" {
+		return false
+	}
+	return f.Source == SourceInput || f.Source == SourcePayload
+}
+
+// emitFillFromJSONMap assigns fields of t from map variable mapVar into out.
+func emitFillFromJSONMap(b *bytes.Buffer, t TypePlan, types map[string]TypePlan, mapVar, prefix string) {
+	for _, f := range t.Fields {
+		if !isDocumentField(f) || f.IsRest() {
+			continue
+		}
+		key := f.JSON
+		if key == "" || key == "*" {
+			key = f.Wire
+		}
+		fmt.Fprintf(b, "%sif raw, ok := %s[%q]; ok {\n", prefix, mapVar, key)
+		emitAssignFromRaw(b, f, types, "raw", prefix+"\t", "out."+f.Name, true)
+		fmt.Fprintf(b, "%s}\n", prefix)
+	}
+	// rest fields
+	for _, f := range t.Fields {
+		if !f.IsRest() {
+			continue
+		}
+		exclude := bodyWireExclude(t)
+		switch f.Kind {
+		case KindRestAny:
+			fmt.Fprintf(b, "%s{\n", prefix)
+			fmt.Fprintf(b, "%s\trm, err := httpbinder.RestJSONAny(%s, []string{%s})\n", prefix, mapVar, quoteStringList(exclude))
+			fmt.Fprintf(b, "%s\tif err != nil {\n%s\t\treturn out, err\n%s\t}\n", prefix, prefix, prefix)
+			fmt.Fprintf(b, "%s\tout.%s = rm\n", prefix, f.Name)
+			fmt.Fprintf(b, "%s}\n", prefix)
+		case KindRestRaw:
+			fmt.Fprintf(b, "%sout.%s = httpbinder.RestJSONRaw(%s, []string{%s})\n", prefix, f.Name, mapVar, quoteStringList(exclude))
+		}
+	}
+}
+
+func emitAssignFromRaw(b *bytes.Buffer, f FieldPlan, types map[string]TypePlan, rawVar, prefix, dest string, returnOut bool) {
+	ret := "return out, "
+	if !returnOut {
+		ret = "return "
+	}
+	switch f.Kind {
+	case "string":
+		fmt.Fprintf(b, "%sv, err := httpbinder.DecodeJSONString(%s)\n", prefix, rawVar)
+		fmt.Fprintf(b, "%sif err != nil {\n%s\t%shttpbinder.BindError(%q, \"payload\", \"invalid string\")\n%s}\n", prefix, prefix, ret, f.Wire, prefix)
+		fmt.Fprintf(b, "%s%s = v\n", prefix, dest)
+	case "int":
+		fmt.Fprintf(b, "%sv, err := httpbinder.DecodeJSONInt(%s)\n", prefix, rawVar)
+		fmt.Fprintf(b, "%sif err != nil {\n%s\t%shttpbinder.BindError(%q, \"payload\", \"invalid int\")\n%s}\n", prefix, prefix, ret, f.Wire, prefix)
+		fmt.Fprintf(b, "%s%s = v\n", prefix, dest)
+	case "int64":
+		fmt.Fprintf(b, "%sv, err := httpbinder.DecodeJSONInt64(%s)\n", prefix, rawVar)
+		fmt.Fprintf(b, "%sif err != nil {\n%s\t%shttpbinder.BindError(%q, \"payload\", \"invalid int64\")\n%s}\n", prefix, prefix, ret, f.Wire, prefix)
+		fmt.Fprintf(b, "%s%s = v\n", prefix, dest)
+	case "bool":
+		fmt.Fprintf(b, "%sv, err := httpbinder.DecodeJSONBool(%s)\n", prefix, rawVar)
+		fmt.Fprintf(b, "%sif err != nil {\n%s\t%shttpbinder.BindError(%q, \"payload\", \"invalid bool\")\n%s}\n", prefix, prefix, ret, f.Wire, prefix)
+		fmt.Fprintf(b, "%s%s = v\n", prefix, dest)
+	case "float64":
+		fmt.Fprintf(b, "%sv, err := httpbinder.DecodeJSONFloat64(%s)\n", prefix, rawVar)
+		fmt.Fprintf(b, "%sif err != nil {\n%s\t%shttpbinder.BindError(%q, \"payload\", \"invalid float64\")\n%s}\n", prefix, prefix, ret, f.Wire, prefix)
+		fmt.Fprintf(b, "%s%s = v\n", prefix, dest)
+	case KindStruct:
+		fmt.Fprintf(b, "%sv, err := decode%sJSON(%s)\n", prefix, f.TypeName, rawVar)
+		fmt.Fprintf(b, "%sif err != nil {\n%s\t%serr\n%s}\n", prefix, prefix, ret, prefix)
+		fmt.Fprintf(b, "%s%s = v\n", prefix, dest)
+	case KindSlice:
+		emitAssignSliceFromRaw(b, f, rawVar, prefix, dest, ret)
+	case KindMap:
+		emitAssignMapFromRaw(b, f, rawVar, prefix, dest, ret)
+	case "file":
+		// file cannot be decoded from JSON object fields
+	}
+}
+
+func emitAssignSliceFromRaw(b *bytes.Buffer, f FieldPlan, rawVar, prefix, dest, ret string) {
+	switch f.ElemKind {
+	case "string":
+		fmt.Fprintf(b, "%sv, err := httpbinder.DecodeJSONStringSlice(%s)\n", prefix, rawVar)
+		fmt.Fprintf(b, "%sif err != nil {\n%s\t%serr\n%s}\n", prefix, prefix, ret, prefix)
+		fmt.Fprintf(b, "%s%s = v\n", prefix, dest)
+	case "int":
+		fmt.Fprintf(b, "%sv, err := httpbinder.DecodeJSONIntSlice(%s)\n", prefix, rawVar)
+		fmt.Fprintf(b, "%sif err != nil {\n%s\t%serr\n%s}\n", prefix, prefix, ret, prefix)
+		fmt.Fprintf(b, "%s%s = v\n", prefix, dest)
+	case "int64":
+		fmt.Fprintf(b, "%sv, err := httpbinder.DecodeJSONInt64Slice(%s)\n", prefix, rawVar)
+		fmt.Fprintf(b, "%sif err != nil {\n%s\t%serr\n%s}\n", prefix, prefix, ret, prefix)
+		fmt.Fprintf(b, "%s%s = v\n", prefix, dest)
+	case "bool":
+		fmt.Fprintf(b, "%sv, err := httpbinder.DecodeJSONBoolSlice(%s)\n", prefix, rawVar)
+		fmt.Fprintf(b, "%sif err != nil {\n%s\t%serr\n%s}\n", prefix, prefix, ret, prefix)
+		fmt.Fprintf(b, "%s%s = v\n", prefix, dest)
+	case "float64":
+		fmt.Fprintf(b, "%sv, err := httpbinder.DecodeJSONFloat64Slice(%s)\n", prefix, rawVar)
+		fmt.Fprintf(b, "%sif err != nil {\n%s\t%serr\n%s}\n", prefix, prefix, ret, prefix)
+		fmt.Fprintf(b, "%s%s = v\n", prefix, dest)
+	case KindStruct:
+		fmt.Fprintf(b, "%sarr, err := httpbinder.RawJSONArray(%s)\n", prefix, rawVar)
+		fmt.Fprintf(b, "%sif err != nil {\n%s\t%serr\n%s}\n", prefix, prefix, ret, prefix)
+		fmt.Fprintf(b, "%sslice := make([]%s, 0, len(arr))\n", prefix, f.TypeName)
+		fmt.Fprintf(b, "%sfor _, el := range arr {\n", prefix)
+		fmt.Fprintf(b, "%s\titem, err := decode%sJSON(el)\n", prefix, f.TypeName)
+		fmt.Fprintf(b, "%s\tif err != nil {\n%s\t\t%serr\n%s\t}\n", prefix, prefix, ret, prefix)
+		fmt.Fprintf(b, "%s\tslice = append(slice, item)\n", prefix)
+		fmt.Fprintf(b, "%s}\n", prefix)
+		fmt.Fprintf(b, "%s%s = slice\n", prefix, dest)
+	}
+}
+
+func emitAssignMapFromRaw(b *bytes.Buffer, f FieldPlan, rawVar, prefix, dest, ret string) {
+	switch f.ElemKind {
+	case "string":
+		fmt.Fprintf(b, "%sv, err := httpbinder.DecodeJSONMapStringString(%s)\n", prefix, rawVar)
+		fmt.Fprintf(b, "%sif err != nil {\n%s\t%serr\n%s}\n", prefix, prefix, ret, prefix)
+		fmt.Fprintf(b, "%s%s = v\n", prefix, dest)
+	case KindStruct:
+		fmt.Fprintf(b, "%sobj, err := httpbinder.RawJSONMap(%s)\n", prefix, rawVar)
+		fmt.Fprintf(b, "%sif err != nil {\n%s\t%serr\n%s}\n", prefix, prefix, ret, prefix)
+		fmt.Fprintf(b, "%smout := make(map[string]%s, len(obj))\n", prefix, f.TypeName)
+		fmt.Fprintf(b, "%sfor k, el := range obj {\n", prefix)
+		fmt.Fprintf(b, "%s\titem, err := decode%sJSON(el)\n", prefix, f.TypeName)
+		fmt.Fprintf(b, "%s\tif err != nil {\n%s\t\t%serr\n%s\t}\n", prefix, prefix, ret, prefix)
+		fmt.Fprintf(b, "%s\tmout[k] = item\n", prefix)
+		fmt.Fprintf(b, "%s}\n", prefix)
+		fmt.Fprintf(b, "%s%s = mout\n", prefix, dest)
+	default:
+		// map[string]int etc. via encoding/json into temp — still not reflecting app structs
+		fmt.Fprintf(b, "%svar mv %s\n", prefix, f.GoType())
+		fmt.Fprintf(b, "%sif err := json.Unmarshal(%s, &mv); err != nil {\n", prefix, rawVar)
+		fmt.Fprintf(b, "%s\t%shttpbinder.BindError(%q, \"payload\", \"invalid map\")\n", prefix, ret, f.Wire)
+		fmt.Fprintf(b, "%s}\n", prefix)
+		fmt.Fprintf(b, "%s%s = mv\n", prefix, dest)
+	}
+}
+
+func emitEncode(b *bytes.Buffer, t TypePlan, types map[string]TypePlan) {
+	fmt.Fprintf(b, "func encode%sMap(v %s) map[string]any {\n", t.Name, t.Name)
+	b.WriteString("\tbody := map[string]any{}\n")
+	for _, f := range t.Fields {
+		if f.IsRest() {
+			fmt.Fprintf(b, "\tfor k, val := range v.%s {\n", f.Name)
+			b.WriteString("\t\tbody[k] = val\n")
+			b.WriteString("\t}\n")
+			continue
+		}
+		key := f.JSON
+		if key == "" {
+			key = f.Wire
+		}
+		switch f.Kind {
+		case KindStruct:
+			fmt.Fprintf(b, "\tbody[%q] = encode%sMap(v.%s)\n", key, f.TypeName, f.Name)
+		case KindSlice:
+			if f.ElemKind == KindStruct {
+				fmt.Fprintf(b, "\t{\n")
+				fmt.Fprintf(b, "\t\tarr := make([]any, len(v.%s))\n", f.Name)
+				fmt.Fprintf(b, "\t\tfor i := range v.%s {\n", f.Name)
+				fmt.Fprintf(b, "\t\t\tarr[i] = encode%sMap(v.%s[i])\n", f.TypeName, f.Name)
+				fmt.Fprintf(b, "\t\t}\n")
+				fmt.Fprintf(b, "\t\tbody[%q] = arr\n", key)
+				fmt.Fprintf(b, "\t}\n")
+			} else {
+				fmt.Fprintf(b, "\tbody[%q] = v.%s\n", key, f.Name)
+			}
+		case KindMap:
+			if f.ElemKind == KindStruct {
+				fmt.Fprintf(b, "\t{\n")
+				fmt.Fprintf(b, "\t\tm := make(map[string]any, len(v.%s))\n", f.Name)
+				fmt.Fprintf(b, "\t\tfor k, item := range v.%s {\n", f.Name)
+				fmt.Fprintf(b, "\t\t\tm[k] = encode%sMap(item)\n", f.TypeName)
+				fmt.Fprintf(b, "\t\t}\n")
+				fmt.Fprintf(b, "\t\tbody[%q] = m\n", key)
+				fmt.Fprintf(b, "\t}\n")
+			} else {
+				fmt.Fprintf(b, "\tbody[%q] = v.%s\n", key, f.Name)
+			}
+		case "file":
+			fmt.Fprintf(b, "\tbody[%q] = v.%s\n", key, f.Name)
+		default:
+			fmt.Fprintf(b, "\tbody[%q] = v.%s\n", key, f.Name)
+		}
+	}
+	b.WriteString("\treturn body\n}\n\n")
+
+	fmt.Fprintf(b, "func encode%s(w io.Writer, v %s) error {\n", t.Name, t.Name)
+	fmt.Fprintf(b, "\treturn json.NewEncoder(w).Encode(encode%sMap(v))\n}\n\n", t.Name)
+	_ = types
+}
+
+func emitBinder(b *bytes.Buffer, t TypePlan, types map[string]TypePlan) {
 	fmt.Fprintf(b, "func bind%s(r *http.Request) (%s, error) {\n", t.Name, t.Name)
 	fmt.Fprintf(b, "\tvar out %s\n", t.Name)
 
@@ -86,18 +322,22 @@ func emitBinder(b *bytes.Buffer, t TypePlan) {
 
 	needsBody := false
 	needsFiles := false
+	needsForm := false // formBody used for scalar/rest fields
 	for _, f := range t.Fields {
 		if f.Source == SourceInput || f.Source == SourcePayload {
 			needsBody = true
-		}
-		if f.Kind == "file" {
-			needsFiles = true
-			needsBody = true
+			if f.Kind == "file" {
+				needsFiles = true
+			} else if f.IsRest() || !f.IsComposite() {
+				needsForm = true
+			}
 		}
 	}
 	if needsBody {
 		b.WriteString("\tvar jsonBody map[string]jsonRaw\n")
-		b.WriteString("\tvar formBody map[string]string\n")
+		if needsForm || needsFiles {
+			b.WriteString("\tvar formBody map[string]string\n")
+		}
 		if needsFiles {
 			b.WriteString("\tvar fileBody map[string]httpbinder.File\n")
 		}
@@ -111,31 +351,41 @@ func emitBinder(b *bytes.Buffer, t TypePlan) {
 		b.WriteString("\t\t\tjsonBody = m\n")
 		b.WriteString("\t\t\treturn nil\n")
 		b.WriteString("\t\t}\n")
-		b.WriteString("\t\tif httpbinder.IsFormRequest(r) {\n")
-		b.WriteString("\t\t\tm, err := httpbinder.ParseFormMap(r)\n")
-		b.WriteString("\t\t\tif err != nil {\n\t\t\t\treturn err\n\t\t\t}\n")
-		b.WriteString("\t\t\tformBody = m\n")
-		b.WriteString("\t\t\treturn nil\n")
-		b.WriteString("\t\t}\n")
-		b.WriteString("\t\tif httpbinder.IsMultipartRequest(r) {\n")
-		if needsFiles {
-			b.WriteString("\t\t\tm, files, err := httpbinder.ParseMultipartMap(r)\n")
+		if needsForm || needsFiles {
+			b.WriteString("\t\tif httpbinder.IsFormRequest(r) {\n")
+			b.WriteString("\t\t\tm, err := httpbinder.ParseFormMap(r)\n")
 			b.WriteString("\t\t\tif err != nil {\n\t\t\t\treturn err\n\t\t\t}\n")
 			b.WriteString("\t\t\tformBody = m\n")
-			b.WriteString("\t\t\tfileBody = files\n")
-		} else {
-			b.WriteString("\t\t\tm, _, err := httpbinder.ParseMultipartMap(r)\n")
-			b.WriteString("\t\t\tif err != nil {\n\t\t\t\treturn err\n\t\t\t}\n")
-			b.WriteString("\t\t\tformBody = m\n")
+			b.WriteString("\t\t\treturn nil\n")
+			b.WriteString("\t\t}\n")
+			b.WriteString("\t\tif httpbinder.IsMultipartRequest(r) {\n")
+			if needsFiles {
+				b.WriteString("\t\t\tm, files, err := httpbinder.ParseMultipartMap(r)\n")
+				b.WriteString("\t\t\tif err != nil {\n\t\t\t\treturn err\n\t\t\t}\n")
+				b.WriteString("\t\t\tformBody = m\n")
+				b.WriteString("\t\t\tfileBody = files\n")
+			} else {
+				b.WriteString("\t\t\tm, _, err := httpbinder.ParseMultipartMap(r)\n")
+				b.WriteString("\t\t\tif err != nil {\n\t\t\t\treturn err\n\t\t\t}\n")
+				b.WriteString("\t\t\tformBody = m\n")
+			}
+			b.WriteString("\t\t\treturn nil\n")
+			b.WriteString("\t\t}\n")
 		}
-		b.WriteString("\t\t\treturn nil\n")
-		b.WriteString("\t\t}\n")
 		b.WriteString("\t\treturn nil\n")
 		b.WriteString("\t}\n")
 	}
 
 	for _, f := range t.Fields {
-		emitFieldBind(b, f)
+		if f.IsRest() {
+			continue
+		}
+		emitFieldBind(b, f, types)
+	}
+	for _, f := range t.Fields {
+		if f.IsRest() {
+			emitRestField(b, t, f)
+		}
 	}
 
 	if hasChecks {
@@ -145,7 +395,65 @@ func emitBinder(b *bytes.Buffer, t TypePlan) {
 	b.WriteString("\treturn out, nil\n}\n\n")
 }
 
-func emitFieldBind(b *bytes.Buffer, f FieldPlan) {
+func bodyWireExclude(t TypePlan) []string {
+	var out []string
+	for _, f := range t.Fields {
+		if f.IsRest() {
+			continue
+		}
+		if f.Source == SourcePayload || f.Source == SourceInput {
+			if f.Wire != "" && f.Wire != "*" {
+				out = append(out, f.Wire)
+			}
+		}
+	}
+	return out
+}
+
+func emitRestField(b *bytes.Buffer, t TypePlan, f FieldPlan) {
+	exclude := bodyWireExclude(t)
+	b.WriteString("\tif err := readBody(); err != nil {\n\t\treturn out, err\n\t}\n")
+	fmt.Fprintf(b, "\tif jsonBody != nil {\n")
+	switch f.Kind {
+	case KindRestAny:
+		fmt.Fprintf(b, "\t\tm, err := httpbinder.RestJSONAny(jsonBody, []string{%s})\n", quoteStringList(exclude))
+		b.WriteString("\t\tif err != nil {\n\t\t\treturn out, err\n\t\t}\n")
+		fmt.Fprintf(b, "\t\tout.%s = m\n", f.Name)
+	case KindRestRaw:
+		fmt.Fprintf(b, "\t\tout.%s = httpbinder.RestJSONRaw(jsonBody, []string{%s})\n", f.Name, quoteStringList(exclude))
+	}
+	fmt.Fprintf(b, "\t} else if formBody != nil {\n")
+	switch f.Kind {
+	case KindRestAny:
+		fmt.Fprintf(b, "\t\tout.%s = httpbinder.RestFormAny(formBody, []string{%s})\n", f.Name, quoteStringList(exclude))
+	case KindRestRaw:
+		fmt.Fprintf(b, "\t\tout.%s = httpbinder.RestFormRaw(formBody, []string{%s})\n", f.Name, quoteStringList(exclude))
+	}
+	fmt.Fprintf(b, "\t} else {\n")
+	switch f.Kind {
+	case KindRestAny:
+		fmt.Fprintf(b, "\t\tout.%s = map[string]any{}\n", f.Name)
+	case KindRestRaw:
+		fmt.Fprintf(b, "\t\tout.%s = map[string]json.RawMessage{}\n", f.Name)
+	}
+	b.WriteString("\t}\n")
+}
+
+func quoteStringList(ss []string) string {
+	if len(ss) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i, s := range ss {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(strconv.Quote(s))
+	}
+	return b.String()
+}
+
+func emitFieldBind(b *bytes.Buffer, f FieldPlan, types map[string]TypePlan) {
 	track := f.Check.NeedsPresence()
 	switch f.Source {
 	case SourcePath:
@@ -154,7 +462,7 @@ func emitFieldBind(b *bytes.Buffer, f FieldPlan) {
 			if track {
 				fmt.Fprintf(b, "\tif out.%s != \"\" {\n\t\tpresent%s = true\n\t}\n", f.Name, f.Name)
 			}
-		} else {
+		} else if !f.IsComposite() && f.Kind != "file" {
 			fmt.Fprintf(b, "\tif pv := httpbinder.PathValue(r, %q); pv != \"\" {\n", f.Wire)
 			if track {
 				fmt.Fprintf(b, "\t\tpresent%s = true\n", f.Name)
@@ -168,7 +476,7 @@ func emitFieldBind(b *bytes.Buffer, f FieldPlan) {
 			if track {
 				fmt.Fprintf(b, "\tif out.%s != \"\" {\n\t\tpresent%s = true\n\t}\n", f.Name, f.Name)
 			}
-		} else {
+		} else if !f.IsComposite() && f.Kind != "file" {
 			fmt.Fprintf(b, "\tif hv := httpbinder.HeaderValue(r, %q); hv != \"\" {\n", f.Wire)
 			if track {
 				fmt.Fprintf(b, "\t\tpresent%s = true\n", f.Name)
@@ -177,12 +485,14 @@ func emitFieldBind(b *bytes.Buffer, f FieldPlan) {
 			b.WriteString("\t}\n")
 		}
 	case SourceCookie:
-		fmt.Fprintf(b, "\tif cv, ok := httpbinder.CookieValue(r, %q); ok {\n", f.Wire)
-		if track {
-			fmt.Fprintf(b, "\t\tpresent%s = true\n", f.Name)
+		if !f.IsComposite() {
+			fmt.Fprintf(b, "\tif cv, ok := httpbinder.CookieValue(r, %q); ok {\n", f.Wire)
+			if track {
+				fmt.Fprintf(b, "\t\tpresent%s = true\n", f.Name)
+			}
+			emitConvertFromStringIndented(b, f, "cv", "cookie", "\t\t")
+			b.WriteString("\t}\n")
 		}
-		emitConvertFromStringIndented(b, f, "cv", "cookie", "\t\t")
-		b.WriteString("\t}\n")
 	case SourceMethod:
 		if f.Kind == "string" {
 			fmt.Fprintf(b, "\tout.%s = r.Method\n", f.Name)
@@ -191,31 +501,36 @@ func emitFieldBind(b *bytes.Buffer, f FieldPlan) {
 			}
 		}
 	case SourceQuery:
-		fmt.Fprintf(b, "\tif qv, ok := httpbinder.QueryValue(r, %q); ok {\n", f.Wire)
-		if track {
-			fmt.Fprintf(b, "\t\tpresent%s = true\n", f.Name)
+		if !f.IsComposite() {
+			fmt.Fprintf(b, "\tif qv, ok := httpbinder.QueryValue(r, %q); ok {\n", f.Wire)
+			if track {
+				fmt.Fprintf(b, "\t\tpresent%s = true\n", f.Name)
+			}
+			emitConvertFromStringIndented(b, f, "qv", "query", "\t\t")
+			b.WriteString("\t}\n")
 		}
-		emitConvertFromStringIndented(b, f, "qv", "query", "\t\t")
-		b.WriteString("\t}\n")
 	case SourcePayload:
-		emitPayloadField(b, f, "\t", track)
+		emitPayloadField(b, f, types, "\t", track)
 	case SourceInput:
+		if f.IsComposite() {
+			// Nested only from body for input-tagged composites.
+			emitPayloadField(b, f, types, "\t", track)
+			return
+		}
 		fmt.Fprintf(b, "\tif qv, ok := httpbinder.QueryValue(r, %q); ok {\n", f.Wire)
 		if track {
 			fmt.Fprintf(b, "\t\tpresent%s = true\n", f.Name)
 		}
 		emitConvertFromStringIndented(b, f, "qv", "query", "\t\t")
 		b.WriteString("\t} else {\n")
-		emitPayloadField(b, f, "\t\t", track)
+		emitPayloadField(b, f, types, "\t\t", track)
 		b.WriteString("\t}\n")
 	}
 }
 
-func emitPayloadField(b *bytes.Buffer, f FieldPlan, prefix string, track bool) {
+func emitPayloadField(b *bytes.Buffer, f FieldPlan, types map[string]TypePlan, prefix string, track bool) {
 	fmt.Fprintf(b, "%sif err := readBody(); err != nil {\n%s\treturn out, err\n%s}\n", prefix, prefix, prefix)
 	if f.Kind == "file" {
-		// File binds only from multipart file parts by wire name.
-		// fileBody is non-nil only after a successful multipart parse.
 		fmt.Fprintf(b, "%sif fv, ok := fileBody[%q]; ok {\n", prefix, f.Wire)
 		if track {
 			fmt.Fprintf(b, "%s\tpresent%s = true\n", prefix, f.Name)
@@ -226,32 +541,17 @@ func emitPayloadField(b *bytes.Buffer, f FieldPlan, prefix string, track bool) {
 		fmt.Fprintf(b, "%s}\n", prefix)
 		return
 	}
+	// JSON path (including nested)
 	fmt.Fprintf(b, "%sif raw, ok := jsonBody[%q]; ok {\n", prefix, f.Wire)
 	if track {
 		fmt.Fprintf(b, "%s\tpresent%s = true\n", prefix, f.Name)
 	}
-	switch f.Kind {
-	case "string":
-		fmt.Fprintf(b, "%s\tv, err := httpbinder.DecodeJSONString(raw)\n", prefix)
-		fmt.Fprintf(b, "%s\tif err != nil {\n%s\t\treturn out, httpbinder.BindError(%q, \"payload\", \"invalid string\")\n%s\t}\n", prefix, prefix, f.Wire, prefix)
-		fmt.Fprintf(b, "%s\tout.%s = v\n", prefix, f.Name)
-	case "int":
-		fmt.Fprintf(b, "%s\tv, err := httpbinder.DecodeJSONInt(raw)\n", prefix)
-		fmt.Fprintf(b, "%s\tif err != nil {\n%s\t\treturn out, httpbinder.BindError(%q, \"payload\", \"invalid int\")\n%s\t}\n", prefix, prefix, f.Wire, prefix)
-		fmt.Fprintf(b, "%s\tout.%s = v\n", prefix, f.Name)
-	case "int64":
-		fmt.Fprintf(b, "%s\tv, err := httpbinder.DecodeJSONInt64(raw)\n", prefix)
-		fmt.Fprintf(b, "%s\tif err != nil {\n%s\t\treturn out, httpbinder.BindError(%q, \"payload\", \"invalid int64\")\n%s\t}\n", prefix, prefix, f.Wire, prefix)
-		fmt.Fprintf(b, "%s\tout.%s = v\n", prefix, f.Name)
-	case "bool":
-		fmt.Fprintf(b, "%s\tv, err := httpbinder.DecodeJSONBool(raw)\n", prefix)
-		fmt.Fprintf(b, "%s\tif err != nil {\n%s\t\treturn out, httpbinder.BindError(%q, \"payload\", \"invalid bool\")\n%s\t}\n", prefix, prefix, f.Wire, prefix)
-		fmt.Fprintf(b, "%s\tout.%s = v\n", prefix, f.Name)
-	case "float64":
-		fmt.Fprintf(b, "%s\tv, err := httpbinder.DecodeJSONFloat64(raw)\n", prefix)
-		fmt.Fprintf(b, "%s\tif err != nil {\n%s\t\treturn out, httpbinder.BindError(%q, \"payload\", \"invalid float64\")\n%s\t}\n", prefix, prefix, f.Wire, prefix)
-		fmt.Fprintf(b, "%s\tout.%s = v\n", prefix, f.Name)
+	emitAssignFromRaw(b, f, types, "raw", prefix+"\t", "out."+f.Name, true)
+	if f.IsComposite() {
+		fmt.Fprintf(b, "%s}\n", prefix)
+		return
 	}
+	// form only for scalars
 	fmt.Fprintf(b, "%s} else if formBody != nil {\n", prefix)
 	fmt.Fprintf(b, "%s\tif fv, ok := formBody[%q]; ok {\n", prefix, f.Wire)
 	if track {
@@ -293,7 +593,6 @@ func emitValidate(b *bytes.Buffer, t TypePlan) {
 		}
 		loc := checkLocation(f.Source)
 		c := f.Check
-		// required
 		if c.Required {
 			switch f.Kind {
 			case "string":
@@ -307,14 +606,11 @@ func emitValidate(b *bytes.Buffer, t TypePlan) {
 			b.WriteString("\t}\n")
 		}
 
-		// value constraints only when present
 		hasValueConstraints := c.Min != nil || c.Max != nil ||
 			c.MinLen != nil || c.MaxLen != nil || c.Len != nil ||
 			len(c.Enum) > 0 || c.Email || c.UUID || c.Date || c.Time || c.DateTime || c.Pattern != ""
 		if hasValueConstraints {
 			fmt.Fprintf(b, "\tif present%s {\n", f.Name)
-
-			// min/max numeric
 			if c.Min != nil {
 				switch f.Kind {
 				case "int":
@@ -339,8 +635,6 @@ func emitValidate(b *bytes.Buffer, t TypePlan) {
 				fmt.Fprintf(b, "\t\t\tcheckFields = append(checkFields, httpbinder.Field(%q, %q, %q))\n", f.Wire, loc, fmt.Sprintf("must be <= %v", numMsg(*c.Max)))
 				b.WriteString("\t\t}\n")
 			}
-
-			// string length
 			if f.Kind == "string" {
 				if c.MinLen != nil {
 					fmt.Fprintf(b, "\t\tif len(out.%s) < %d {\n", f.Name, *c.MinLen)
@@ -358,8 +652,6 @@ func emitValidate(b *bytes.Buffer, t TypePlan) {
 					b.WriteString("\t\t}\n")
 				}
 			}
-
-			// enum
 			if len(c.Enum) > 0 {
 				b.WriteString("\t\t{\n")
 				b.WriteString("\t\t\tenumOK := false\n")
@@ -373,8 +665,6 @@ func emitValidate(b *bytes.Buffer, t TypePlan) {
 				b.WriteString("\t\t\t}\n")
 				b.WriteString("\t\t}\n")
 			}
-
-			// string format + pattern: skip empty optional values
 			if f.Kind == "string" && (c.Email || c.UUID || c.Date || c.Time || c.DateTime || c.Pattern != "") {
 				fmt.Fprintf(b, "\t\tif out.%s != \"\" {\n", f.Name)
 				if c.Email {
@@ -409,7 +699,6 @@ func emitValidate(b *bytes.Buffer, t TypePlan) {
 				}
 				b.WriteString("\t\t}\n")
 			}
-
 			b.WriteString("\t}\n")
 		}
 	}
@@ -425,7 +714,6 @@ func emitDefaults(b *bytes.Buffer, t TypePlan) {
 		}
 		lit, err := defaultGoLiteral(f.Kind, f.Check.Default)
 		if err != nil {
-			// should have been caught at parse time
 			continue
 		}
 		fmt.Fprintf(b, "\tif !present%s {\n", f.Name)
@@ -435,7 +723,7 @@ func emitDefaults(b *bytes.Buffer, t TypePlan) {
 }
 
 func joinEnumMsg(vals []string) string {
-	return fmt.Sprintf("%s", joinComma(vals))
+	return joinComma(vals)
 }
 
 func joinComma(vals []string) string {
@@ -468,14 +756,10 @@ func numMsg(f float64) any {
 	return f
 }
 
-func emitWriter(b *bytes.Buffer, t TypePlan) {
+func emitWriter(b *bytes.Buffer, t TypePlan, types map[string]TypePlan) {
 	fmt.Fprintf(b, "func write%s(w http.ResponseWriter, r *http.Request, v %s) error {\n", t.Name, t.Name)
 	b.WriteString("\t_ = r\n")
-	b.WriteString("\tbody := map[string]any{\n")
-	for _, f := range t.Fields {
-		fmt.Fprintf(b, "\t\t%q: v.%s,\n", f.JSON, f.Name)
-	}
-	b.WriteString("\t}\n")
-	b.WriteString("\treturn httpbinder.WriteJSON(w, http.StatusOK, body)\n")
+	fmt.Fprintf(b, "\treturn httpbinder.WriteJSON(w, http.StatusOK, encode%sMap(v))\n", t.Name)
 	b.WriteString("}\n\n")
+	_ = types
 }

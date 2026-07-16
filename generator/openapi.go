@@ -94,6 +94,7 @@ func buildOperation(route parser.Route, types map[string]TypePlan, schemas map[s
 	var bodyProps map[string]any
 	var bodyRequired []string
 	needBody := false
+	bodyAdditionalProps := false
 
 	if route.Request != "" {
 		reqName := stripPackage(route.Request)
@@ -110,6 +111,10 @@ func buildOperation(route parser.Route, types map[string]TypePlan, schemas map[s
 				case SourceQuery:
 					params = append(params, parameter("query", f, f.Check.Required))
 				case SourceInput:
+					if f.IsRest() {
+						// rest is payload-only; input:"*" is rejected at plan time
+						continue
+					}
 					params = append(params, parameter("query", f, f.Check.Required))
 					needBody = true
 					if bodyProps == nil {
@@ -121,6 +126,13 @@ func buildOperation(route parser.Route, types map[string]TypePlan, schemas map[s
 					}
 				case SourcePayload:
 					needBody = true
+					if f.IsRest() {
+						bodyAdditionalProps = true
+						if bodyProps == nil {
+							bodyProps = map[string]any{}
+						}
+						continue
+					}
 					if bodyProps == nil {
 						bodyProps = map[string]any{}
 					}
@@ -149,6 +161,9 @@ func buildOperation(route parser.Route, types map[string]TypePlan, schemas map[s
 		mediaSchema := map[string]any{
 			"type":       "object",
 			"properties": bodyProps,
+		}
+		if bodyAdditionalProps {
+			mediaSchema["additionalProperties"] = true
 		}
 		if len(bodyRequired) > 0 {
 			mediaSchema["required"] = stringSliceAny(bodyRequired)
@@ -271,6 +286,10 @@ func schemaForKind(kind string) map[string]any {
 		return map[string]any{"type": "number"}
 	case "file":
 		return map[string]any{"type": "string", "format": "binary"}
+	case KindRestAny, KindRestRaw:
+		// Rest maps are also expressed as additionalProperties on the parent object
+		// when present; this schema is used if the field appears as a property.
+		return map[string]any{"type": "object", "additionalProperties": true}
 	default:
 		return map[string]any{"type": "string"}
 	}
@@ -366,7 +385,12 @@ func ensureSchema(schemas map[string]any, name string, tp TypePlan) {
 	}
 	props := map[string]any{}
 	var required []string
+	additionalProps := false
 	for _, f := range tp.Fields {
+		if f.IsRest() {
+			additionalProps = true
+			continue
+		}
 		key := f.JSON
 		if key == "" {
 			key = f.Wire
@@ -379,6 +403,9 @@ func ensureSchema(schemas map[string]any, name string, tp TypePlan) {
 	schema := map[string]any{
 		"type":       "object",
 		"properties": props,
+	}
+	if additionalProps {
+		schema["additionalProperties"] = true
 	}
 	if len(required) > 0 {
 		schema["required"] = stringSliceAny(required)

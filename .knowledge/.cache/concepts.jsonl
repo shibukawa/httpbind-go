@@ -1,4 +1,6 @@
 {"category": "interface", "id": "api:bind", "path": ".knowledge/api/bind.md", "role": "primary", "title": "httpbinder.Bind", "type": "api"}
+{"category": "interface", "id": "api:decode-json", "path": ".knowledge/api/decode-json.md", "role": "primary", "title": "httpbinder.DecodeJSON", "type": "api"}
+{"category": "interface", "id": "api:encode-json", "path": ".knowledge/api/encode-json.md", "role": "primary", "title": "httpbinder.EncodeJSON", "type": "api"}
 {"category": "interface", "id": "api:new-stream", "path": ".knowledge/api/new-stream.md", "role": "primary", "title": "httpbinder.NewStream", "type": "api"}
 {"category": "interface", "id": "api:openapi-json", "path": ".knowledge/api/openapi-json.md", "role": "primary", "title": "OpenAPI JSON Handler", "type": "api"}
 {"category": "interface", "id": "api:openapi-yaml", "path": ".knowledge/api/openapi-yaml.md", "role": "primary", "title": "OpenAPI YAML Handler", "type": "api"}
@@ -19,10 +21,13 @@
 {"category": "concept", "id": "concept:response-binding", "path": ".knowledge/concept/response-binding.md", "role": "supporting", "title": "Response Binding", "type": "concept"}
 {"category": "concept", "id": "concept:route-discovery", "path": ".knowledge/concept/route-discovery.md", "role": "supporting", "title": "Route Discovery", "type": "concept"}
 {"category": "concept", "id": "concept:service-layer", "path": ".knowledge/concept/service-layer.md", "role": "supporting", "title": "Service Layer", "type": "concept"}
+{"category": "concept", "id": "concept:standalone-json-codec", "path": ".knowledge/concept/standalone-json-codec.md", "role": "supporting", "title": "Standalone Typed JSON Codec", "type": "concept"}
 {"category": "concept", "id": "concept:stdlib-wrapper-unwrap", "path": ".knowledge/concept/stdlib-wrapper-unwrap.md", "role": "supporting", "title": "Stdlib Handler Wrapper Unwrap", "type": "concept"}
 {"category": "concept", "id": "concept:streaming", "path": ".knowledge/concept/streaming.md", "role": "supporting", "title": "Typed Streaming", "type": "concept"}
 {"category": "structure", "id": "data:create-user-request", "path": ".knowledge/data/create-user-request.md", "role": "supporting", "title": "CreateUserRequest Example", "type": "data"}
 {"category": "structure", "id": "data:file", "path": ".knowledge/data/file.md", "role": "supporting", "title": "httpbinder.File", "type": "data"}
+{"category": "structure", "id": "data:nested-order-request", "path": ".knowledge/data/nested-order-request.md", "role": "supporting", "title": "NestedOrderRequest Example", "type": "data"}
+{"category": "structure", "id": "data:patch-with-extras-request", "path": ".knowledge/data/patch-with-extras-request.md", "role": "supporting", "title": "PatchWithExtrasRequest Example", "type": "data"}
 {"category": "structure", "id": "data:problem", "path": ".knowledge/data/problem.md", "role": "supporting", "title": "Problem", "type": "data"}
 {"category": "structure", "id": "data:search-request", "path": ".knowledge/data/search-request.md", "role": "supporting", "title": "SearchRequest Example", "type": "data"}
 {"category": "structure", "id": "data:upload-avatar-request", "path": ".knowledge/data/upload-avatar-request.md", "role": "supporting", "title": "UploadAvatarRequest Example", "type": "data"}
@@ -47,15 +52,19 @@
 {"category": "constraint", "id": "rule:default-input-tag", "path": ".knowledge/rule/default-input-tag.md", "role": "supporting", "title": "Default Field Tag is input", "type": "rule"}
 {"category": "constraint", "id": "rule:error-cause-preservation", "path": ".knowledge/rule/error-cause-preservation.md", "role": "supporting", "title": "Error Cause Preservation", "type": "rule"}
 {"category": "constraint", "id": "rule:error-response-discovery", "path": ".knowledge/rule/error-response-discovery.md", "role": "supporting", "title": "Error Response Discovery", "type": "rule"}
+{"category": "constraint", "id": "rule:nested-request-binding", "path": ".knowledge/rule/nested-request-binding.md", "role": "supporting", "title": "Nested Struct Slice Map Binding", "type": "rule"}
 {"category": "constraint", "id": "rule:nested-wrapper-unwrap", "path": ".knowledge/rule/nested-wrapper-unwrap.md", "role": "supporting", "title": "Nested Wrapper Unwrap", "type": "rule"}
 {"category": "constraint", "id": "rule:openapi-error-statuses", "path": ".knowledge/rule/openapi-error-statuses.md", "role": "supporting", "title": "OpenAPI Statuses from Error Helpers", "type": "rule"}
 {"category": "constraint", "id": "rule:openapi-http-metadata-params", "path": ".knowledge/rule/openapi-http-metadata-params.md", "role": "supporting", "title": "OpenAPI Parameters for HTTP Metadata", "type": "rule"}
 {"category": "constraint", "id": "rule:openapi-input-fields", "path": ".knowledge/rule/openapi-input-fields.md", "role": "supporting", "title": "OpenAPI Mapping for input Fields", "type": "rule"}
+{"category": "constraint", "id": "rule:openapi-nested-schemas", "path": ".knowledge/rule/openapi-nested-schemas.md", "role": "supporting", "title": "OpenAPI Mapping for Nested Request Types", "type": "rule"}
 {"category": "constraint", "id": "rule:openapi-payload-fields", "path": ".knowledge/rule/openapi-payload-fields.md", "role": "supporting", "title": "OpenAPI Mapping for payload Fields", "type": "rule"}
+{"category": "constraint", "id": "rule:openapi-payload-rest", "path": ".knowledge/rule/openapi-payload-rest.md", "role": "supporting", "title": "OpenAPI Mapping for payload Rest Fields", "type": "rule"}
 {"category": "constraint", "id": "rule:openapi-query-fields", "path": ".knowledge/rule/openapi-query-fields.md", "role": "supporting", "title": "OpenAPI Mapping for query Fields", "type": "rule"}
 {"category": "constraint", "id": "rule:openapi-streaming-content", "path": ".knowledge/rule/openapi-streaming-content.md", "role": "supporting", "title": "OpenAPI Streaming Response Content Types", "type": "rule"}
 {"category": "constraint", "id": "rule:openapi-success-response", "path": ".knowledge/rule/openapi-success-response.md", "role": "supporting", "title": "OpenAPI Success Response from Write", "type": "rule"}
 {"category": "constraint", "id": "rule:openapi-validation-metadata", "path": ".knowledge/rule/openapi-validation-metadata.md", "role": "supporting", "title": "OpenAPI Validation Metadata from Struct Tags", "type": "rule"}
+{"category": "constraint", "id": "rule:payload-rest-map", "path": ".knowledge/rule/payload-rest-map.md", "role": "supporting", "title": "Payload Rest Map Binding", "type": "rule"}
 {"category": "constraint", "id": "rule:request-model-discovery", "path": ".knowledge/rule/request-model-discovery.md", "role": "supporting", "title": "Request Model Discovery", "type": "rule"}
 {"category": "constraint", "id": "rule:response-model-discovery", "path": ".knowledge/rule/response-model-discovery.md", "role": "supporting", "title": "Response Model Discovery", "type": "rule"}
 {"category": "constraint", "id": "rule:standard-error-mapping", "path": ".knowledge/rule/standard-error-mapping.md", "role": "supporting", "title": "Standard Error Mapping", "type": "rule"}
@@ -68,6 +77,7 @@
 {"category": "external", "id": "system:httpbinder", "path": ".knowledge/system/httpbinder.md", "role": "supporting", "title": "httpbinder Library", "type": "system"}
 {"category": "vocabulary", "id": "term:http-metadata", "path": ".knowledge/term/http-metadata.md", "role": "supporting", "title": "HTTP Metadata Tags", "type": "term"}
 {"category": "vocabulary", "id": "term:input", "path": ".knowledge/term/input.md", "role": "supporting", "title": "input Tag", "type": "term"}
+{"category": "vocabulary", "id": "term:payload-rest", "path": ".knowledge/term/payload-rest.md", "role": "supporting", "title": "payload Rest Tag", "type": "term"}
 {"category": "vocabulary", "id": "term:payload", "path": ".knowledge/term/payload.md", "role": "supporting", "title": "payload Tag", "type": "term"}
 {"category": "vocabulary", "id": "term:query", "path": ".knowledge/term/query.md", "role": "supporting", "title": "query Tag", "type": "term"}
 {"category": "objective", "id": "vision:httpbinder", "path": ".knowledge/vision/httpbinder.md", "role": "primary", "title": "httpbinder Vision", "type": "vision"}

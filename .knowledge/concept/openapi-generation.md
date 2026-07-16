@@ -21,6 +21,8 @@ field_rules:
   - rule:openapi-payload-fields
   - rule:openapi-query-fields
   - rule:openapi-http-metadata-params
+  - rule:openapi-payload-rest
+  - rule:openapi-nested-schemas
 responses:
   - rule:openapi-success-response
   - rule:openapi-streaming-content

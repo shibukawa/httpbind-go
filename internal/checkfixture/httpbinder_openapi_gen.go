@@ -2,7 +2,7 @@
 
 package checkfixture
 
-import httpbinder "github.com/shibukawa/httpbind-go"
+import "github.com/shibukawa/httpbind-go"
 
 func init() {
 	httpbinder.RegisterOpenAPI([]byte(openapiJSON), []byte(openapiYAML))

@@ -4,6 +4,7 @@ package tinycheck
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/shibukawa/httpbind-go"
@@ -14,8 +15,52 @@ type jsonRaw = json.RawMessage
 func init() {
 	httpbinder.RegisterBind[CreateUserRequest](bindCreateUserRequest)
 	httpbinder.RegisterWrite[CreateUserRequest](writeCreateUserRequest)
+	httpbinder.RegisterDecode[CreateUserRequest](decodeCreateUserRequestBytes)
+	httpbinder.RegisterEncode[CreateUserRequest](encodeCreateUserRequest)
 	httpbinder.RegisterBind[CreateUserResponse](bindCreateUserResponse)
 	httpbinder.RegisterWrite[CreateUserResponse](writeCreateUserResponse)
+	httpbinder.RegisterDecode[CreateUserResponse](decodeCreateUserResponseBytes)
+	httpbinder.RegisterEncode[CreateUserResponse](encodeCreateUserResponse)
+}
+
+func decodeCreateUserRequestBytes(data []byte) (CreateUserRequest, error) {
+	return decodeCreateUserRequestJSON(json.RawMessage(data))
+}
+
+func decodeCreateUserRequestJSON(raw json.RawMessage) (CreateUserRequest, error) {
+	var out CreateUserRequest
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
+	}
+	if raw, ok := m["name"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("name", "payload", "invalid string")
+		}
+		out.Name = v
+	}
+	if raw, ok := m["email"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("email", "payload", "invalid string")
+		}
+		out.Email = v
+	}
+	return out, nil
+}
+
+func encodeCreateUserRequestMap(v CreateUserRequest) map[string]any {
+	body := map[string]any{}
+	body["name"] = v.Name
+	body["email"] = v.Email
+	body["org_id"] = v.OrgID
+	body["Authorization"] = v.Token
+	return body
+}
+
+func encodeCreateUserRequest(w io.Writer, v CreateUserRequest) error {
+	return json.NewEncoder(w).Encode(encodeCreateUserRequestMap(v))
 }
 
 func bindCreateUserRequest(r *http.Request) (CreateUserRequest, error) {
@@ -97,13 +142,53 @@ func bindCreateUserRequest(r *http.Request) (CreateUserRequest, error) {
 
 func writeCreateUserRequest(w http.ResponseWriter, r *http.Request, v CreateUserRequest) error {
 	_ = r
-	body := map[string]any{
-		"name":          v.Name,
-		"email":         v.Email,
-		"org_id":        v.OrgID,
-		"Authorization": v.Token,
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeCreateUserRequestMap(v))
+}
+
+func decodeCreateUserResponseBytes(data []byte) (CreateUserResponse, error) {
+	return decodeCreateUserResponseJSON(json.RawMessage(data))
+}
+
+func decodeCreateUserResponseJSON(raw json.RawMessage) (CreateUserResponse, error) {
+	var out CreateUserResponse
+	m, err := httpbinder.RawJSONMap(raw)
+	if err != nil {
+		return out, err
 	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	if raw, ok := m["id"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("iD", "payload", "invalid string")
+		}
+		out.ID = v
+	}
+	if raw, ok := m["name"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("name", "payload", "invalid string")
+		}
+		out.Name = v
+	}
+	if raw, ok := m["email"]; ok {
+		v, err := httpbinder.DecodeJSONString(raw)
+		if err != nil {
+			return out, httpbinder.BindError("email", "payload", "invalid string")
+		}
+		out.Email = v
+	}
+	return out, nil
+}
+
+func encodeCreateUserResponseMap(v CreateUserResponse) map[string]any {
+	body := map[string]any{}
+	body["id"] = v.ID
+	body["name"] = v.Name
+	body["email"] = v.Email
+	return body
+}
+
+func encodeCreateUserResponse(w io.Writer, v CreateUserResponse) error {
+	return json.NewEncoder(w).Encode(encodeCreateUserResponseMap(v))
 }
 
 func bindCreateUserResponse(r *http.Request) (CreateUserResponse, error) {
@@ -201,10 +286,5 @@ func bindCreateUserResponse(r *http.Request) (CreateUserResponse, error) {
 
 func writeCreateUserResponse(w http.ResponseWriter, r *http.Request, v CreateUserResponse) error {
 	_ = r
-	body := map[string]any{
-		"id":    v.ID,
-		"name":  v.Name,
-		"email": v.Email,
-	}
-	return httpbinder.WriteJSON(w, http.StatusOK, body)
+	return httpbinder.WriteJSON(w, http.StatusOK, encodeCreateUserResponseMap(v))
 }

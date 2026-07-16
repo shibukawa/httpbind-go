@@ -29,6 +29,13 @@ discovery:
   - rule:response-model-discovery
   - rule:error-response-discovery
 runtime: no reflection
+planned_binding:
+  - rule:nested-request-binding
+  - rule:payload-rest-map
+planned_standalone_json:
+  - api:decode-json
+  - api:encode-json
+  - concept:standalone-json-codec
 related:
   - flow:code-generation
   - decision:reflection-free
@@ -39,4 +46,10 @@ related:
   - concept:stdlib-wrapper-unwrap
   - concept:check-validation
   - rule:check-codegen-pipeline
+  - rule:nested-request-binding
+  - rule:payload-rest-map
+  - concept:standalone-json-codec
+  - api:decode-json
+  - api:encode-json
 ```
+

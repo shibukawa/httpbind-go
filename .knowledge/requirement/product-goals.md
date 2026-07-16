@@ -11,6 +11,7 @@ goals:
   - reflection-free runtime
   - code generation only
   - unified JSON / form / multipart handling
+  - standalone typed JSON read/write (not HTTP-only)
   - browser-friendly APIs
   - curl-friendly APIs
   - RFC 9457 compliant errors
@@ -22,6 +23,7 @@ maps_to:
   - decision:single-source-of-truth
   - decision:stdlib-servemux
   - concept:request-binding
+  - concept:standalone-json-codec
   - concept:streaming
   - concept:net-http-handler
   - policy:problem-details
@@ -30,4 +32,7 @@ maps_to:
   - api:bind
   - api:write
   - api:write-error
+  - api:decode-json
+  - api:encode-json
 ```
+

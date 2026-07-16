@@ -12,16 +12,21 @@ categories:
     - term:input
     - term:query
     - term:payload
+    - term:payload-rest
   http_metadata:
     - term:http-metadata
 default_field_rule: rule:default-input-tag
 validation: concept:check-validation
 validation_pipeline: rule:check-codegen-pipeline
 files: data:file
+nested: rule:nested-request-binding
+rest_map: rule:payload-rest-map
 examples:
   - data:create-user-request
   - data:search-request
   - data:upload-avatar-request
+  - data:patch-with-extras-request
+  - data:nested-order-request
 payload_media_types:
   - application/json
   - application/x-www-form-urlencoded
@@ -33,4 +38,7 @@ related:
   - system:httpbinder
   - concept:net-http-handler
   - concept:check-validation
+  - term:payload-rest
+  - rule:payload-rest-map
+  - rule:nested-request-binding
 ```
