@@ -9,6 +9,9 @@
       },
       "request": "HealthRequest",
       "response": "HealthResponse",
+      "success_statuses": [
+        200
+      ],
       "wrappers": {
         "allow_query_semicolons": false
       }
@@ -22,6 +25,9 @@
       },
       "request": "GetUserRequest",
       "response": "GetUserResponse",
+      "success_statuses": [
+        200
+      ],
       "wrappers": {
         "allow_query_semicolons": false
       }

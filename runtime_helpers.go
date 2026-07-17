@@ -11,6 +11,44 @@ import (
 	"sync/atomic"
 )
 
+// DefaultMaxJSONBodyBytes is the default cap for JSON document reads (1 MiB).
+const DefaultMaxJSONBodyBytes int64 = 1 << 20
+
+var maxJSONBodyBytes atomic.Int64
+var errJSONBodyTooLarge = errors.New("httpbinder: JSON body too large")
+
+// SetMaxJSONBodyBytes changes the process-wide JSON body limit. A non-positive
+// value restores DefaultMaxJSONBodyBytes.
+func SetMaxJSONBodyBytes(n int64) {
+	if n <= 0 {
+		maxJSONBodyBytes.Store(0)
+	} else {
+		maxJSONBodyBytes.Store(n)
+	}
+}
+
+// MaxJSONBodyBytes returns the effective JSON body limit.
+func MaxJSONBodyBytes() int64 {
+	if n := maxJSONBodyBytes.Load(); n > 0 {
+		return n
+	}
+	return DefaultMaxJSONBodyBytes
+}
+
+func readJSONBytes(r io.Reader, limit int64) ([]byte, error) {
+	if limit <= 0 {
+		limit = DefaultMaxJSONBodyBytes
+	}
+	data, err := io.ReadAll(io.LimitReader(r, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, errJSONBodyTooLarge
+	}
+	return data, nil
+}
+
 // DefaultMultipartMaxMemory is the maxMemory argument passed to
 // http.Request.ParseMultipartForm (how much of the form stays in RAM before
 // spilling file parts to temp files). This is not a body size cap; see
@@ -339,8 +377,15 @@ func ReadJSONMap(r *http.Request) (map[string]json.RawMessage, error) {
 		return map[string]json.RawMessage{}, nil
 	}
 	defer r.Body.Close()
-	data, err := io.ReadAll(r.Body)
+	limit := MaxJSONBodyBytes()
+	if r.ContentLength > limit {
+		return nil, PayloadTooLarge(Problem{Code: "payload_too_large", Message: "JSON body too large"}, errJSONBodyTooLarge)
+	}
+	data, err := readJSONBytes(r.Body, limit)
 	if err != nil {
+		if err == errJSONBodyTooLarge {
+			return nil, PayloadTooLarge(Problem{Code: "payload_too_large", Message: "JSON body too large"}, err)
+		}
 		return nil, BadRequest(Problem{Code: "body_read", Message: "failed to read body"}, err)
 	}
 	if len(strings.TrimSpace(string(data))) == 0 {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -265,8 +266,21 @@ func TestDecodeJSON_MissingCodec(t *testing.T) {
 	}
 }
 
+func writeTempModule(t *testing.T, dir string) {
+	t.Helper()
+	root, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mod := "module tempmod\n\ngo 1.25\n\nrequire github.com/shibukawa/httpbind-go v0.0.0\n\nreplace github.com/shibukawa/httpbind-go => " + filepath.ToSlash(root) + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(mod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestGenerator_DiscoversDecodeEncode(t *testing.T) {
 	dir := t.TempDir()
+	writeTempModule(t, dir)
 	src := `package sample
 
 import "github.com/shibukawa/httpbind-go"
@@ -282,6 +296,11 @@ func use() {
 `
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
+	}
+	cmd := exec.Command("go", "mod", "tidy")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("go mod tidy: %v\n%s", err, out)
 	}
 	plan, err := generator.AnalyzePackage(dir)
 	if err != nil {
@@ -571,6 +590,7 @@ func TestBind_CreateUser_MultipartScalars(t *testing.T) {
 
 func TestGenerator_EmitsTypeSpecificNoReflect(t *testing.T) {
 	dir := t.TempDir()
+	writeTempModule(t, dir)
 	// copy types into temp package
 	src, err := os.ReadFile("types.go")
 	if err != nil {
@@ -579,8 +599,13 @@ func TestGenerator_EmitsTypeSpecificNoReflect(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "types.go"), src, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	cmd := exec.Command("go", "mod", "tidy")
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("go mod tidy: %v\n%s", err, out)
+	}
 	// package name in types.go is mappingfixture — keep it
-	out, err := generator.Generate(dir, dir, "httpbinder_gen.go")
+	out, err := generator.New(generator.Options{GenerateAll: true}).Generate(dir, dir, "httpbinder_gen.go")
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}

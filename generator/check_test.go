@@ -65,6 +65,7 @@ func TestParseCheckTag_PatternLastWithComma(t *testing.T) {
 
 func TestEmit_ValidateThenDefaultOrder(t *testing.T) {
 	dir := t.TempDir()
+	writeTempModule(t, dir)
 	src := `package sample
 
 type Sentinel struct {
@@ -76,6 +77,7 @@ type Sentinel struct {
 	if err := os.WriteFile(filepath.Join(dir, "types.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	tidyTempModule(t, dir)
 	plan, err := generator.AnalyzePackage(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -104,6 +106,7 @@ type Sentinel struct {
 
 func TestAnalyzePackage_InvalidCheckFails(t *testing.T) {
 	dir := t.TempDir()
+	writeTempModule(t, dir)
 	src := `package sample
 type Bad struct {
 	X string ` + "`check:\"min=1\"`" + `
@@ -112,6 +115,7 @@ type Bad struct {
 	if err := os.WriteFile(filepath.Join(dir, "t.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	tidyTempModule(t, dir)
 	if _, err := generator.AnalyzePackage(dir); err == nil {
 		t.Fatal("expected analyze error")
 	}

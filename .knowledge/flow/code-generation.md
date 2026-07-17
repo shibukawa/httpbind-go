@@ -22,26 +22,37 @@ flow:
         - rule:nested-wrapper-unwrap
         - rule:custom-middleware-unwrap
     - id: discover-models
-      action: detect Bind/Write/error constructors in handler bodies
+      action: detect configured mapping calls and retain operation per model
       refs:
         - rule:request-model-discovery
         - rule:response-model-discovery
         - rule:error-response-discovery
+        - requirement:configurable-generator-discovery
     - id: parse-go-types
       action: analyze discovered struct fields and tags
     - id: build-ir
       action: build shared intermediate representation including route metadata
     - id: emit-binders
-      action: generate bind* functions for request types
+      action: generate bind* functions only for Bind model usage
       refs:
         - concept:request-binding
         - api:bind
     - id: emit-writers
-      action: generate write* functions for response and stream types
+      action: generate write* and encode helpers only for Write model usage
       refs:
         - concept:response-binding
         - concept:streaming
         - api:write
+    - id: emit-standalone-json
+      action: generate only DecodeJSON or EncodeJSON paths observed per model
+      refs:
+        - rule:usage-directed-generation
+        - concept:standalone-json-codec
+    - id: emit-sql-scanners
+      action: generate grouped row scanners for ScanRows model usage
+      refs:
+        - api:scan-rows
+        - rule:sql-group-key
     - id: emit-validation
       action: generate validation logic
     - id: emit-streaming-metadata
@@ -63,4 +74,5 @@ flow:
     - concept:code-generation
     - flow:handler-parse
     - requirement:openapi-goals
+    - rule:usage-directed-generation
 ```

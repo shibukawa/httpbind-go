@@ -12,9 +12,12 @@ status_helpers:
   - httpbinder.Forbidden
   - httpbinder.NotFound
   - httpbinder.Conflict
+  - httpbinder.PayloadTooLarge
   - httpbinder.Internal
   - httpbinder.Validation
 openapi_discovery: rule:error-response-discovery
+symbol_identity: rule:go-types-symbol-identity
+
 problem_payload: data:problem
 built_in_examples:
   - |

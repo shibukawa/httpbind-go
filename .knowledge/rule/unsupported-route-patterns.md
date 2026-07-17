@@ -14,6 +14,12 @@ unsupported_examples:
     }
   - fx.Invoke(registerRoutes)
   - someOtherPackage.RegisterRoutes(mux)
+  - cross-package handler leaf
+  - Bind/Write type arg to foreign package type (e.g. dto.Request)
+  - pointer or complex type arguments unsupported by planner
+silent_ignore_today: true
+must_become: rule:analysis-diagnostics-check
+convention: rule:same-package-convention
 escape_hatches:
   - explicit route annotation
   - httpbinder route helper
@@ -21,4 +27,8 @@ related:
   - concept:route-discovery
   - concept:handler-discovery
   - decision:stdlib-servemux
+  - requirement:analysis-diagnostics
+  - rule:analysis-diagnostics-check
+  - rule:same-package-convention
 ```
+

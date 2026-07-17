@@ -7,6 +7,9 @@ TinyGo is a first-class target; reflection-free generated code must work on Tiny
 
 ```yaml
 priority: first-class
+baseline:
+  tinygo: 0.41.1
+  go: 1.26.x
 targets:
   - TinyGo
   - WebAssembly

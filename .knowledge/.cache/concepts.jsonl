@@ -4,8 +4,10 @@
 {"category": "interface", "id": "api:new-stream", "path": ".knowledge/api/new-stream.md", "role": "primary", "title": "httpbinder.NewStream", "type": "api"}
 {"category": "interface", "id": "api:openapi-json", "path": ".knowledge/api/openapi-json.md", "role": "primary", "title": "OpenAPI JSON Handler", "type": "api"}
 {"category": "interface", "id": "api:openapi-yaml", "path": ".knowledge/api/openapi-yaml.md", "role": "primary", "title": "OpenAPI YAML Handler", "type": "api"}
+{"category": "interface", "id": "api:scan-rows", "path": ".knowledge/api/scan-rows.md", "role": "primary", "title": "httpbinder.ScanRows", "type": "api"}
 {"category": "interface", "id": "api:stream-write", "path": ".knowledge/api/stream-write.md", "role": "primary", "title": "Stream Write and Close", "type": "api"}
 {"category": "interface", "id": "api:write-error", "path": ".knowledge/api/write-error.md", "role": "primary", "title": "httpbinder.WriteError", "type": "api"}
+{"category": "interface", "id": "api:write-status", "path": ".knowledge/api/write-status.md", "role": "primary", "title": "httpbinder.WriteStatus", "type": "api"}
 {"category": "interface", "id": "api:write", "path": ".knowledge/api/write.md", "role": "primary", "title": "httpbinder.Write", "type": "api"}
 {"category": "concept", "id": "concept:check-validation", "path": ".knowledge/concept/check-validation.md", "role": "supporting", "title": "Check Tag Validation", "type": "concept"}
 {"category": "concept", "id": "concept:code-generation", "path": ".knowledge/concept/code-generation.md", "role": "supporting", "title": "Generated Runtime Code", "type": "concept"}
@@ -39,10 +41,15 @@
 {"category": "behavior", "id": "flow:code-generation", "path": ".knowledge/flow/code-generation.md", "role": "primary", "title": "Code Generation Pipeline", "type": "flow"}
 {"category": "behavior", "id": "flow:handler-parse", "path": ".knowledge/flow/handler-parse.md", "role": "primary", "title": "Handler Parse Flow", "type": "flow"}
 {"category": "behavior", "id": "flow:handler-request", "path": ".knowledge/flow/handler-request.md", "role": "primary", "title": "Handler Request Flow", "type": "flow"}
+{"category": "constraint", "id": "policy:json-read-limit", "path": ".knowledge/policy/json-read-limit.md", "role": "supporting", "title": "Bounded JSON Reads", "type": "policy"}
 {"category": "constraint", "id": "policy:problem-details", "path": ".knowledge/policy/problem-details.md", "role": "supporting", "title": "RFC 9457 Problem Details Errors", "type": "policy"}
+{"category": "objective", "id": "requirement:analysis-diagnostics", "path": ".knowledge/requirement/analysis-diagnostics.md", "role": "primary", "title": "Diagnostics for Undiscoverable Analysis", "type": "requirement"}
+{"category": "objective", "id": "requirement:configurable-generator-discovery", "path": ".knowledge/requirement/configurable-generator-discovery.md", "role": "primary", "title": "Configurable Generator Discovery", "type": "requirement"}
 {"category": "objective", "id": "requirement:openapi-goals", "path": ".knowledge/requirement/openapi-goals.md", "role": "primary", "title": "OpenAPI Generator Goals", "type": "requirement"}
 {"category": "objective", "id": "requirement:product-goals", "path": ".knowledge/requirement/product-goals.md", "role": "primary", "title": "Product Goals", "type": "requirement"}
+{"category": "objective", "id": "requirement:strict-symbol-identity", "path": ".knowledge/requirement/strict-symbol-identity.md", "role": "primary", "title": "Strict Symbol Identity for Static Analysis", "type": "requirement"}
 {"category": "objective", "id": "requirement:tinygo-wasm", "path": ".knowledge/requirement/tinygo-wasm.md", "role": "primary", "title": "TinyGo and WASM Support", "type": "requirement"}
+{"category": "constraint", "id": "rule:analysis-diagnostics-check", "path": ".knowledge/rule/analysis-diagnostics-check.md", "role": "supporting", "title": "Analysis Diagnostics Check", "type": "rule"}
 {"category": "constraint", "id": "rule:check-codegen-pipeline", "path": ".knowledge/rule/check-codegen-pipeline.md", "role": "supporting", "title": "Check Validation Codegen Pipeline", "type": "rule"}
 {"category": "constraint", "id": "rule:check-format-validators", "path": ".knowledge/rule/check-format-validators.md", "role": "supporting", "title": "Check Format Validators", "type": "rule"}
 {"category": "constraint", "id": "rule:check-required-semantics", "path": ".knowledge/rule/check-required-semantics.md", "role": "supporting", "title": "Check Required and Zero-Value Semantics", "type": "rule"}
@@ -52,6 +59,7 @@
 {"category": "constraint", "id": "rule:default-input-tag", "path": ".knowledge/rule/default-input-tag.md", "role": "supporting", "title": "Default Field Tag is input", "type": "rule"}
 {"category": "constraint", "id": "rule:error-cause-preservation", "path": ".knowledge/rule/error-cause-preservation.md", "role": "supporting", "title": "Error Cause Preservation", "type": "rule"}
 {"category": "constraint", "id": "rule:error-response-discovery", "path": ".knowledge/rule/error-response-discovery.md", "role": "supporting", "title": "Error Response Discovery", "type": "rule"}
+{"category": "constraint", "id": "rule:go-types-symbol-identity", "path": ".knowledge/rule/go-types-symbol-identity.md", "role": "supporting", "title": "go/types Symbol Identity", "type": "rule"}
 {"category": "constraint", "id": "rule:nested-request-binding", "path": ".knowledge/rule/nested-request-binding.md", "role": "supporting", "title": "Nested Struct Slice Map Binding", "type": "rule"}
 {"category": "constraint", "id": "rule:nested-wrapper-unwrap", "path": ".knowledge/rule/nested-wrapper-unwrap.md", "role": "supporting", "title": "Nested Wrapper Unwrap", "type": "rule"}
 {"category": "constraint", "id": "rule:openapi-error-statuses", "path": ".knowledge/rule/openapi-error-statuses.md", "role": "supporting", "title": "OpenAPI Statuses from Error Helpers", "type": "rule"}
@@ -63,13 +71,17 @@
 {"category": "constraint", "id": "rule:openapi-query-fields", "path": ".knowledge/rule/openapi-query-fields.md", "role": "supporting", "title": "OpenAPI Mapping for query Fields", "type": "rule"}
 {"category": "constraint", "id": "rule:openapi-streaming-content", "path": ".knowledge/rule/openapi-streaming-content.md", "role": "supporting", "title": "OpenAPI Streaming Response Content Types", "type": "rule"}
 {"category": "constraint", "id": "rule:openapi-success-response", "path": ".knowledge/rule/openapi-success-response.md", "role": "supporting", "title": "OpenAPI Success Response from Write", "type": "rule"}
+{"category": "constraint", "id": "rule:openapi-success-status", "path": ".knowledge/rule/openapi-success-status.md", "role": "supporting", "title": "OpenAPI Success Status from Write and WriteStatus", "type": "rule"}
 {"category": "constraint", "id": "rule:openapi-validation-metadata", "path": ".knowledge/rule/openapi-validation-metadata.md", "role": "supporting", "title": "OpenAPI Validation Metadata from Struct Tags", "type": "rule"}
 {"category": "constraint", "id": "rule:payload-rest-map", "path": ".knowledge/rule/payload-rest-map.md", "role": "supporting", "title": "Payload Rest Map Binding", "type": "rule"}
 {"category": "constraint", "id": "rule:request-model-discovery", "path": ".knowledge/rule/request-model-discovery.md", "role": "supporting", "title": "Request Model Discovery", "type": "rule"}
 {"category": "constraint", "id": "rule:response-model-discovery", "path": ".knowledge/rule/response-model-discovery.md", "role": "supporting", "title": "Response Model Discovery", "type": "rule"}
+{"category": "constraint", "id": "rule:same-package-convention", "path": ".knowledge/rule/same-package-convention.md", "role": "supporting", "title": "Same-Package Analysis Convention", "type": "rule"}
+{"category": "constraint", "id": "rule:sql-group-key", "path": ".knowledge/rule/sql-group-key.md", "role": "supporting", "title": "SQL Join Group Keys", "type": "rule"}
 {"category": "constraint", "id": "rule:standard-error-mapping", "path": ".knowledge/rule/standard-error-mapping.md", "role": "supporting", "title": "Standard Error Mapping", "type": "rule"}
 {"category": "constraint", "id": "rule:stream-content-negotiation", "path": ".knowledge/rule/stream-content-negotiation.md", "role": "supporting", "title": "Stream Content Negotiation", "type": "rule"}
 {"category": "constraint", "id": "rule:unsupported-route-patterns", "path": ".knowledge/rule/unsupported-route-patterns.md", "role": "supporting", "title": "Unsupported Route Patterns", "type": "rule"}
+{"category": "constraint", "id": "rule:usage-directed-generation", "path": ".knowledge/rule/usage-directed-generation.md", "role": "supporting", "title": "Usage-Directed Mapping Generation", "type": "rule"}
 {"category": "constraint", "id": "rule:wrapper-allow-query-semicolons", "path": ".knowledge/rule/wrapper-allow-query-semicolons.md", "role": "supporting", "title": "AllowQuerySemicolons Unwrap", "type": "rule"}
 {"category": "constraint", "id": "rule:wrapper-max-bytes-handler", "path": ".knowledge/rule/wrapper-max-bytes-handler.md", "role": "supporting", "title": "MaxBytesHandler Unwrap", "type": "rule"}
 {"category": "constraint", "id": "rule:wrapper-strip-prefix", "path": ".knowledge/rule/wrapper-strip-prefix.md", "role": "supporting", "title": "StripPrefix Unwrap", "type": "rule"}

@@ -6,6 +6,7 @@ import (
 	"go/format"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 // Emit generates Go source for type-specific binders, writers, and JSON codecs.
@@ -19,7 +20,27 @@ func Emit(plan *PackagePlan) ([]byte, error) {
 	fmt.Fprintf(&b, "package %s\n\n", plan.Package)
 
 	needRegexp := false
+	needJSON, needIO, needHTTP, needRuntime, needSQL := false, false, false, false, false
 	for _, t := range plan.Types {
+		if t.Usage == 0 {
+			continue
+		}
+		if t.Usage&(UsageBind|UsageWrite|UsageDecodeJSON|UsageEncodeJSON) != 0 {
+			needJSON = true
+			needRuntime = true
+		}
+		if t.Usage&(UsageWrite|UsageEncodeJSON) != 0 {
+			needIO = true
+		}
+		if t.Usage&(UsageBind|UsageWrite) != 0 {
+			needHTTP = true
+		}
+		if t.DirectUsage&UsageScanRows != 0 {
+			needSQL, needRuntime = true, true
+		}
+		if t.Usage&UsageBind == 0 {
+			continue
+		}
 		for _, f := range t.Fields {
 			if f.Check.Pattern != "" {
 				needRegexp = true
@@ -31,18 +52,39 @@ func Emit(plan *PackagePlan) ([]byte, error) {
 		}
 	}
 
-	b.WriteString("import (\n")
-	b.WriteString("\t\"encoding/json\"\n")
-	b.WriteString("\t\"io\"\n")
-	if needRegexp {
-		b.WriteString("\t\"regexp\"\n")
+	if needJSON || needIO || needHTTP || needRegexp || needRuntime || needSQL {
+		b.WriteString("import (\n")
+		if needJSON {
+			b.WriteString("\t\"encoding/json\"\n")
+		}
+		if needIO {
+			b.WriteString("\t\"io\"\n")
+		}
+		if needRegexp {
+			b.WriteString("\t\"regexp\"\n")
+		}
+		if needHTTP {
+			b.WriteString("\t\"net/http\"\n")
+		}
+		if needSQL {
+			b.WriteString("\t\"database/sql\"\n")
+		}
+		if needRuntime {
+			b.WriteString("\n\t\"github.com/shibukawa/httpbind-go\"\n")
+		}
+		if needSQL {
+			b.WriteString("\t\"github.com/shibukawa/httpbind-go/sqlmap\"\n")
+		}
+		b.WriteString(")\n\n")
 	}
-	b.WriteString("\t\"net/http\"\n\n")
-	b.WriteString("\t\"github.com/shibukawa/httpbind-go\"\n")
-	b.WriteString(")\n\n")
-	b.WriteString("type jsonRaw = json.RawMessage\n\n")
+	if needHTTP {
+		b.WriteString("type jsonRaw = json.RawMessage\n\n")
+	}
 
 	for _, t := range plan.Types {
+		if t.Usage&UsageBind == 0 {
+			continue
+		}
 		for _, f := range t.Fields {
 			if f.Check.Pattern == "" {
 				continue
@@ -54,14 +96,27 @@ func Emit(plan *PackagePlan) ([]byte, error) {
 		b.WriteString("\n")
 	}
 
-	b.WriteString("func init() {\n")
-	for _, t := range plan.Types {
-		fmt.Fprintf(&b, "\thttpbinder.RegisterBind[%s](bind%s)\n", t.Name, t.Name)
-		fmt.Fprintf(&b, "\thttpbinder.RegisterWrite[%s](write%s)\n", t.Name, t.Name)
-		fmt.Fprintf(&b, "\thttpbinder.RegisterDecode[%s](decode%sBytes)\n", t.Name, t.Name)
-		fmt.Fprintf(&b, "\thttpbinder.RegisterEncode[%s](encode%s)\n", t.Name, t.Name)
+	if needRuntime {
+		b.WriteString("func init() {\n")
+		for _, t := range plan.Types {
+			if t.DirectUsage&UsageBind != 0 {
+				fmt.Fprintf(&b, "\thttpbinder.RegisterBind[%s](bind%s)\n", t.Name, t.Name)
+			}
+			if t.DirectUsage&UsageWrite != 0 {
+				fmt.Fprintf(&b, "\thttpbinder.RegisterWrite[%s](write%s)\n", t.Name, t.Name)
+			}
+			if t.DirectUsage&UsageDecodeJSON != 0 {
+				fmt.Fprintf(&b, "\thttpbinder.RegisterDecode[%s](decode%sBytes)\n", t.Name, t.Name)
+			}
+			if t.DirectUsage&UsageEncodeJSON != 0 {
+				fmt.Fprintf(&b, "\thttpbinder.RegisterEncode[%s](encode%s)\n", t.Name, t.Name)
+			}
+			if t.DirectUsage&UsageScanRows != 0 {
+				fmt.Fprintf(&b, "\thttpbinder.RegisterScanRows[%s](scan%sRows)\n", t.Name, t.Name)
+			}
+		}
+		b.WriteString("}\n\n")
 	}
-	b.WriteString("}\n\n")
 
 	// Index types for nested encode helpers
 	types := map[string]TypePlan{}
@@ -70,10 +125,23 @@ func Emit(plan *PackagePlan) ([]byte, error) {
 	}
 
 	for _, t := range plan.Types {
-		emitDecodeJSON(&b, t, types)
-		emitEncode(&b, t, types)
-		emitBinder(&b, t, types)
-		emitWriter(&b, t, types)
+		if t.Usage&(UsageBind|UsageDecodeJSON) != 0 {
+			emitDecodeJSON(&b, t, types)
+		}
+		if t.Usage&(UsageWrite|UsageEncodeJSON) != 0 {
+			emitEncode(&b, t, types)
+		}
+		if t.Usage&UsageBind != 0 {
+			emitBinder(&b, t, types)
+		}
+		if t.Usage&UsageWrite != 0 {
+			emitWriter(&b, t, types)
+		}
+		if t.DirectUsage&UsageScanRows != 0 {
+			if err := emitScanRows(&b, t, types); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	formatted, err := format.Source(b.Bytes())
@@ -81,6 +149,126 @@ func Emit(plan *PackagePlan) ([]byte, error) {
 		return b.Bytes(), fmt.Errorf("format generated code: %w\n%s", err, b.String())
 	}
 	return formatted, nil
+}
+
+func emitScanRows(b *bytes.Buffer, root TypePlan, types map[string]TypePlan) error {
+	key, err := sqlGroupKey(root)
+	if err != nil {
+		return fmt.Errorf("%s: %w", root.Name, err)
+	}
+	fmt.Fprintf(b, "func scan%sRows(rows *sql.Rows) ([]%s, error) {\n", root.Name, root.Name)
+	fmt.Fprintf(b, "\tout := []%s{}\n\trootIndexes := map[string]int{}\n", root.Name)
+	if err := emitSQLIndexDecls(b, root, types, root.Name, "\t"); err != nil {
+		return err
+	}
+	b.WriteString("\terr := sqlmap.ForEach(rows, func(row sqlmap.Row) error {\n")
+	fmt.Fprintf(b, "\t\trootKey, err := sqlmap.RequiredKey(row, %q)\n\t\tif err != nil { return err }\n", key.DB)
+	b.WriteString("\t\trootPos, exists := rootIndexes[rootKey]\n\t\tif !exists {\n")
+	fmt.Fprintf(b, "\t\t\tvar item %s\n", root.Name)
+	emitSQLFill(b, root, types, "item", "\t\t\t")
+	b.WriteString("\t\t\tout = append(out, item)\n\t\t\trootPos = len(out)-1\n\t\t\trootIndexes[rootKey] = rootPos\n\t\t}\n")
+	if err := emitSQLChildren(b, root, types, "out[rootPos]", "rootKey", root.Name, "\t\t"); err != nil {
+		return err
+	}
+	b.WriteString("\t\treturn nil\n\t})\n\tif err != nil { return nil, err }\n\treturn out, nil\n}\n\n")
+	return nil
+}
+
+func sqlGroupKey(t TypePlan) (FieldPlan, error) {
+	var out FieldPlan
+	n := 0
+	for _, f := range t.Fields {
+		if f.GroupKey && !f.IsComposite() {
+			out = f
+			n++
+		}
+	}
+	if n != 1 {
+		return FieldPlan{}, fmt.Errorf("SQL grouped struct must have exactly one scalar groupkey field")
+	}
+	return out, nil
+}
+
+func emitSQLIndexDecls(b *bytes.Buffer, t TypePlan, types map[string]TypePlan, path, prefix string) error {
+	for _, f := range t.Fields {
+		if f.Kind != KindSlice || f.ElemKind != KindStruct {
+			continue
+		}
+		child, ok := types[f.TypeName]
+		if !ok {
+			return fmt.Errorf("%s: missing child type %s", t.Name, f.TypeName)
+		}
+		if _, err := sqlGroupKey(child); err != nil {
+			return fmt.Errorf("%s.%s: %w", t.Name, f.Name, err)
+		}
+		id := sqlIdent(path + f.Name)
+		fmt.Fprintf(b, "%s%sIndexes := map[string]int{}\n", prefix, id)
+		if err := emitSQLIndexDecls(b, child, types, path+f.Name, prefix); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func emitSQLFill(b *bytes.Buffer, t TypePlan, types map[string]TypePlan, target, prefix string) {
+	for _, f := range t.Fields {
+		switch f.Kind {
+		case "string", "int", "int64", "bool", "float64":
+			fn := strings.ToUpper(f.Kind[:1]) + f.Kind[1:]
+			fmt.Fprintf(b, "%sif v, err := sqlmap.%s(row, %q); err != nil { return err } else { %s.%s = v }\n", prefix, fn, f.DB, target, f.Name)
+		case KindStruct:
+			if child, ok := types[f.TypeName]; ok {
+				emitSQLFill(b, child, types, target+"."+f.Name, prefix)
+			}
+		}
+	}
+}
+
+func emitSQLChildren(b *bytes.Buffer, t TypePlan, types map[string]TypePlan, target, parentKey, path, prefix string) error {
+	for _, f := range t.Fields {
+		if f.Kind == KindStruct {
+			if child, ok := types[f.TypeName]; ok {
+				if err := emitSQLChildren(b, child, types, target+"."+f.Name, parentKey, path+f.Name, prefix); err != nil {
+					return err
+				}
+			}
+			continue
+		}
+		if f.Kind != KindSlice || f.ElemKind != KindStruct {
+			continue
+		}
+		child, ok := types[f.TypeName]
+		if !ok {
+			return fmt.Errorf("missing SQL child type %s", f.TypeName)
+		}
+		key, err := sqlGroupKey(child)
+		if err != nil {
+			return err
+		}
+		id := sqlIdent(path + f.Name)
+		keyVar, presentVar := id+"Key", id+"Present"
+		compositeVar, posVar, existsVar := id+"CompositeKey", id+"Pos", id+"Exists"
+		fmt.Fprintf(b, "%s%s, %s, err := sqlmap.Key(row, %q)\n%sif err != nil { return err }\n%sif %s {\n", prefix, keyVar, presentVar, key.DB, prefix, prefix, presentVar)
+		fmt.Fprintf(b, "%s\t%s := %s + \"\\x00\" + %s\n%s\t%s, %s := %sIndexes[%s]\n%s\tif !%s {\n", prefix, compositeVar, parentKey, keyVar, prefix, posVar, existsVar, id, compositeVar, prefix, existsVar)
+		fmt.Fprintf(b, "%s\t\tvar child %s\n", prefix, child.Name)
+		emitSQLFill(b, child, types, "child", prefix+"\t\t")
+		fmt.Fprintf(b, "%s\t\t%s.%s = append(%s.%s, child)\n%s\t\t%s = len(%s.%s)-1\n%s\t\t%sIndexes[%s] = %s\n%s\t}\n", prefix, target, f.Name, target, f.Name, prefix, posVar, target, f.Name, prefix, id, compositeVar, posVar, prefix)
+		if err := emitSQLChildren(b, child, types, target+"."+f.Name+"["+posVar+"]", compositeVar, path+f.Name, prefix+"\t"); err != nil {
+			return err
+		}
+		fmt.Fprintf(b, "%s}\n", prefix)
+	}
+	return nil
+}
+
+func sqlIdent(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func emitDecodeJSON(b *bytes.Buffer, t TypePlan, types map[string]TypePlan) {

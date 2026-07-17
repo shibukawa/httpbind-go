@@ -3,13 +3,15 @@ package generator
 import (
 	"fmt"
 	"go/ast"
-	"go/parser"
 	"go/token"
-	"os"
+	"go/types"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/tools/go/packages"
 )
 
 // FieldSource is where a request field is read from.
@@ -44,6 +46,8 @@ type FieldPlan struct {
 	Check    CheckRules  // from check:"" tag; empty if absent
 	TypeName string      // KindStruct name, or element struct name for slice/map of struct
 	ElemKind string      // for slice/map: string|int|int64|bool|float64|struct
+	DB       string      // SQL result column (db tag or snake_case field name)
+	GroupKey bool        // groupkey tag presence
 }
 
 // IsRest reports whether f is a payload rest map field.
@@ -89,54 +93,134 @@ const httpbinderImportPath = "github.com/shibukawa/httpbind-go"
 type TypePlan struct {
 	Name   string
 	Fields []FieldPlan
+	// Usage records which generated entry points are referenced by source code.
+	// Zero means the type is unused and emits no mapping paths.
+	Usage Usage
+	// DirectUsage excludes usage inherited from containing structs.
+	DirectUsage Usage
+}
+
+// Usage selects generated mapping entry points.
+type Usage uint32
+
+const (
+	UsageBind Usage = 1 << iota
+	UsageWrite
+	UsageDecodeJSON
+	UsageEncodeJSON
+	UsageScanRows
+	UsageAll = UsageBind | UsageWrite | UsageDecodeJSON | UsageEncodeJSON
+)
+
+// DiscoverySymbol identifies a generic function and the entry point it needs.
+// PackagePath is matched by go/types identity, so import aliases are supported.
+type DiscoverySymbol struct {
+	PackagePath string
+	Name        string
+	Usage       Usage
+}
+
+// Options customizes source symbol discovery. An empty Symbols slice uses
+// DefaultDiscoverySymbols. This is the extension point for compatibility
+// packages that expose httpbinder-compatible generic functions.
+type Options struct {
+	Symbols []DiscoverySymbol
+	// FileTypes are types accepted in the generated multipart File role.
+	// Empty uses github.com/shibukawa/httpbind-go.File.
+	FileTypes []QualifiedType
+	// GenerateAll emits legacy Bind/Write/JSON paths for every planned type.
+	GenerateAll bool
+}
+
+type QualifiedType struct{ PackagePath, Name string }
+
+// DefaultDiscoverySymbols returns a fresh copy of the built-in call targets.
+func DefaultDiscoverySymbols() []DiscoverySymbol {
+	return []DiscoverySymbol{
+		{httpbinderImportPath, "Bind", UsageBind},
+		{httpbinderImportPath, "Write", UsageWrite},
+		{httpbinderImportPath, "WriteStatus", UsageEncodeJSON},
+		{httpbinderImportPath, "DecodeJSON", UsageDecodeJSON},
+		{httpbinderImportPath, "EncodeJSON", UsageEncodeJSON},
+		{httpbinderImportPath, "NewStream", UsageEncodeJSON},
+		{httpbinderImportPath, "ScanRows", UsageScanRows},
+	}
 }
 
 // PackagePlan is all type plans in a package.
 type PackagePlan struct {
 	Package string
 	Types   []TypePlan
-	// Discovered lists type names referenced by Bind/Write/DecodeJSON/EncodeJSON call sites.
+	// Discovered lists type names referenced by configured generic call sites.
 	Discovered []string
 }
 
 // AnalyzePackage builds field plans for all package-level structs with exported fields.
+// Generic call discovery (Bind/Write/DecodeJSON/EncodeJSON) uses go/types symbol identity.
 func AnalyzePackage(dir string) (*PackagePlan, error) {
-	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, dir, func(info os.FileInfo) bool {
-		name := info.Name()
-		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			return false
-		}
-		// skip generated files when re-analyzing
-		if strings.HasSuffix(name, "_httpbinder_gen.go") ||
-			strings.HasSuffix(name, "_openapi_gen.go") ||
-			name == "httpbinder_gen.go" ||
-			name == "httpbinder_openapi_gen.go" {
-			return false
-		}
-		return true
-	}, 0)
+	return AnalyzePackageWithOptions(dir, Options{GenerateAll: true})
+}
+
+// AnalyzePackageWithOptions is AnalyzePackage with customizable call targets.
+func AnalyzePackageWithOptions(dir string, opts Options) (*PackagePlan, error) {
+	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err
 	}
-	var pkg *ast.Package
-	for name, p := range pkgs {
-		if strings.HasSuffix(name, "_test") {
-			continue
-		}
-		pkg = p
-		break
+	cfg := &packages.Config{
+		Mode: packages.NeedName |
+			packages.NeedFiles |
+			packages.NeedSyntax |
+			packages.NeedTypes |
+			packages.NeedTypesInfo |
+			packages.NeedImports |
+			packages.NeedModule |
+			packages.NeedDeps,
+		Dir: abs,
 	}
-	if pkg == nil {
-		return nil, fmt.Errorf("no package in %s", dir)
+	pkgs, err := packages.Load(cfg, ".")
+	if err != nil {
+		return nil, fmt.Errorf("packages.Load %s: %w", abs, err)
+	}
+	if len(pkgs) == 0 {
+		return nil, fmt.Errorf("no package in %s", abs)
+	}
+	pkg := pkgs[0]
+	for _, p := range pkgs {
+		if p.Name != "" && !strings.HasSuffix(p.ID, ".test") {
+			pkg = p
+			break
+		}
+	}
+	if pkg.TypesInfo == nil {
+		return nil, fmt.Errorf("type-check failed for %s: %v", abs, pkg.Errors)
 	}
 
 	plan := &PackagePlan{Package: pkg.Name}
-	discovered := map[string]struct{}{}
-	for _, f := range pkg.Files {
-		binderNames := httpbinderImportNames(f)
-		for _, name := range discoverGenericTypeArgs(f, binderNames) {
-			discovered[name] = struct{}{}
+	discovered := map[string]Usage{}
+	symbols := opts.Symbols
+	if len(symbols) == 0 {
+		symbols = DefaultDiscoverySymbols()
+	}
+	fset := pkg.Fset
+	for _, f := range pkg.Syntax {
+		if f == nil {
+			continue
+		}
+		base := ""
+		if fset != nil {
+			base = filepath.Base(fset.File(f.Pos()).Name())
+		}
+		if strings.HasSuffix(base, "_test.go") ||
+			strings.HasSuffix(base, "_httpbinder_gen.go") ||
+			strings.HasSuffix(base, "_openapi_gen.go") ||
+			base == "httpbinder_gen.go" ||
+			base == "httpbinder_openapi_gen.go" {
+			continue
+		}
+		binderNames := configuredTypeNames(f, opts.FileTypes, pkg.Imports)
+		for name, usage := range discoverGenericTypeArgs(f, pkg.TypesInfo, symbols) {
+			discovered[name] |= usage
 		}
 		for _, decl := range f.Decls {
 			gd, ok := decl.(*ast.GenDecl)
@@ -165,25 +249,54 @@ func AnalyzePackage(dir string) (*PackagePlan, error) {
 	for name := range discovered {
 		plan.Discovered = append(plan.Discovered, name)
 	}
-	// Ensure discovered types exist as plans (all exported structs are planned already).
-	have := map[string]bool{}
-	for _, t := range plan.Types {
-		have[t.Name] = true
+	for i := range plan.Types {
+		plan.Types[i].Usage = discovered[plan.Types[i].Name]
+		plan.Types[i].DirectUsage = plan.Types[i].Usage
 	}
-	for name := range discovered {
-		if !have[name] {
-			// Type may be referenced but not a planned struct (e.g. missing exported fields).
-			// Leave a clear error at generate time only if codecs are required; analysis allows it.
-			_ = name
+	if opts.GenerateAll {
+		for i := range plan.Types {
+			plan.Types[i].Usage |= UsageAll
+			plan.Types[i].DirectUsage |= UsageAll
 		}
 	}
+	propagateNestedUsage(plan.Types)
 	return plan, nil
 }
 
-// discoverGenericTypeArgs finds type arguments of httpbinder.Bind/Write/DecodeJSON/EncodeJSON.
-func discoverGenericTypeArgs(f *ast.File, binderNames map[string]bool) []string {
-	var out []string
-	if f == nil {
+func configuredTypeNames(f *ast.File, configured []QualifiedType, imports map[string]*packages.Package) map[string]bool {
+	if len(configured) == 0 {
+		configured = []QualifiedType{{httpbinderImportPath, "File"}}
+	}
+	out := map[string]bool{}
+	for _, imp := range f.Imports {
+		path, err := strconv.Unquote(imp.Path.Value)
+		if err != nil {
+			continue
+		}
+		local := filepath.Base(path)
+		if imported := imports[path]; imported != nil && imported.Name != "" {
+			local = imported.Name
+		}
+		if imp.Name != nil {
+			local = imp.Name.Name
+		}
+		if local == "_" || local == "." {
+			continue
+		}
+		for _, q := range configured {
+			if path == q.PackagePath {
+				out[local+"."+q.Name] = true
+			}
+		}
+	}
+	return out
+}
+
+// discoverGenericTypeArgs finds type arguments of httpbinder Bind/Write/DecodeJSON/EncodeJSON
+// using go/types-resolved function identity (import-alias safe).
+func discoverGenericTypeArgs(f *ast.File, info *types.Info, symbols []DiscoverySymbol) map[string]Usage {
+	out := map[string]Usage{}
+	if f == nil || info == nil {
 		return out
 	}
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -191,22 +304,19 @@ func discoverGenericTypeArgs(f *ast.File, binderNames map[string]bool) []string 
 		if !ok {
 			return true
 		}
-		name, typeArgs := genericCallInfo(call.Fun)
-		if name == "" || len(typeArgs) == 0 {
+		obj := objectOfCall(info, call.Fun)
+		usage := usageForSymbol(obj, symbols)
+		if usage == 0 {
 			return true
 		}
-		switch name {
-		case "Bind", "Write", "DecodeJSON", "EncodeJSON":
-		default:
-			return true
-		}
-		// Fun is pkg.Name[T] — ensure pkg is httpbinder
-		if !callFunIsHTTPBinder(call.Fun, binderNames) {
-			return true
-		}
-		for _, a := range typeArgs {
+		for _, a := range genericTypeArgExprs(call.Fun) {
 			if id, ok := a.(*ast.Ident); ok && id.Name != "" {
-				out = append(out, id.Name)
+				out[id.Name] |= usage
+			}
+		}
+		if len(genericTypeArgExprs(call.Fun)) == 0 {
+			if name := instantiatedTypeName(info, call.Fun); name != "" {
+				out[name] |= usage
 			}
 		}
 		return true
@@ -214,43 +324,145 @@ func discoverGenericTypeArgs(f *ast.File, binderNames map[string]bool) []string 
 	return out
 }
 
-func callFunIsHTTPBinder(fun ast.Expr, binderNames map[string]bool) bool {
-	// IndexExpr or IndexListExpr wrapping SelectorExpr
-	switch f := fun.(type) {
-	case *ast.IndexExpr:
-		return selectorIsHTTPBinder(f.X, binderNames)
-	case *ast.IndexListExpr:
-		return selectorIsHTTPBinder(f.X, binderNames)
-	case *ast.SelectorExpr:
-		return selectorIsHTTPBinder(f, binderNames)
-	}
-	return false
-}
-
-func selectorIsHTTPBinder(expr ast.Expr, binderNames map[string]bool) bool {
-	sel, ok := expr.(*ast.SelectorExpr)
-	if !ok {
-		return false
-	}
-	pkg, ok := sel.X.(*ast.Ident)
-	if !ok {
-		return false
-	}
-	return binderNames[pkg.Name]
-}
-
-func genericCallInfo(fun ast.Expr) (name string, typeArgs []ast.Expr) {
-	switch f := fun.(type) {
-	case *ast.IndexExpr:
-		if sel, ok := f.X.(*ast.SelectorExpr); ok && sel.Sel != nil {
-			return sel.Sel.Name, []ast.Expr{f.Index}
-		}
-	case *ast.IndexListExpr:
-		if sel, ok := f.X.(*ast.SelectorExpr); ok && sel.Sel != nil {
-			return sel.Sel.Name, f.Indices
+func instantiatedTypeName(info *types.Info, fun ast.Expr) string {
+	for {
+		switch e := fun.(type) {
+		case *ast.ParenExpr:
+			fun = e.X
+		case *ast.IndexExpr:
+			fun = e.X
+		case *ast.IndexListExpr:
+			fun = e.X
+		case *ast.SelectorExpr:
+			if inst, ok := info.Instances[e.Sel]; ok && inst.TypeArgs.Len() > 0 {
+				return namedTypeName(inst.TypeArgs.At(0))
+			}
+			return ""
+		case *ast.Ident:
+			if inst, ok := info.Instances[e]; ok && inst.TypeArgs.Len() > 0 {
+				return namedTypeName(inst.TypeArgs.At(0))
+			}
+			return ""
+		default:
+			return ""
 		}
 	}
-	return "", nil
+}
+
+func namedTypeName(t types.Type) string {
+	if p, ok := t.(*types.Pointer); ok {
+		t = p.Elem()
+	}
+	if n, ok := t.(*types.Named); ok && n.Obj() != nil {
+		return n.Obj().Name()
+	}
+	return ""
+}
+
+func usageForSymbol(obj types.Object, symbols []DiscoverySymbol) Usage {
+	f, ok := obj.(*types.Func)
+	if !ok || f.Pkg() == nil {
+		return 0
+	}
+	var usage Usage
+	for _, s := range symbols {
+		if f.Pkg().Path() == s.PackagePath && f.Name() == s.Name {
+			usage |= s.Usage
+		}
+	}
+	return usage
+}
+
+func propagateNestedUsage(plans []TypePlan) {
+	index := make(map[string]int, len(plans))
+	for i := range plans {
+		index[plans[i].Name] = i
+	}
+	changed := true
+	for changed {
+		changed = false
+		for i := range plans {
+			u := plans[i].Usage
+			var nested Usage
+			if u&(UsageBind|UsageDecodeJSON) != 0 {
+				nested |= UsageDecodeJSON
+			}
+			if u&(UsageWrite|UsageEncodeJSON) != 0 {
+				nested |= UsageEncodeJSON
+			}
+			if u&UsageScanRows != 0 {
+				nested |= UsageScanRows
+			}
+			for _, f := range plans[i].Fields {
+				if f.TypeName == "" {
+					continue
+				}
+				j, ok := index[f.TypeName]
+				if ok && plans[j].Usage|nested != plans[j].Usage {
+					plans[j].Usage |= nested
+					changed = true
+				}
+			}
+		}
+	}
+}
+
+func objectOfCall(info *types.Info, fun ast.Expr) types.Object {
+	if info == nil || fun == nil {
+		return nil
+	}
+	for {
+		switch e := fun.(type) {
+		case *ast.ParenExpr:
+			fun = e.X
+			continue
+		case *ast.IndexExpr:
+			fun = e.X
+			continue
+		case *ast.IndexListExpr:
+			fun = e.X
+			continue
+		case *ast.Ident:
+			return info.Uses[e]
+		case *ast.SelectorExpr:
+			if sel, ok := info.Selections[e]; ok && sel != nil {
+				return sel.Obj()
+			}
+			if e.Sel != nil {
+				return info.Uses[e.Sel]
+			}
+			return nil
+		default:
+			return nil
+		}
+	}
+}
+
+func isHTTPBinderGeneric(obj types.Object) bool {
+	f, ok := obj.(*types.Func)
+	if !ok || f.Pkg() == nil {
+		return false
+	}
+	if f.Pkg().Path() != httpbinderImportPath {
+		return false
+	}
+	switch f.Name() {
+	case "Bind", "Write", "WriteStatus", "DecodeJSON", "EncodeJSON", "NewStream":
+		return true
+	default:
+		return false
+	}
+}
+
+func genericTypeArgExprs(fun ast.Expr) []ast.Expr {
+	switch f := fun.(type) {
+	case *ast.IndexExpr:
+		return []ast.Expr{f.Index}
+	case *ast.IndexListExpr:
+		return f.Indices
+	default:
+		return nil
+	}
 }
 
 // httpbinderImportNames returns local identifiers that refer to this library
@@ -363,7 +575,40 @@ func analyzeField(fieldName string, typ ast.Expr, tag *ast.BasicLit, src FieldSo
 		Check:    check,
 		TypeName: typeName,
 		ElemKind: elemKind,
+		DB:       dbColumn(fieldName, tag),
+		GroupKey: tagPresent(tag, "groupkey"),
 	}, true, nil
+}
+
+func dbColumn(fieldName string, tag *ast.BasicLit) string {
+	if v := tagValue(tag, "db"); v != "" {
+		return strings.Split(v, ",")[0]
+	}
+	var b strings.Builder
+	for i, r := range fieldName {
+		if i > 0 && unicode.IsUpper(r) {
+			b.WriteByte('_')
+		}
+		b.WriteRune(unicode.ToLower(r))
+	}
+	return b.String()
+}
+
+func tagPresent(tag *ast.BasicLit, key string) bool {
+	if tag == nil {
+		return false
+	}
+	raw, err := strconv.Unquote(tag.Value)
+	if err != nil {
+		return false
+	}
+	for _, part := range strings.Fields(raw) {
+		k, _, ok := strings.Cut(part, ":")
+		if ok && k == key {
+			return true
+		}
+	}
+	return false
 }
 
 func exported(name string) bool {
@@ -400,8 +645,8 @@ func fieldTypeKind(expr ast.Expr, binderNames map[string]bool, src FieldSource, 
 			}
 		}
 	case *ast.SelectorExpr:
-		if t.Sel != nil && t.Sel.Name == "File" {
-			if pkg, ok := t.X.(*ast.Ident); ok && binderNames[pkg.Name] {
+		if t.Sel != nil {
+			if pkg, ok := t.X.(*ast.Ident); ok && binderNames[pkg.Name+"."+t.Sel.Name] {
 				return "file", "", "", true, nil
 			}
 		}

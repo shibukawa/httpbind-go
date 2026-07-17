@@ -12,6 +12,8 @@ goals:
   - code generation only
   - unified JSON / form / multipart handling
   - standalone typed JSON read/write (not HTTP-only)
+  - non-silent diagnostics for undiscoverable routes
+  - explicit success HTTP status via WriteStatus
   - browser-friendly APIs
   - curl-friendly APIs
   - RFC 9457 compliant errors
@@ -34,5 +36,11 @@ maps_to:
   - api:write-error
   - api:decode-json
   - api:encode-json
+  - api:write-status
+  - requirement:analysis-diagnostics
+  - rule:analysis-diagnostics-check
+  - rule:same-package-convention
+  - rule:openapi-success-status
 ```
+
 

@@ -10,6 +10,9 @@
       "request": "ChatRequest",
       "response": "httpbinder.Stream[ChatEvent]",
       "stream": "ChatEvent",
+      "success_statuses": [
+        200
+      ],
       "wrappers": {
         "allow_query_semicolons": false
       }

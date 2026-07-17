@@ -25,8 +25,10 @@ field_rules:
   - rule:openapi-nested-schemas
 responses:
   - rule:openapi-success-response
+  - rule:openapi-success-status
   - rule:openapi-streaming-content
   - rule:openapi-error-statuses
+diagnostics: requirement:analysis-diagnostics
 validation_tags: rule:openapi-validation-metadata
 errors: policy:problem-details
 route_analysis:

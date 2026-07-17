@@ -11,11 +11,13 @@ runtime_style: generated code only; no reflection
 public_api:
   - api:bind
   - api:write
+  - api:write-status
   - api:write-error
   - api:decode-json
   - api:encode-json
   - concept:error-helpers
   - concept:standalone-json-codec
+
 primary_inputs:
   - developer-defined Go types
   - struct field tags for source restriction
@@ -47,5 +49,10 @@ related:
   - api:openapi-yaml
   - api:decode-json
   - api:encode-json
+  - api:write-status
+  - requirement:analysis-diagnostics
+  - rule:analysis-diagnostics-check
+  - rule:same-package-convention
 ```
+
 

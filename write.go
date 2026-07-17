@@ -8,12 +8,31 @@ import (
 )
 
 // Write serializes a typed response value to the HTTP response via a registered writer.
+// Status is always 200 OK; use WriteStatus for other success codes.
 func Write[T any](w http.ResponseWriter, r *http.Request, value T) error {
 	fn, ok := lookupWriter(typeKey[T]())
 	if !ok {
 		return missingWriterError(typeKey[T]())
 	}
 	return fn(w, r, value)
+}
+
+// WriteStatus serializes value with an explicit HTTP status code using the
+// registered encoder for T (no field-walking reflection on T).
+// For status 204 No Content, the body is not written.
+func WriteStatus[T any](w http.ResponseWriter, r *http.Request, status int, value T) error {
+	_ = r
+	if status == http.StatusNoContent {
+		w.WriteHeader(http.StatusNoContent)
+		return nil
+	}
+	enc, ok := lookupEncoder(typeKey[T]())
+	if !ok {
+		return missingEncoderError(typeKey[T]())
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	return enc(w, value)
 }
 
 // WriteError writes err as an RFC 9457 Problem Details response.

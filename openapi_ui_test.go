@@ -42,3 +42,16 @@ func TestSwaggerUI_DefaultSpecURL(t *testing.T) {
 		t.Fatalf("default spec url: %s", rec.Body.String())
 	}
 }
+
+func TestSwaggerUI_EscapesInlineScriptURL(t *testing.T) {
+	h := httpbinder.SwaggerUI(`</script><script>alert(1)</script>`)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/docs/", nil))
+	body := rec.Body.String()
+	if strings.Contains(body, `</script><script>alert(1)</script>`) {
+		t.Fatalf("unescaped script URL: %s", body)
+	}
+	if !strings.Contains(body, `\u003c/script\u003e`) {
+		t.Fatalf("escaped URL missing: %s", body)
+	}
+}

@@ -9,6 +9,9 @@
       },
       "request": "UploadRequest",
       "response": "UploadResponse",
+      "success_statuses": [
+        200
+      ],
       "wrappers": {
         "allow_query_semicolons": false,
         "max_request_body_bytes": 10485760,

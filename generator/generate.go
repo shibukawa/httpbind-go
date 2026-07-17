@@ -9,7 +9,23 @@ import (
 // Generate analyzes dir and writes <outName> (default: httpbinder_gen.go) into outDir
 // (default: dir). Returns the absolute path of the written file.
 func Generate(dir, outDir, outName string) (string, error) {
-	plan, err := AnalyzePackage(dir)
+	return New(Options{}).Generate(dir, outDir, outName)
+}
+
+// Generator is a reusable, configurable code generator.
+type Generator struct{ Options Options }
+
+// New constructs a usage-directed generator. Set GenerateAll for legacy output.
+func New(opts Options) *Generator { return &Generator{Options: opts} }
+
+// Analyze analyzes a package using this generator's discovery symbols.
+func (g *Generator) Analyze(dir string) (*PackagePlan, error) {
+	return AnalyzePackageWithOptions(dir, g.Options)
+}
+
+// Generate analyzes dir and writes generated source.
+func (g *Generator) Generate(dir, outDir, outName string) (string, error) {
+	plan, err := g.Analyze(dir)
 	if err != nil {
 		return "", err
 	}

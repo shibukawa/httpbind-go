@@ -14,6 +14,11 @@ supports:
   - selected built-in net/http wrappers
 out_of_scope:
   - cross-package handler implementation analysis
+convention: rule:same-package-convention
+diagnostics: rule:analysis-diagnostics-check
+requirement_diagnostics: requirement:analysis-diagnostics
+symbol_identity: rule:go-types-symbol-identity
+requirement: requirement:strict-symbol-identity
 pipeline:
   - concept:route-discovery
   - concept:handler-forms
@@ -29,4 +34,11 @@ related:
   - concept:net-http-handler
   - decision:stdlib-servemux
   - concept:openapi-generation
+  - rule:go-types-symbol-identity
+  - requirement:strict-symbol-identity
+  - rule:same-package-convention
+  - rule:analysis-diagnostics-check
+  - requirement:analysis-diagnostics
 ```
+
+

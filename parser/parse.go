@@ -1,73 +1,31 @@
 package parser
 
 import (
-	"fmt"
 	"go/ast"
-	"go/parser"
 	"go/token"
-	"os"
+	"go/types"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/tools/go/packages"
 )
 
 // ParsePackage analyzes Go sources in dir (same package only) and returns
 // statically discoverable httpbinder route IR.
+//
+// Symbol identity for route registration and httpbinder calls is resolved with
+// go/types (host-side only); see rule:go-types-symbol-identity.
 func ParsePackage(dir string) (*Result, error) {
-	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, dir, func(info os.FileInfo) bool {
-		name := info.Name()
-		if !strings.HasSuffix(name, ".go") {
-			return false
-		}
-		// skip tests in the package under analysis
-		if strings.HasSuffix(name, "_test.go") {
-			return false
-		}
-		// skip generated binders / openapi embeds
-		if strings.HasSuffix(name, "_httpbinder_gen.go") ||
-			strings.HasSuffix(name, "_openapi_gen.go") ||
-			name == "httpbinder_gen.go" ||
-			name == "httpbinder_openapi_gen.go" {
-			return false
-		}
-		return true
-	}, parser.ParseComments)
+	return ParsePackageWithConfig(dir, Config{})
+}
+
+// ParsePackageWithConfig analyzes dir with customizable discovery symbols.
+func ParsePackageWithConfig(dir string, config Config) (*Result, error) {
+	pkg, err := loadPackage(dir)
 	if err != nil {
-		return nil, fmt.Errorf("parse dir %s: %w", dir, err)
+		return nil, err
 	}
-	if len(pkgs) == 0 {
-		return &Result{Routes: []Route{}}, nil
-	}
-
-	// Same-package scope: if multiple packages appear (e.g. main + ignored),
-	// prefer non-test package name; ParseDir already skipped _test.go.
-	var pkg *ast.Package
-	for name, p := range pkgs {
-		if strings.HasSuffix(name, "_test") {
-			continue
-		}
-		pkg = p
-		break
-	}
-	if pkg == nil {
-		for _, p := range pkgs {
-			pkg = p
-			break
-		}
-	}
-
-	p := &packageParser{
-		fset:  fset,
-		pkg:   pkg,
-		files: orderedFiles(pkg),
-		funcs: map[string]*ast.FuncDecl{},
-		types: map[string]*ast.TypeSpec{},
-	}
-	p.indexDecls()
-	routes := p.discoverRoutes()
-	res := &Result{Routes: routes}
-	res.Normalize()
-	return res, nil
+	return parseLoadedPackage(pkg, normalizedConfig(config))
 }
 
 // ParsePackageFiles is like ParsePackage but accepts an explicit file list
@@ -80,25 +38,44 @@ func ParsePackageFiles(files []string) (*Result, error) {
 	return ParsePackage(dir)
 }
 
-type packageParser struct {
-	fset  *token.FileSet
-	pkg   *ast.Package
-	files []*ast.File
-	funcs map[string]*ast.FuncDecl // name -> func (non-method)
-	types map[string]*ast.TypeSpec
+func parseLoadedPackage(pkg *packages.Package, config Config) (*Result, error) {
+	fset := fileSetFromPackage(pkg)
+	files := orderedSyntaxFiles(pkg)
+	p := &packageParser{
+		fset:   fset,
+		pkg:    pkg,
+		info:   pkg.TypesInfo,
+		files:  files,
+		config: config,
+		funcs:  map[string]*ast.FuncDecl{},
+		types:  map[string]*ast.TypeSpec{},
+	}
+	p.indexDecls()
+	routes, diags := p.discoverRoutes()
+	res := &Result{Routes: routes, Diagnostics: diags}
+	res.Normalize()
+	return res, nil
 }
 
-func orderedFiles(pkg *ast.Package) []*ast.File {
-	names := make([]string, 0, len(pkg.Files))
-	for name := range pkg.Files {
-		names = append(names, name)
+// CheckPackage runs analysis and returns diagnostics for undiscoverable route candidates.
+// Non-empty diagnostics mean OpenAPI would omit incomplete candidates.
+func CheckPackage(dir string) ([]Diagnostic, error) {
+	res, err := ParsePackage(dir)
+	if err != nil {
+		return nil, err
 	}
-	sortStrings(names)
-	out := make([]*ast.File, 0, len(names))
-	for _, name := range names {
-		out = append(out, pkg.Files[name])
-	}
-	return out
+	return res.Diagnostics, nil
+}
+
+type packageParser struct {
+	fset   *token.FileSet
+	pkg    *packages.Package
+	info   *types.Info
+	files  []*ast.File
+	config Config
+	funcs  map[string]*ast.FuncDecl // name -> func (non-method)
+	types  map[string]*ast.TypeSpec
+	diags  []Diagnostic
 }
 
 func (p *packageParser) indexDecls() {
@@ -111,7 +88,6 @@ func (p *packageParser) indexDecls() {
 			if fd.Recv == nil && fd.Name != nil {
 				p.funcs[fd.Name.Name] = fd
 			}
-			// methods: Type.ServeHTTP tracked via type name elsewhere
 		}
 		for _, decl := range f.Decls {
 			gd, ok := decl.(*ast.GenDecl)
@@ -128,7 +104,7 @@ func (p *packageParser) indexDecls() {
 	}
 }
 
-func (p *packageParser) discoverRoutes() []Route {
+func (p *packageParser) discoverRoutes() ([]Route, []Diagnostic) {
 	var routes []Route
 	for _, f := range p.files {
 		ast.Inspect(f, func(n ast.Node) bool {
@@ -142,41 +118,54 @@ func (p *packageParser) discoverRoutes() []Route {
 			return true
 		})
 	}
-	return routes
+	return routes, p.diags
+}
+
+func (p *packageParser) addDiag(call *ast.CallExpr, reason, message string) {
+	d := Diagnostic{
+		Reason:       reason,
+		Message:      message,
+		OmitsOpenAPI: true,
+	}
+	if p.fset != nil && call != nil {
+		pos := p.fset.Position(call.Pos())
+		d.File = pos.Filename
+		d.Line = pos.Line
+		d.Column = pos.Column
+	}
+	p.diags = append(p.diags, d)
 }
 
 func (p *packageParser) tryRouteCall(call *ast.CallExpr) (Route, bool) {
-	sel, ok := call.Fun.(*ast.SelectorExpr)
-	if !ok || sel.Sel == nil {
+	obj := objectOf(p.info, call.Fun)
+	if !isRouteRegistration(obj, p.config.RouteRegistrations) {
 		return Route{}, false
 	}
-	name := sel.Sel.Name
-	if name != "HandleFunc" && name != "Handle" {
-		return Route{}, false
-	}
-	// Receiver must be http package or a mux-like identifier (any x.Handle/HandleFunc).
-	// We accept both http.HandleFunc and mux.HandleFunc.
 	if len(call.Args) < 2 {
+		p.addDiag(call, ReasonOther, "Handle/HandleFunc call has fewer than 2 arguments")
 		return Route{}, false
 	}
 
 	patternLit, ok := stringLiteral(call.Args[0])
 	if !ok {
-		// Dynamic / non-static pattern → unsupported, no route discovery.
+		p.addDiag(call, ReasonDynamicPattern, "route pattern is not a string literal; OpenAPI will omit this registration")
 		return Route{}, false
 	}
 	method, path, ok := splitPattern(patternLit)
 	if !ok {
+		p.addDiag(call, ReasonDynamicPattern, "route pattern could not be split into method/path")
 		return Route{}, false
 	}
 
 	leaf, meta, ok := unwrapHandler(call.Args[1], WrapperMeta{})
 	if !ok {
+		p.addDiag(call, ReasonOpaqueMiddleware, "handler wrapper chain could not be unwrapped to a leaf handler")
 		return Route{}, false
 	}
 
 	handler, body := p.resolveHandler(leaf)
 	if handler.Form == "" {
+		p.addDiag(call, ReasonOther, "could not classify handler leaf expression")
 		return Route{}, false
 	}
 
@@ -187,11 +176,26 @@ func (p *packageParser) tryRouteCall(call *ast.CallExpr) (Route, bool) {
 		Wrappers: meta,
 	}
 	if body != nil {
-		info := analyzeBody(body)
+		info := p.analyzeBody(body)
 		route.Request = info.Request
 		route.Response = info.Response
 		route.Stream = info.Stream
 		route.Errors = info.Errors
+		route.SuccessStatuses = info.SuccessStatuses
+		// Promote body-level model diagnostics onto the registration site.
+		for _, d := range info.Diagnostics {
+			d.OmitsOpenAPI = false // route still discovered; model may be incomplete
+			if d.File == "" && p.fset != nil {
+				pos := p.fset.Position(call.Pos())
+				d.File = pos.Filename
+				d.Line = pos.Line
+				d.Column = pos.Column
+			}
+			p.diags = append(p.diags, d)
+		}
+	}
+	if len(route.SuccessStatuses) == 0 && route.Response != "" && route.Stream == "" {
+		// Write-less response name should not happen; default 200 if response known from Write
 	}
 	return route, true
 }
@@ -227,6 +231,8 @@ func stringLiteral(expr ast.Expr) (string, bool) {
 }
 
 func strconvUnquote(s string) (string, error) {
-	// reuse strconv via thin wrapper to keep imports local in helpers
 	return unquote(s)
 }
+
+// TypesInfo exposes the type-checked info for tests/helpers.
+func (p *packageParser) TypesInfo() *types.Info { return p.info }

@@ -12,8 +12,13 @@ recognized_constructors:
   - httpbinder.Forbidden
   - httpbinder.NotFound
   - httpbinder.Conflict
+  - httpbinder.PayloadTooLarge
   - httpbinder.Internal
   - httpbinder.Validation
+symbol_identity: rule:go-types-symbol-identity
+must_be_package: github.com/shibukawa/httpbind-go
+alias_ok: true
+note: import alias must still resolve; name-only match of BadRequest is insufficient
 purpose: generate OpenAPI error responses
 status_mapping: rule:openapi-error-statuses
 media_type: application/problem+json
@@ -23,4 +28,6 @@ related:
   - concept:openapi-generation
   - concept:handler-discovery
   - rule:openapi-error-statuses
+  - rule:go-types-symbol-identity
 ```
+

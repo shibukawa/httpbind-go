@@ -116,6 +116,37 @@ _ = stream.Write(ChatEvent{Type: "done"})
 go run ./cmd/httpbinder-gen -dir ./path/to/package
 ```
 
+The library API also supports custom symbol discovery. Construct
+`generator.New(generator.Options{Symbols: ...})` for compatible packages that
+expose different `Bind`/`DecodeJSON` functions, and use
+`parser.ParsePackageWithConfig` to add route registrars other than
+`net/http.ServeMux`. Generation is usage-aware: a package that only calls
+`DecodeJSON[T]` gets only its JSON decoder and does not import `net/http`.
+Set `Options.GenerateAll` for the legacy all-mappings mode. Compatible multipart
+file aliases can be listed in `Options.FileTypes`.
+
+JSON reads are capped at 1 MiB by default. Use `SetMaxJSONBodyBytes` globally or
+`DecodeJSONLimit` per call. Oversize input returns HTTP 413.
+
+Joined SQL rows can be grouped into an object tree with generated, reflection-free `ScanRows[T]` code:
+
+```go
+type Organization struct {
+    ID    int    `db:"organization_id" groupkey:""`
+    Name  string `db:"organization_name"`
+    Users []User
+}
+type User struct {
+    ID   int    `db:"user_id" groupkey:""`
+    Name string `db:"user_name"`
+}
+
+organizations, err := httpbinder.ScanRows[Organization](rows)
+```
+
+Every grouped struct level has one `groupkey` field. Repeated keys merge into
+the same object; a NULL child key represents an absent outer-join child.
+
 ## Demo
 
 ```bash
@@ -132,7 +163,7 @@ See [`examples/demo/README.md`](examples/demo/README.md) for full curl recipes.
 
 TinyGo is a design goal for the reflection-free binder path. See notes below for toolchain limits.
 
-Verified with **TinyGo 0.40.1** (Go **1.19–1.25**). System Go 1.26 is rejected by TinyGo 0.40.
+Verified with **TinyGo 0.41.1 + Go 1.26.x**.
 
 ```bash
 ./scripts/tinygo-check.sh
@@ -149,10 +180,11 @@ Verified with **TinyGo 0.40.1** (Go **1.19–1.25**). System Go 1.26 is rejected
 
 | Topic | Limitation |
 |-------|------------|
-| Toolchain | TinyGo 0.40 needs Go ≤ 1.25 (`GOTOOLCHAIN=go1.25.4`) |
+| Toolchain | Project baseline is TinyGo 0.41.1 + Go 1.26.x |
 | Streaming | Prefer host `go test` for `NewStream`; not fully TinyGo-matrixed |
 | ServeMux | Prefer testing handlers with `ServeHTTP` + `SetPathValue` under TinyGo |
 | Multipart `File` | Supported via `httpbinder.File` (`payload`); size/MIME `check` rules deferred. Body cap defaults to **1 MiB** (`SetMaxMultipartBodyBytes`) |
+| SQL mapping | `ScanRows` and generated SQL scanners target host Go and are excluded from TinyGo builds |
 | Generator | Host-side only (`go run` / `go test`) |
 
 ## License

@@ -3,6 +3,7 @@ package generator
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
@@ -186,7 +187,11 @@ func buildOperation(route parser.Route, types map[string]TypePlan, schemas map[s
 	}
 
 	responses := op["responses"].(map[string]any)
-	// Success response
+	// Success response(s): Write → 200; WriteStatus → static status list
+	successStatuses := route.SuccessStatuses
+	if len(successStatuses) == 0 {
+		successStatuses = []int{200}
+	}
 	if route.Stream != "" || strings.Contains(route.Response, "Stream[") {
 		elem := route.Stream
 		if elem == "" {
@@ -200,26 +205,35 @@ func buildOperation(route parser.Route, types map[string]TypePlan, schemas map[s
 			"application/x-ndjson": map[string]any{"schema": ref},
 			"application/json":     map[string]any{"schema": ref},
 		}
-		responses["200"] = map[string]any{
-			"description": "OK",
-			"content":     content,
+		for _, st := range successStatuses {
+			responses[strconv.Itoa(st)] = map[string]any{
+				"description": http.StatusText(st),
+				"content":     content,
+			}
 		}
 	} else if route.Response != "" {
 		respName := stripPackage(route.Response)
 		// skip Stream-only names already handled
 		if !strings.Contains(respName, "Stream[") {
 			ensureSchema(schemas, respName, types[respName])
-			responses["200"] = map[string]any{
-				"description": "OK",
-				"content": map[string]any{
-					"application/json": map[string]any{
-						"schema": schemaRef(respName),
-					},
-				},
+			for _, st := range successStatuses {
+				resp := map[string]any{
+					"description": http.StatusText(st),
+				}
+				if st != http.StatusNoContent {
+					resp["content"] = map[string]any{
+						"application/json": map[string]any{
+							"schema": schemaRef(respName),
+						},
+					}
+				}
+				responses[strconv.Itoa(st)] = resp
 			}
 		}
 	} else {
-		responses["200"] = map[string]any{"description": "OK"}
+		for _, st := range successStatuses {
+			responses[strconv.Itoa(st)] = map[string]any{"description": http.StatusText(st)}
+		}
 	}
 
 	// Error responses from discovered helpers

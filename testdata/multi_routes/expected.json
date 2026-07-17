@@ -9,6 +9,9 @@
       },
       "request": "ListRequest",
       "response": "ListResponse",
+      "success_statuses": [
+        200
+      ],
       "wrappers": {
         "allow_query_semicolons": false
       }
@@ -24,6 +27,9 @@
       "response": "CreateResponse",
       "errors": [
         "BadRequest"
+      ],
+      "success_statuses": [
+        200
       ],
       "wrappers": {
         "allow_query_semicolons": false

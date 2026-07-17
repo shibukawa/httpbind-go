@@ -116,6 +116,35 @@ _ = stream.Write(ChatEvent{Type: "done"})
 go run ./cmd/httpbinder-gen -dir ./path/to/package
 ```
 
+互換パッケージの探索には
+`generator.New(generator.Options{Symbols: ...})` を使えます。ルート登録関数も
+`parser.ParsePackageWithConfig` で `net/http.ServeMux` 以外を追加できます。
+生成は利用箇所単位で絞られ、`DecodeJSON[T]` だけを使うコードには JSON
+デコーダだけが生成され、`net/http` へ依存しません。
+従来どおり全マッピングを生成する場合は `Options.GenerateAll`、互換File型は
+`Options.FileTypes` で明示できます。
+
+JSON の読み込み上限はデフォルト 1 MiB です。全体設定は
+`SetMaxJSONBodyBytes`、呼び出し単位では `DecodeJSONLimit` を使います。
+超過時は HTTP 413 になります。
+
+JOIN 結果は生成されたreflection-freeコードを使う `ScanRows[T]` で木構造にまとめられます。各階層で一つの
+スカラーフィールドに `groupkey:""`、列名には `db:"column_name"` を付けます。
+同じキーの行は同じ親・子へ集約され、outer join の子キーが NULL ならその子を
+追加しません。
+
+```go
+type Organization struct {
+    ID    int    `db:"organization_id" groupkey:""`
+    Users []User
+}
+type User struct {
+    ID int `db:"user_id" groupkey:""`
+}
+
+organizations, err := httpbinder.ScanRows[Organization](rows)
+```
+
 ## デモ
 
 ```bash
@@ -132,7 +161,7 @@ curl 例の詳細は [`examples/demo/README.md`](examples/demo/README.md) を参
 
 リフレクション不要なバインダ経路は TinyGo を設計目標にしています。ツールチェイン制限は以下を参照。
 
-検証済み: **TinyGo 0.40.1**（Go **1.19–1.25**）。システム Go 1.26 は TinyGo 0.40 では拒否されます。
+検証済み: **TinyGo 0.41.1 + Go 1.26.x**。
 
 ```bash
 ./scripts/tinygo-check.sh
@@ -149,10 +178,11 @@ curl 例の詳細は [`examples/demo/README.md`](examples/demo/README.md) を参
 
 | 項目 | 制限 |
 |------|------|
-| ツールチェイン | TinyGo 0.40 は Go ≤ 1.25 が必要（`GOTOOLCHAIN=go1.25.4`） |
+| ツールチェイン | プロジェクト基準は TinyGo 0.41.1 + Go 1.26.x |
 | ストリーミング | `NewStream` はホストの `go test` を推奨。TinyGo 行列は未整備 |
 | ServeMux | TinyGo 下では `ServeHTTP` + `SetPathValue` でのハンドラ試験を推奨 |
 | Multipart `File` | `httpbinder.File`（`payload`）で対応。サイズ/MIME の `check` は未対応。ボディ上限のデフォルトは **1 MiB**（`SetMaxMultipartBodyBytes`） |
+| SQLマッピング | `ScanRows` と生成SQLスキャナはホストGo向けで、TinyGoビルドから除外 |
 | ジェネレータ | ホスト側のみ（`go run` / `go test`） |
 
 ## ライセンス

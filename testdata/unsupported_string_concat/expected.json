@@ -1,3 +1,13 @@
 {
-  "routes": []
+  "routes": [],
+  "diagnostics": [
+    {
+      "file": "/Users/shibukawayoshiki/develop/httpbind-go/testdata/unsupported_string_concat/main.go",
+      "line": 20,
+      "column": 2,
+      "reason": "dynamic_pattern",
+      "message": "route pattern is not a string literal; OpenAPI will omit this registration",
+      "omits_openapi": true
+    }
+  ]
 }

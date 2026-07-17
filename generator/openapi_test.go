@@ -118,6 +118,7 @@ func TestBuildOpenAPI_FromFixtureGoSource(t *testing.T) {
 
 func TestBuildOpenAPI_YAMLRequiredList(t *testing.T) {
 	dir := t.TempDir()
+	writeTempModule(t, dir)
 	src := `package sample
 
 import (
@@ -148,6 +149,7 @@ func init() {
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	tidyTempModule(t, dir)
 	doc, err := generator.BuildOpenAPI(dir)
 	if err != nil {
 		t.Fatalf("BuildOpenAPI: %v", err)

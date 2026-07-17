@@ -11,6 +11,7 @@ import (
 
 func TestAnalyze_PayloadRestMap(t *testing.T) {
 	dir := t.TempDir()
+	writeTempModule(t, dir)
 	src := `package sample
 
 import "encoding/json"
@@ -28,6 +29,7 @@ type PatchRaw struct {
 	if err := os.WriteFile(filepath.Join(dir, "types.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	tidyTempModule(t, dir)
 	plan, err := generator.AnalyzePackage(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -68,6 +70,7 @@ type PatchRaw struct {
 
 func TestAnalyze_PayloadRestRejectsMultiple(t *testing.T) {
 	dir := t.TempDir()
+	writeTempModule(t, dir)
 	src := `package sample
 type Bad struct {
 	A map[string]any ` + "`payload:\"*\"`" + `
@@ -77,6 +80,7 @@ type Bad struct {
 	if err := os.WriteFile(filepath.Join(dir, "t.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	tidyTempModule(t, dir)
 	_, err := generator.AnalyzePackage(dir)
 	if err == nil {
 		t.Fatal("expected error for multiple rest fields")
@@ -88,6 +92,7 @@ type Bad struct {
 
 func TestAnalyze_PayloadRestRejectsWrongType(t *testing.T) {
 	dir := t.TempDir()
+	writeTempModule(t, dir)
 	src := `package sample
 type Bad struct {
 	Extra string ` + "`payload:\"*\"`" + `
@@ -96,6 +101,7 @@ type Bad struct {
 	if err := os.WriteFile(filepath.Join(dir, "t.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	tidyTempModule(t, dir)
 	_, err := generator.AnalyzePackage(dir)
 	if err == nil {
 		t.Fatal("expected error for non-map rest")
@@ -107,6 +113,7 @@ type Bad struct {
 
 func TestAnalyze_PayloadRestRejectsInputStar(t *testing.T) {
 	dir := t.TempDir()
+	writeTempModule(t, dir)
 	src := `package sample
 type Bad struct {
 	Extra map[string]any ` + "`input:\"*\"`" + `
@@ -115,6 +122,7 @@ type Bad struct {
 	if err := os.WriteFile(filepath.Join(dir, "t.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	tidyTempModule(t, dir)
 	_, err := generator.AnalyzePackage(dir)
 	if err == nil {
 		t.Fatal("expected error for input:\"*\"")

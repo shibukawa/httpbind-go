@@ -11,6 +11,7 @@ import (
 
 func TestAnalyze_NestedKinds(t *testing.T) {
 	dir := t.TempDir()
+	writeTempModule(t, dir)
 	src := `package sample
 
 type NestedCustomer struct {
@@ -32,6 +33,7 @@ type NestedOrderRequest struct {
 	if err := os.WriteFile(filepath.Join(dir, "types.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	tidyTempModule(t, dir)
 	plan, err := generator.AnalyzePackage(dir)
 	if err != nil {
 		t.Fatal(err)

@@ -11,6 +11,7 @@ import (
 
 func TestAnalyzeAndEmit_NoReflect(t *testing.T) {
 	dir := t.TempDir()
+	writeTempModule(t, dir)
 	src := `package sample
 
 import "github.com/shibukawa/httpbind-go"
@@ -32,6 +33,7 @@ type Resp struct {
 	if err := os.WriteFile(filepath.Join(dir, "types.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	tidyTempModule(t, dir)
 	plan, err := generator.AnalyzePackage(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -87,7 +89,7 @@ type Resp struct {
 		}
 	}
 
-	path, err := generator.Generate(dir, dir, "out_gen.go")
+	path, err := generator.New(generator.Options{GenerateAll: true}).Generate(dir, dir, "out_gen.go")
 	if err != nil {
 		t.Fatal(err)
 	}

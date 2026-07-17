@@ -13,6 +13,7 @@ artifacts:
   - validation from concept:check-validation
   - OpenAPI schemas
   - streaming metadata
+  - SQL row tree scanners from api:scan-rows
 function_examples:
   - "func bindCreateUserRequest(r *http.Request) (CreateUserRequest, error)"
   - "func validateCreateUserRequest(v *CreateUserRequest) error"
@@ -28,6 +29,10 @@ discovery:
   - rule:request-model-discovery
   - rule:response-model-discovery
   - rule:error-response-discovery
+  - rule:go-types-symbol-identity
+  - requirement:strict-symbol-identity
+  - requirement:configurable-generator-discovery
+emission: rule:usage-directed-generation
 runtime: no reflection
 planned_binding:
   - rule:nested-request-binding
@@ -51,5 +56,13 @@ related:
   - concept:standalone-json-codec
   - api:decode-json
   - api:encode-json
+  - rule:go-types-symbol-identity
+  - requirement:strict-symbol-identity
+  - requirement:analysis-diagnostics
+  - rule:analysis-diagnostics-check
+  - api:write-status
+  - rule:openapi-success-status
+  - rule:usage-directed-generation
+  - api:scan-rows
+  - rule:sql-group-key
 ```
-
