@@ -1,4 +1,4 @@
-package httpbinder_test
+package httpbind_test
 
 import (
 	"net/http"
@@ -6,14 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	httpbinder "github.com/shibukawa/httpbind-go"
-	"github.com/shibukawa/httpbind-go/internal/mappingfixture"
+	httpbind "github.com/shibukawa/tinybind-go"
+	"github.com/shibukawa/tinybind-go/internal/mappingfixture"
 )
 
 func TestWriteStatus_Created(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
-	err := httpbinder.WriteStatus(rec, req, http.StatusCreated, mappingfixture.CreateUserResponse{
+	err := httpbind.WriteStatus(rec, req, http.StatusCreated, mappingfixture.CreateUserResponse{
 		ID:    "u1",
 		Name:  "Ada",
 		Email: "a@example.com",
@@ -39,7 +39,7 @@ func TestWriteStatus_Created(t *testing.T) {
 func TestWriteStatus_NoContent(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodDelete, "/", nil)
-	err := httpbinder.WriteStatus(rec, req, http.StatusNoContent, mappingfixture.CreateUserResponse{})
+	err := httpbind.WriteStatus(rec, req, http.StatusNoContent, mappingfixture.CreateUserResponse{})
 	if err != nil {
 		t.Fatalf("WriteStatus: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestWriteStatus_NoContent(t *testing.T) {
 func TestWrite_Still200(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	err := httpbinder.Write(rec, req, mappingfixture.CreateUserResponse{ID: "x", Name: "n", Email: "e"})
+	err := httpbind.Write(rec, req, mappingfixture.CreateUserResponse{ID: "x", Name: "n", Email: "e"})
 	if err != nil {
 		t.Fatalf("Write: %v", err)
 	}

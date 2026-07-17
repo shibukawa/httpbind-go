@@ -9,16 +9,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/httpbind-go"
-	"github.com/shibukawa/httpbind-go/generator"
-	_ "github.com/shibukawa/httpbind-go/internal/openapifixture" // register generated OpenAPI
+	"github.com/shibukawa/tinybind-go"
+	"github.com/shibukawa/tinybind-go/generator"
+	_ "github.com/shibukawa/tinybind-go/internal/openapifixture" // register generated OpenAPI
 )
 
 func TestOpenAPIServe_JSONAndYAML(t *testing.T) {
 	// Real serve path after package init registered generated document.
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/openapi.json", nil)
-	httpbinder.OpenAPIJSON(rec, req)
+	httpbind.OpenAPIJSON(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
 	}
@@ -38,7 +38,7 @@ func TestOpenAPIServe_JSONAndYAML(t *testing.T) {
 	}
 
 	recY := httptest.NewRecorder()
-	httpbinder.OpenAPIYAML(recY, httptest.NewRequest(http.MethodGet, "/openapi.yaml", nil))
+	httpbind.OpenAPIYAML(recY, httptest.NewRequest(http.MethodGet, "/openapi.yaml", nil))
 	if recY.Code != http.StatusOK {
 		t.Fatalf("yaml status %d", recY.Code)
 	}
@@ -73,7 +73,7 @@ func TestOpenAPI_SourceOfTruthIsGoGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := httpbinder.OpenAPIDocumentJSON()
+	reg := httpbind.OpenAPIDocumentJSON()
 	if len(reg) == 0 {
 		t.Fatal("no registered openapi")
 	}

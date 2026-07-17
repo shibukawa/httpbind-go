@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify generated binders/writers under TinyGo.
+# Verify tinybind runtimes and generated code under TinyGo.
 # Project baseline: TinyGo 0.41.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -33,5 +33,13 @@ tinygo test ./internal/tinycheck .
 
 echo "==> tinygo run smoke (Bind/Write via generated code)"
 tinygo run ./testdata/cmd/tinygo-bind-smoke
+
+echo "==> tinygo build -target wasm (JSON-only generated code)"
+JSON_DEPS="$(go list -deps ./testdata/cmd/tinygo-json-smoke)"
+if grep -Eq '^(net/http|database/sql|github.com/shibukawa/tinybind-go)$' <<<"$JSON_DEPS"; then
+  echo "JSON-only dependency graph contains an HTTP, SQL, or root runtime" >&2
+  exit 1
+fi
+tinygo build -target wasm -o /tmp/tinybind-json-smoke.wasm ./testdata/cmd/tinygo-json-smoke
 
 echo "OK: TinyGo checks passed"

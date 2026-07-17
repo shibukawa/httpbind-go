@@ -3,7 +3,7 @@ package app
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type HealthRequest struct{}
@@ -19,21 +19,21 @@ type GetUserResponse struct {
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := httpbinder.Bind[HealthRequest](r)
+	_, err := httpbind.Bind[HealthRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
-	_ = httpbinder.Write[HealthResponse](w, r, HealthResponse{OK: true})
+	_ = httpbind.Write[HealthResponse](w, r, HealthResponse{OK: true})
 }
 
 func getUserHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := httpbinder.Bind[GetUserRequest](r)
+	_, err := httpbind.Bind[GetUserRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
-	_ = httpbinder.Write[GetUserResponse](w, r, GetUserResponse{ID: "u1"})
+	_ = httpbind.Write[GetUserResponse](w, r, GetUserResponse{ID: "u1"})
 }
 
 func register() {

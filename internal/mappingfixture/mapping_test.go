@@ -13,9 +13,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/httpbind-go"
-	"github.com/shibukawa/httpbind-go/generator"
-	"github.com/shibukawa/httpbind-go/internal/mappingfixture"
+	"github.com/shibukawa/tinybind-go"
+	"github.com/shibukawa/tinybind-go/generator"
+	"github.com/shibukawa/tinybind-go/internal/mappingfixture"
+	"github.com/shibukawa/tinybind-go/jsonbind"
 )
 
 func TestBind_JSONAndMetadata(t *testing.T) {
@@ -25,7 +26,7 @@ func TestBind_JSONAndMetadata(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer secret")
 	req.SetPathValue("org_id", "acme")
 
-	got, err := httpbinder.Bind[mappingfixture.CreateUserRequest](req)
+	got, err := httpbind.Bind[mappingfixture.CreateUserRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -48,7 +49,7 @@ func TestBind_ProblemPlusJSONContentType(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer secret")
 	req.SetPathValue("org_id", "acme")
 
-	got, err := httpbinder.Bind[mappingfixture.CreateUserRequest](req)
+	got, err := httpbind.Bind[mappingfixture.CreateUserRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -67,7 +68,7 @@ func TestBind_PayloadRestJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/patch", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	got, err := httpbinder.Bind[mappingfixture.PatchWithExtrasRequest](req)
+	got, err := httpbind.Bind[mappingfixture.PatchWithExtrasRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -100,7 +101,7 @@ func TestBind_PayloadRestJSON_EmptyExtras(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/patch", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	got, err := httpbinder.Bind[mappingfixture.PatchWithExtrasRequest](req)
+	got, err := httpbind.Bind[mappingfixture.PatchWithExtrasRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -117,7 +118,7 @@ func TestBind_PayloadRestForm(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/patch", strings.NewReader(form))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	got, err := httpbinder.Bind[mappingfixture.PatchWithExtrasRequest](req)
+	got, err := httpbind.Bind[mappingfixture.PatchWithExtrasRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -137,7 +138,7 @@ func TestBind_PayloadRestRawJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/patch", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	got, err := httpbinder.Bind[mappingfixture.PatchWithExtrasRawRequest](req)
+	got, err := httpbind.Bind[mappingfixture.PatchWithExtrasRawRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -158,11 +159,11 @@ func TestBind_PayloadRestRawJSON(t *testing.T) {
 func TestBind_PayloadRest_NonObjectJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/patch", strings.NewReader(`[1,2,3]`))
 	req.Header.Set("Content-Type", "application/json")
-	_, err := httpbinder.Bind[mappingfixture.PatchWithExtrasRequest](req)
+	_, err := httpbind.Bind[mappingfixture.PatchWithExtrasRequest](req)
 	if err == nil {
 		t.Fatal("expected error for non-object JSON with rest field")
 	}
-	he, ok := httpbinder.AsHTTPError(err)
+	he, ok := httpbind.AsHTTPError(err)
 	if !ok || he.Status != http.StatusBadRequest {
 		t.Fatalf("want 400 HTTPError, got %#v", err)
 	}
@@ -172,11 +173,11 @@ func TestBind_PayloadRest_NullJSON(t *testing.T) {
 	// JSON null unmarshals to a nil map; must not succeed as empty rest.
 	req := httptest.NewRequest(http.MethodPost, "/patch", strings.NewReader(`null`))
 	req.Header.Set("Content-Type", "application/json")
-	_, err := httpbinder.Bind[mappingfixture.PatchWithExtrasRequest](req)
+	_, err := httpbind.Bind[mappingfixture.PatchWithExtrasRequest](req)
 	if err == nil {
 		t.Fatal("expected error for JSON null body with rest field")
 	}
-	he, ok := httpbinder.AsHTTPError(err)
+	he, ok := httpbind.AsHTTPError(err)
 	if !ok || he.Status != http.StatusBadRequest {
 		t.Fatalf("want 400 HTTPError, got %#v", err)
 	}
@@ -194,7 +195,7 @@ func TestBind_NestedOrderJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/orders", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	got, err := httpbinder.Bind[mappingfixture.NestedOrderRequest](req)
+	got, err := httpbind.Bind[mappingfixture.NestedOrderRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -218,14 +219,14 @@ func TestDecodeEncodeJSON_RoundTrip(t *testing.T) {
 		Labels: map[string]string{"k": "v"},
 	}
 	var buf bytes.Buffer
-	if err := httpbinder.EncodeJSON(&buf, in); err != nil {
+	if err := jsonbind.EncodeJSON(&buf, in); err != nil {
 		t.Fatalf("EncodeJSON: %v", err)
 	}
 	raw := buf.String()
 	if !strings.Contains(raw, `"customer"`) || !strings.Contains(raw, `"Bob"`) {
 		t.Fatalf("encoded JSON: %s", raw)
 	}
-	got, err := httpbinder.DecodeJSON[mappingfixture.NestedOrderRequest](strings.NewReader(raw))
+	got, err := jsonbind.DecodeJSON[mappingfixture.NestedOrderRequest](strings.NewReader(raw))
 	if err != nil {
 		t.Fatalf("DecodeJSON: %v", err)
 	}
@@ -239,10 +240,10 @@ func TestDecodeEncodeJSON_CodecOnlyType(t *testing.T) {
 	_ = mappingfixture.CodecOnlyNote{} // keep type linked
 	note := mappingfixture.CodecOnlyNote{Text: "hello", N: 7}
 	var buf bytes.Buffer
-	if err := httpbinder.EncodeJSON(&buf, note); err != nil {
+	if err := jsonbind.EncodeJSON(&buf, note); err != nil {
 		t.Fatalf("EncodeJSON: %v", err)
 	}
-	got, err := httpbinder.DecodeJSON[mappingfixture.CodecOnlyNote](strings.NewReader(buf.String()))
+	got, err := jsonbind.DecodeJSON[mappingfixture.CodecOnlyNote](strings.NewReader(buf.String()))
 	if err != nil {
 		t.Fatalf("DecodeJSON: %v", err)
 	}
@@ -253,16 +254,12 @@ func TestDecodeEncodeJSON_CodecOnlyType(t *testing.T) {
 
 func TestDecodeJSON_MissingCodec(t *testing.T) {
 	type unregistered struct{ X string }
-	_, err := httpbinder.DecodeJSON[unregistered](strings.NewReader(`{"X":"a"}`))
+	_, err := jsonbind.DecodeJSON[unregistered](strings.NewReader(`{"X":"a"}`))
 	if err == nil {
 		t.Fatal("expected missing codec error")
 	}
 	if !strings.Contains(err.Error(), "no JSON decoder") && !strings.Contains(err.Error(), "decoder") {
-		// Internal wraps message
-		he, ok := httpbinder.AsHTTPError(err)
-		if !ok || he.Status != http.StatusInternalServerError {
-			t.Fatalf("want missing-codec error, got %#v", err)
-		}
+		t.Fatalf("want missing-codec error, got %#v", err)
 	}
 }
 
@@ -272,7 +269,7 @@ func writeTempModule(t *testing.T, dir string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mod := "module tempmod\n\ngo 1.25\n\nrequire github.com/shibukawa/httpbind-go v0.0.0\n\nreplace github.com/shibukawa/httpbind-go => " + filepath.ToSlash(root) + "\n"
+	mod := "module tempmod\n\ngo 1.25\n\nrequire github.com/shibukawa/tinybind-go v0.0.0\n\nreplace github.com/shibukawa/tinybind-go => " + filepath.ToSlash(root) + "\n"
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(mod), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -283,15 +280,15 @@ func TestGenerator_DiscoversDecodeEncode(t *testing.T) {
 	writeTempModule(t, dir)
 	src := `package sample
 
-import "github.com/shibukawa/httpbind-go"
+import "github.com/shibukawa/tinybind-go/jsonbind"
 
 type Note struct {
 	Text string ` + "`payload:\"text\"`" + `
 }
 
 func use() {
-	_, _ = httpbinder.DecodeJSON[Note](nil)
-	_ = httpbinder.EncodeJSON[Note](nil, Note{})
+	_, _ = jsonbind.DecodeJSON[Note](nil)
+	_ = jsonbind.EncodeJSON[Note](nil, Note{})
 }
 `
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0o644); err != nil {
@@ -332,7 +329,7 @@ func TestBind_QueryInput(t *testing.T) {
 	req.SetPathValue("org_id", "org1")
 	req.Header.Set("Authorization", "t")
 
-	got, err := httpbinder.Bind[mappingfixture.CreateUserRequest](req)
+	got, err := httpbind.Bind[mappingfixture.CreateUserRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -349,7 +346,7 @@ func TestBind_SearchQueryAndPayload(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/search?keyword=go&page=2", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
-	got, err := httpbinder.Bind[mappingfixture.SearchRequest](req)
+	got, err := httpbind.Bind[mappingfixture.SearchRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -368,7 +365,7 @@ func TestBind_FormPayload(t *testing.T) {
 	req.SetPathValue("org_id", "o")
 	req.Header.Set("Authorization", "tok")
 
-	got, err := httpbinder.Bind[mappingfixture.CreateUserRequest](req)
+	got, err := httpbind.Bind[mappingfixture.CreateUserRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -380,7 +377,7 @@ func TestBind_FormPayload(t *testing.T) {
 func TestWrite_JSONResponse(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	err := httpbinder.Write[mappingfixture.CreateUserResponse](rec, req, mappingfixture.CreateUserResponse{
+	err := httpbind.Write[mappingfixture.CreateUserResponse](rec, req, mappingfixture.CreateUserResponse{
 		ID:    "user_123",
 		Name:  "Alice",
 		Email: "a@example.com",
@@ -406,10 +403,10 @@ func TestWrite_JSONResponse(t *testing.T) {
 func TestWriteError_ValidationProblem(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
-	err := httpbinder.Validation(
-		httpbinder.Field("email", "payload", "must be a valid email"),
+	err := httpbind.Validation(
+		httpbind.Field("email", "payload", "must be a valid email"),
 	)
-	httpbinder.WriteError(rec, req, err)
+	httpbind.WriteError(rec, req, err)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status: %d", rec.Code)
 	}
@@ -430,7 +427,7 @@ func TestWriteError_ValidationProblem(t *testing.T) {
 func TestWriteError_HidesInternalCause(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	httpbinder.WriteError(rec, req, httpbinder.Internal(io.ErrUnexpectedEOF))
+	httpbind.WriteError(rec, req, httpbind.Internal(io.ErrUnexpectedEOF))
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status: %d", rec.Code)
 	}
@@ -445,13 +442,28 @@ func TestBind_InvalidJSON(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req.SetPathValue("org_id", "o")
 	req.Header.Set("Authorization", "t")
-	_, err := httpbinder.Bind[mappingfixture.CreateUserRequest](req)
+	_, err := httpbind.Bind[mappingfixture.CreateUserRequest](req)
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	he, ok := httpbinder.AsHTTPError(err)
+	he, ok := httpbind.AsHTTPError(err)
 	if !ok || he.Status != http.StatusBadRequest {
 		t.Fatalf("want 400 HTTPError, got %#v", err)
+	}
+}
+
+func TestBind_InvalidJSONFieldMapsToHTTPValidation(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(`{"name":1,"email":"a@example.com"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("org_id", "o")
+	req.Header.Set("Authorization", "t")
+	_, err := httpbind.Bind[mappingfixture.CreateUserRequest](req)
+	he, ok := httpbind.AsHTTPError(err)
+	if !ok || he.Status != http.StatusBadRequest || len(he.Fields) != 1 {
+		t.Fatalf("want one 400 validation field, got %#v", err)
+	}
+	if he.Fields[0].Field != "name" || he.Fields[0].Location != "payload" {
+		t.Fatalf("unexpected field error: %+v", he.Fields[0])
 	}
 }
 
@@ -492,7 +504,7 @@ func TestBind_MultipartFileAndScalars(t *testing.T) {
 	}, "image", filename, content)
 	req.SetPathValue("user_id", "u42")
 
-	got, err := httpbinder.Bind[mappingfixture.UploadAvatarRequest](req)
+	got, err := httpbind.Bind[mappingfixture.UploadAvatarRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -522,11 +534,11 @@ func TestBind_MultipartMissingFile(t *testing.T) {
 	}, "", "", "")
 	req.SetPathValue("user_id", "u1")
 
-	_, err := httpbinder.Bind[mappingfixture.UploadAvatarRequest](req)
+	_, err := httpbind.Bind[mappingfixture.UploadAvatarRequest](req)
 	if err == nil {
 		t.Fatal("expected missing file error")
 	}
-	he, ok := httpbinder.AsHTTPError(err)
+	he, ok := httpbind.AsHTTPError(err)
 	if !ok || he.Status != http.StatusBadRequest {
 		t.Fatalf("want 400 HTTPError, got %#v", err)
 	}
@@ -555,11 +567,11 @@ func TestBind_MultipartTooLarge(t *testing.T) {
 	req.Body = http.MaxBytesReader(nil, io.NopCloser(bytes.NewReader(body)), 40)
 	req.ContentLength = int64(len(body))
 
-	_, err = httpbinder.Bind[mappingfixture.UploadAvatarRequest](req)
+	_, err = httpbind.Bind[mappingfixture.UploadAvatarRequest](req)
 	if err == nil {
 		t.Fatal("expected size error")
 	}
-	he, ok := httpbinder.AsHTTPError(err)
+	he, ok := httpbind.AsHTTPError(err)
 	if !ok || he.Status != http.StatusRequestEntityTooLarge {
 		t.Fatalf("want 413 HTTPError, got %#v status=%v", err, func() any {
 			if ok {
@@ -579,7 +591,7 @@ func TestBind_CreateUser_MultipartScalars(t *testing.T) {
 	req.SetPathValue("org_id", "o")
 	req.Header.Set("Authorization", "tok")
 
-	got, err := httpbinder.Bind[mappingfixture.CreateUserRequest](req)
+	got, err := httpbind.Bind[mappingfixture.CreateUserRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -607,7 +619,7 @@ func TestGenerator_EmitsTypeSpecificNoReflect(t *testing.T) {
 	// package name in types.go is mappingfixture — keep it
 	opts := generator.DefaultOptions()
 	opts.GenerateAll = true
-	out, err := generator.New(opts).Generate(dir, dir, "httpbinder_gen.go")
+	out, err := generator.New(opts).Generate(dir, dir, "tinybind_gen.go")
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
@@ -649,7 +661,7 @@ func TestGenerator_EmitsTypeSpecificNoReflect(t *testing.T) {
 }
 
 func TestGeneratedFile_NoReflectImport(t *testing.T) {
-	data, err := os.ReadFile("httpbinder_gen.go")
+	data, err := os.ReadFile("tinybind_gen.go")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -663,9 +675,9 @@ func TestRoundTrip_HandlerStyle(t *testing.T) {
 	// Call the handler directly (not via Go 1.22 method-path ServeMux patterns),
 	// so TinyGo's net/http (without full pattern routing) can exercise the same I/O.
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		input, err := httpbinder.Bind[mappingfixture.CreateUserRequest](r)
+		input, err := httpbind.Bind[mappingfixture.CreateUserRequest](r)
 		if err != nil {
-			httpbinder.WriteError(w, r, err)
+			httpbind.WriteError(w, r, err)
 			return
 		}
 		out := mappingfixture.CreateUserResponse{
@@ -673,8 +685,8 @@ func TestRoundTrip_HandlerStyle(t *testing.T) {
 			Name:  input.Name,
 			Email: input.Email,
 		}
-		if err := httpbinder.Write[mappingfixture.CreateUserResponse](w, r, out); err != nil {
-			httpbinder.WriteError(w, r, err)
+		if err := httpbind.Write[mappingfixture.CreateUserResponse](w, r, out); err != nil {
+			httpbind.WriteError(w, r, err)
 		}
 	})
 

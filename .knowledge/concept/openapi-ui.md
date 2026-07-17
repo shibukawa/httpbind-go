@@ -14,7 +14,7 @@ optional_uis:
 example: |
   mux.Handle(
       "GET /docs/",
-      httpbinder.SwaggerUI("/openapi.json"),
+      httpbind.SwaggerUI("/openapi.json"),
   )
 mount_freedom: applications may mount handlers at any path
 related:

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/shibukawa/httpbind-go/parser"
+	"github.com/shibukawa/tinybind-go/parser"
 )
 
 func main() {

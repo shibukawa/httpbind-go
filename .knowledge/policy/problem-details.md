@@ -34,7 +34,7 @@ mappings: rule:standard-error-mapping
 openapi_schema: generated automatically for error responses
 openapi_media_type: application/problem+json
 related:
-  - system:httpbinder
+  - system:tinybind
   - concept:response-binding
   - rule:error-cause-preservation
   - concept:openapi-generation

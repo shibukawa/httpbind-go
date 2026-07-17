@@ -43,13 +43,16 @@ runtime_package_expansion:
 compatibility_package:
   type_alias: accepted for special types when configured by alias package identity
   function_export: declare same-named forwarding generic functions; Go has no generic function alias
-  runtime_contract: forwarding functions must preserve httpbinder-compatible signatures and semantics
+  runtime_contract: forwarding functions must preserve tinybind-compatible signatures and semantics
 default_options:
   constructor: DefaultOptions
   ServeMuxes: [net/http.ServeMux]
   RouteFunctions: [net/http.Handle, net/http.HandleFunc]
-  RuntimePackages: [github.com/shibukawa/httpbind-go]
-  FileTypes: [github.com/shibukawa/httpbind-go.File]
+  RuntimePackages:
+    - github.com/shibukawa/tinybind-go
+    - github.com/shibukawa/tinybind-go/jsonbind
+    - github.com/shibukawa/tinybind-go/sqlbind
+  FileTypes: [github.com/shibukawa/tinybind-go.File]
 zero_options: no discovery identities; CLI capabilities remain subject to rule:generator-feature-disable
 identity_reason:
   use: package import path plus declared name

@@ -71,7 +71,7 @@ flow:
   invariant: all artifacts derive from the same IR
   related:
     - decision:single-source-of-truth
-    - system:httpbinder
+    - system:tinybind
     - concept:code-generation
     - flow:handler-parse
     - requirement:openapi-goals

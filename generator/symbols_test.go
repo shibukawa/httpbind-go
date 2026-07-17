@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/httpbind-go/generator"
+	"github.com/shibukawa/tinybind-go/generator"
 )
 
 func TestAnalyze_DiscoversAliasedDecodeEncode(t *testing.T) {
@@ -15,7 +15,7 @@ func TestAnalyze_DiscoversAliasedDecodeEncode(t *testing.T) {
 	src := `package sample
 
 import (
-	hb "github.com/shibukawa/httpbind-go"
+	hb "github.com/shibukawa/tinybind-go/jsonbind"
 )
 
 type Note struct {

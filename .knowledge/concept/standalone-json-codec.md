@@ -6,7 +6,6 @@ title: Standalone Typed JSON Codec
 Typed JSON encode/decode usable outside HTTP Bind/Write: same application types, no *http.Request or ResponseWriter required.
 
 ```yaml
-status: implemented
 intent: JSON I/O is a first-class library capability, not only request/response mapping
 public_api:
   - api:decode-json
@@ -34,6 +33,11 @@ relation_to_http:
   api:bind: HTTP sources (query path header cookie multipart) plus payload JSON
   api:write: HTTP headers status Accept streaming
   standalone: pure JSON document in/out only
+runtime_boundary:
+  package: github.com/shibukawa/tinybind-go/jsonbind
+  dependency: transport-neutral leaf with no net/http or database/sql
+  errors: transport-neutral jsonbind.Error; httpbind translates at api:bind
+  registry: owned by jsonbind; generated JSON-only init registers here
 nested: rule:nested-request-binding applies to document shape when implemented
 rest: term:payload-rest is HTTP payload-only; standalone uses JSON document fields (json tags or generated field plan)
 related:
@@ -45,5 +49,6 @@ related:
   - concept:request-binding
   - concept:response-binding
   - decision:reflection-free
-  - system:httpbinder
+  - decision:runtime-package-boundaries
+  - system:tinybind
 ```

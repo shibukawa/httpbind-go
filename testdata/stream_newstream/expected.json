@@ -8,7 +8,7 @@
         "name": "chatHandler"
       },
       "request": "ChatRequest",
-      "response": "httpbinder.Stream[ChatEvent]",
+      "response": "httpbind.Stream[ChatEvent]",
       "stream": "ChatEvent",
       "success_statuses": [
         200

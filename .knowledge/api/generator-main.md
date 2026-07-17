@@ -36,13 +36,15 @@ custom_command: |
           },
           RuntimePackages: generator.PatternSet[string]{
               Set: []string{
-                  "github.com/shibukawa/httpbind-go",
+                  "github.com/shibukawa/tinybind-go",
+                  "github.com/shibukawa/tinybind-go/jsonbind",
+                  "github.com/shibukawa/tinybind-go/sqlbind",
                   "github.com/shibukawa/petitweb-go/handler",
               },
           },
           FileTypes: generator.PatternSet[generator.TypePattern]{
               Set: []generator.TypePattern{
-                  {PackagePath: "github.com/shibukawa/httpbind-go", Name: "File"},
+                  {PackagePath: "github.com/shibukawa/tinybind-go", Name: "File"},
               },
           },
       })

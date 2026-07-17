@@ -13,7 +13,7 @@ service_shape: concept:service-layer
 handler_shape: concept:net-http-handler
 generated_examples:
   - "func writeCreateUserResponse(w http.ResponseWriter, r *http.Request, resp CreateUserResponse) error"
-  - "func writeChatEventStream(w http.ResponseWriter, r *http.Request, stream httpbinder.Stream[ChatEvent]) error"
+  - "func writeChatEventStream(w http.ResponseWriter, r *http.Request, stream httpbind.Stream[ChatEvent]) error"
 behavior:
   - serialize success value via api:write (200) or api:write-status (explicit status)
   - map errors via api:write-error and policy:problem-details
@@ -21,7 +21,7 @@ openapi: rule:openapi-success-status
 related:
   - concept:code-generation
   - concept:streaming
-  - system:httpbinder
+  - system:tinybind
   - api:write-status
   - rule:openapi-success-status
 ```

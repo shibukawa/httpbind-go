@@ -1,4 +1,4 @@
-package httpbinder
+package httpbind
 
 import (
 	"net/http"
@@ -72,7 +72,7 @@ func OpenAPIYAML(w http.ResponseWriter, r *http.Request) {
 type openAPIMissingError struct{}
 
 func (openAPIMissingError) Error() string {
-	return "httpbinder: no OpenAPI document registered"
+	return "httpbind: no OpenAPI document registered"
 }
 
 var errNoOpenAPI error = openAPIMissingError{}

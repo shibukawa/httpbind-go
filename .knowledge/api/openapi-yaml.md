@@ -15,7 +15,7 @@ recommended_mount: "GET /openapi.yaml"
 example: |
   mux.HandleFunc(
       "GET /openapi.yaml",
-      httpbinder.OpenAPIYAML,
+      httpbind.OpenAPIYAML,
   )
 source: concept:openapi-embed
 related:

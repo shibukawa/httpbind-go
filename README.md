@@ -1,8 +1,8 @@
-# httpbind-go (`httpbinder`)
+# tinybind-go
 
 [日本語](README.ja.md)
 
-Reflection-free, code-generation-first library that bridges Go types and HTTP APIs.
+Reflection-free, code-generation-first binding for TinyGo and standard Go. Runtime dependencies are isolated into HTTP, JSON, and SQL packages.
 
 Define request/response structs once. The generator emits type-specific binders and writers, so the same model covers **JSON, form, multipart, and query** (plus path / header / cookie via tags). Responses adapt to the client **`Accept`** (and streaming negotiation where used). From the same analysis it also **generates OpenAPI 3.1**, kept in sync with binders and writers. Route registration is discovered by **static analysis of real `net/http` styles** (`HandleFunc`, `Handle`, method values, wrappers, and so on)—not by a separate DSL.
 
@@ -23,9 +23,9 @@ type CreateUserResponse struct {
 }
 
 func createUserHandler(w http.ResponseWriter, r *http.Request) {
-	input, err := httpbinder.Bind[CreateUserRequest](r)
+	input, err := httpbind.Bind[CreateUserRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 	// Name/Email: query and/or JSON/form/multipart body (input).
@@ -36,14 +36,14 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 		Email: input.Email,
 		OrgID: input.OrgID,
 	}
-	_ = httpbinder.Write[CreateUserResponse](w, r, out)
+	_ = httpbind.Write[CreateUserResponse](w, r, out)
 }
 ```
 
 Run the generator on the package (binders + OpenAPI embed):
 
 ```bash
-go run ./cmd/httpbinder-gen -dir . -openapi
+go run ./cmd/tinybind-gen -dir . -openapi
 ```
 
 ### Struct tag reference
@@ -55,7 +55,7 @@ Wire name defaults to the lower-camel field name when a tag value is omitted (e.
 | *(none)* or `input:"name"` | **query + payload** | Default. Payload covers JSON, `application/x-www-form-urlencoded`, and `multipart/form-data`. Tag is optional when the field is plain user input. |
 | `query:"page"` | query only | Not read from the body. |
 | `payload:"name"` | body only | JSON / form / multipart by `Content-Type`. Not read from the query string. |
-| `payload:"image"` on `httpbinder.File` | multipart file part | Binds filename, content type, size, and bytes from the named part. Payload-only (not query). Multipart bodies are capped at **1 MiB** by default; override with `httpbinder.SetMaxMultipartBodyBytes`. |
+| `payload:"image"` on `httpbind.File` | multipart file part | Binds filename, content type, size, and bytes from the named part. Payload-only (not query). Multipart bodies are capped at **1 MiB** by default; override with `httpbind.SetMaxMultipartBodyBytes`. |
 | `path:"org_id"` | path parameter | Matches `{org_id}` (or equivalent) in the route pattern. |
 | `header:"Authorization"` | request header | Header name is the tag value. |
 | `cookie:"session"` | cookie | Cookie name is the tag value. |
@@ -81,9 +81,9 @@ Response structs commonly use standard `json:"..."` names for encoding; request 
 ### Streaming (ideal API)
 
 ```go
-stream, err := httpbinder.NewStream[ChatEvent](w, r)
+stream, err := httpbind.NewStream[ChatEvent](w, r)
 if err != nil {
-    httpbinder.WriteError(w, r, err)
+    httpbind.WriteError(w, r, err)
     return
 }
 defer stream.Close()
@@ -104,16 +104,18 @@ _ = stream.Write(ChatEvent{Type: "done"})
 
 | Path | Role |
 |------|------|
-| `.` (`package httpbinder`) | Runtime: Bind / Write / WriteError / NewStream / OpenAPI serve / SwaggerUI |
+| `.` (`package httpbind`) | Runtime: Bind / Write / WriteError / NewStream / OpenAPI serve / SwaggerUI |
+| `jsonbind/` | Standalone DecodeJSON / EncodeJSON runtime; does not import `net/http` or `database/sql` |
+| `sqlbind/` | ScanRows runtime and row helpers; does not import `net/http` |
 | `generator/` | Field-plan binders/writers + OpenAPI 3.1 embed generation |
 | `parser/` | Route/handler discovery (`Bind`, `Write`, `NewStream`, errors) |
-| `cmd/httpbinder-gen` | CLI: binders + OpenAPI from a package dir |
+| `cmd/tinybind-gen` | CLI: binders + OpenAPI from a package dir |
 | `examples/demo` | End-to-end sample app |
 | `internal/*` | Test fixtures |
 | `testdata/cmd/*` | Dev-only helpers (not for distribution; under `testdata` so `go get` / `./...` skip them) |
 
 ```bash
-go run ./cmd/httpbinder-gen -dir ./path/to/package
+go run ./cmd/tinybind-gen -dir ./path/to/package
 ```
 
 Custom generator commands only need to call `generator.Main`. Start with
@@ -123,7 +125,7 @@ project accepts:
 ```go
 package main
 
-import "github.com/shibukawa/httpbind-go/generator"
+import "github.com/shibukawa/tinybind-go/generator"
 
 func main() {
     options := generator.DefaultOptions()
@@ -132,7 +134,9 @@ func main() {
         {PackagePath: "github.com/shibukawa/petitweb-go/handler", Name: "ServeMux"},
     }
     options.RuntimePackages.Set = []string{
-        "github.com/shibukawa/httpbind-go",
+        "github.com/shibukawa/tinybind-go",
+        "github.com/shibukawa/tinybind-go/jsonbind",
+        "github.com/shibukawa/tinybind-go/sqlbind",
         "github.com/shibukawa/petitweb-go/handler",
     }
     generator.Main(options)
@@ -148,12 +152,22 @@ no discovery identities. Set a pattern's `Disabled` field, or add its feature to
 `DisableFeatures`, to prevent discovery even under `-generate-all`.
 
 Generation is usage-aware: a package that only calls `DecodeJSON[T]` gets only
-its JSON decoder and does not import `net/http`. Set `Options.GenerateAll` for
+its JSON decoder, imports `jsonbind`, and does not import the root HTTP runtime
+or `net/http`. Set `Options.GenerateAll` for
 the legacy all-enabled-mappings mode. Compatible multipart file aliases can be
 listed in `Options.FileTypes.Set`.
 
-JSON reads are capped at 1 MiB by default. Use `SetMaxJSONBodyBytes` globally or
-`DecodeJSONLimit` per call. Oversize input returns HTTP 413.
+Standalone JSON uses the dependency-isolated package:
+
+```go
+value, err := jsonbind.DecodeJSON[Document](reader)
+err = jsonbind.EncodeJSON(writer, value)
+```
+
+JSON reads are capped at 1 MiB by default. Use
+`jsonbind.SetMaxJSONBodyBytes` globally or `jsonbind.DecodeJSONLimit` per call.
+`jsonbind` returns transport-neutral errors; `httpbind.Bind` maps an oversized
+HTTP request to status 413.
 
 Joined SQL rows can be grouped into an object tree with generated, reflection-free `ScanRows[T]` code:
 
@@ -168,7 +182,7 @@ type User struct {
     Name string `db:"user_name"`
 }
 
-organizations, err := httpbinder.ScanRows[Organization](rows)
+organizations, err := sqlbind.ScanRows[Organization](rows)
 ```
 
 Every grouped struct level has one `groupkey` field. Repeated keys merge into
@@ -188,7 +202,9 @@ See [`examples/demo/README.md`](examples/demo/README.md) for full curl recipes.
 
 ## TinyGo
 
-TinyGo is a design goal for the reflection-free binder path. See notes below for toolchain limits.
+TinyGo is a first-class target for generated binding code. The JSON runtime is
+kept independent of `net/http` so it can be used on js/wasm toolchains where
+TinyGo's standard-library HTTP path is unavailable.
 
 Verified with **TinyGo 0.41.1 + Go 1.26.x**.
 
@@ -202,15 +218,17 @@ Verified with **TinyGo 0.41.1 + Go 1.26.x**.
 - `WriteError` hand-builds problem JSON (avoids fragile nested `encoding/json` + RawMessage interactions).
 - Registry uses `reflect.Type` only as a **type identity key**, not for field walking.
 - Generated bind/write code does not import `reflect`.
+- JSON-only generated code imports `jsonbind` only; the test matrix builds it with `tinygo build -target wasm`.
 
 ### Known limitations
 
 | Topic | Limitation |
 |-------|------------|
 | Toolchain | Project baseline is TinyGo 0.41.1 + Go 1.26.x |
+| js/wasm HTTP | TinyGo 0.41.1 + Go 1.26.x fails inside `net/http/roundtrip_js.go`; use `jsonbind` for HTTP-free WASM code |
 | Streaming | Prefer host `go test` for `NewStream`; not fully TinyGo-matrixed |
 | ServeMux | Prefer testing handlers with `ServeHTTP` + `SetPathValue` under TinyGo |
-| Multipart `File` | Supported via `httpbinder.File` (`payload`); size/MIME `check` rules deferred. Body cap defaults to **1 MiB** (`SetMaxMultipartBodyBytes`) |
+| Multipart `File` | Supported via `httpbind.File` (`payload`); size/MIME `check` rules deferred. Body cap defaults to **1 MiB** (`SetMaxMultipartBodyBytes`) |
 | SQL mapping | `ScanRows` and generated SQL scanners target host Go and are excluded from TinyGo builds |
 | Generator | Host-side only (`go run` / `go test`) |
 

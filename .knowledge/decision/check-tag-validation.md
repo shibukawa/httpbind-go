@@ -14,7 +14,7 @@ alternatives_rejected:
   - rule / constraints: longer, less action-oriented
 rationale:
   - short and distinct from popular frameworks
-  - aligns with vision:httpbinder type-as-SSOT
+  - aligns with vision:tinybind type-as-SSOT
   - one tag feeds runtime validate and OpenAPI
   - no runtime reflection or runtime tag parsing
 out_of_scope_v1:

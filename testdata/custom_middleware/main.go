@@ -3,7 +3,7 @@ package app
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type CreateUserRequest struct {
@@ -14,12 +14,12 @@ type CreateUserResponse struct {
 }
 
 func createUserHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := httpbinder.Bind[CreateUserRequest](r)
+	_, err := httpbind.Bind[CreateUserRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
-	_ = httpbinder.Write[CreateUserResponse](w, r, CreateUserResponse{ID: "1"})
+	_ = httpbind.Write[CreateUserResponse](w, r, CreateUserResponse{ID: "1"})
 }
 
 func Logging(next http.Handler) http.Handler {

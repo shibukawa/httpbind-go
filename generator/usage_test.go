@@ -7,17 +7,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/httpbind-go/generator"
+	"github.com/shibukawa/tinybind-go/generator"
 )
 
 func TestEmit_DecodeOnlyHasNoNetHTTP(t *testing.T) {
 	dir := t.TempDir()
 	writeTempModule(t, dir)
 	src := `package sample
-import "github.com/shibukawa/httpbind-go"
+import "github.com/shibukawa/tinybind-go/jsonbind"
 type Note struct { Text string ` + "`json:\"text\"`" + ` }
 type Unused struct { ID int }
-func use() { _, _ = httpbinder.DecodeJSON[Note](nil) }
+func use() { _, _ = jsonbind.DecodeJSON[Note](nil) }
 `
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
@@ -32,7 +32,7 @@ func use() { _, _ = httpbinder.DecodeJSON[Note](nil) }
 		t.Fatal(err)
 	}
 	s := string(code)
-	if strings.Contains(s, `"net/http"`) || strings.Contains(s, "RegisterBind") || strings.Contains(s, "RegisterWrite") {
+	if strings.Contains(s, `"net/http"`) || strings.Contains(s, `"github.com/shibukawa/tinybind-go"`) || strings.Contains(s, "RegisterBind") || strings.Contains(s, "RegisterWrite") {
 		t.Fatalf("decode-only output contains HTTP mapping:\n%s", s)
 	}
 	if !strings.Contains(s, "RegisterDecode[Note]") {
@@ -49,11 +49,11 @@ func TestEmit_EncodeOnlyHasNoNetHTTP(t *testing.T) {
 	src := `package sample
 import (
  "io"
- "github.com/shibukawa/httpbind-go"
+ "github.com/shibukawa/tinybind-go/jsonbind"
 )
 type Note struct { Text string ` + "`json:\"text\"`" + ` }
 type Unused struct { ID int }
-func use() { _ = httpbinder.EncodeJSON[Note](io.Discard, Note{}) }
+func use() { _ = jsonbind.EncodeJSON[Note](io.Discard, Note{}) }
 `
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ func use() { _ = httpbinder.EncodeJSON[Note](io.Discard, Note{}) }
 		t.Fatal(err)
 	}
 	s := string(code)
-	if strings.Contains(s, `"net/http"`) || strings.Contains(s, "RegisterBind") || strings.Contains(s, "RegisterWrite") || strings.Contains(s, "RegisterDecode") {
+	if strings.Contains(s, `"net/http"`) || strings.Contains(s, `"github.com/shibukawa/tinybind-go"`) || strings.Contains(s, "RegisterBind") || strings.Contains(s, "RegisterWrite") || strings.Contains(s, "RegisterDecode") {
 		t.Fatalf("encode-only output contains unrelated mapping:\n%s", s)
 	}
 	if !strings.Contains(s, "RegisterEncode[Note]") {
@@ -85,12 +85,12 @@ func TestEmit_ScanRowsOnlyBuildsReflectionFreeScanner(t *testing.T) {
 	src := `package sample
 import (
  "database/sql"
- "github.com/shibukawa/httpbind-go"
+ "github.com/shibukawa/tinybind-go/sqlbind"
 )
 type Role struct { ID int ` + "`db:\"role_id\" groupkey:\"\"`" + `; Name string ` + "`db:\"role_name\"`" + ` }
 type User struct { ID int ` + "`db:\"user_id\" groupkey:\"\"`" + `; Name string ` + "`db:\"user_name\"`" + `; Roles []Role }
 type Organization struct { ID int ` + "`db:\"org_id\" groupkey:\"\"`" + `; Name string ` + "`db:\"org_name\"`" + `; Users []User }
-func use(rows *sql.Rows) { _, _ = httpbinder.ScanRows[Organization](rows) }
+func use(rows *sql.Rows) { _, _ = sqlbind.ScanRows[Organization](rows) }
 `
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)
@@ -105,15 +105,15 @@ func use(rows *sql.Rows) { _, _ = httpbinder.ScanRows[Organization](rows) }
 		t.Fatal(err)
 	}
 	s := string(code)
-	for _, want := range []string{"RegisterScanRows[Organization]", "func scanOrganizationRows", "sqlmap.ForEach", "Users = append"} {
+	for _, want := range []string{"RegisterScanRows[Organization]", "func scanOrganizationRows", "sqlbind.ForEach", "Users = append"} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("missing %q:\n%s", want, s)
 		}
 	}
-	if strings.Contains(s, `"net/http"`) || strings.Contains(s, `"reflect"`) {
+	if strings.Contains(s, `"net/http"`) || strings.Contains(s, `"github.com/shibukawa/tinybind-go"`) || strings.Contains(s, `"reflect"`) {
 		t.Fatalf("SQL-only output has unrelated dependency:\n%s", s)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "httpbinder_gen.go"), code, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "tinybind_gen.go"), code, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	runtimeTest := `package sample
@@ -123,7 +123,7 @@ import (
  "database/sql/driver"
  "io"
  "testing"
- "github.com/shibukawa/httpbind-go"
+ "github.com/shibukawa/tinybind-go/sqlbind"
 )
 type fixtureDriver struct{}
 type fixtureConn struct{}
@@ -139,11 +139,11 @@ func (r *fixtureRows) Next(dest []driver.Value)error{
  data:=[][]driver.Value{{int64(1),"Acme",int64(10),"A",int64(100),"Admin"},{int64(1),"Acme",int64(10),"A",int64(101),"Editor"},{int64(1),"Acme",int64(11),"B",nil,nil},{int64(1),"Acme",int64(10),"A",int64(100),"Admin"},{int64(2),"Empty",nil,nil,nil,nil}}
  if r.pos>=len(data){return io.EOF};copy(dest,data[r.pos]);r.pos++;return nil
 }
-func init(){sql.Register("httpbinder_fixture",fixtureDriver{})}
+func init(){sql.Register("httpbind_fixture",fixtureDriver{})}
 func TestGeneratedTree(t *testing.T){
- db,err:=sql.Open("httpbinder_fixture","");if err!=nil{t.Fatal(err)};defer db.Close()
+ db,err:=sql.Open("httpbind_fixture","");if err!=nil{t.Fatal(err)};defer db.Close()
  rows,err:=db.QueryContext(context.Background(),"select");if err!=nil{t.Fatal(err)};defer rows.Close()
- got,err:=httpbinder.ScanRows[Organization](rows);if err!=nil{t.Fatal(err)}
+ got,err:=sqlbind.ScanRows[Organization](rows);if err!=nil{t.Fatal(err)}
  if len(got)!=2||got[0].Name!="Acme"||len(got[0].Users)!=2||len(got[0].Users[0].Roles)!=2||got[0].Users[0].Roles[1].Name!="Editor"||got[0].Users[1].Name!="B"||len(got[0].Users[1].Roles)!=0||len(got[1].Users)!=0{t.Fatalf("tree: %+v",got)}
 }
 `
@@ -152,7 +152,7 @@ func TestGeneratedTree(t *testing.T){
 	}
 	cmd := exec.Command("go", "test", "./...")
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GOCACHE=/tmp/httpbind-go-cache")
+	cmd.Env = append(os.Environ(), "GOCACHE=/tmp/tinybind-go-cache")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("generated SQL build: %v\n%s", err, out)
 	}
@@ -167,7 +167,7 @@ func TestAnalyze_CustomDiscoverySymbol(t *testing.T) {
 	compat := `package compat
 import (
  "io"
- hb "github.com/shibukawa/httpbind-go"
+ hb "github.com/shibukawa/tinybind-go"
 )
 type File = hb.File
 func DecodeJSON[T any](io.Reader) (T,error) { var z T; return z,nil }
@@ -206,10 +206,10 @@ func TestAnalyze_DiscoversInferredWriteType(t *testing.T) {
 	src := `package sample
 import (
  "net/http"
- "github.com/shibukawa/httpbind-go"
+ "github.com/shibukawa/tinybind-go"
 )
 type Response struct{ ID int }
-func use(w http.ResponseWriter,r *http.Request){ _ = httpbinder.Write(w,r,Response{ID:1}) }
+func use(w http.ResponseWriter,r *http.Request){ _ = httpbind.Write(w,r,Response{ID:1}) }
 `
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(src), 0o644); err != nil {
 		t.Fatal(err)

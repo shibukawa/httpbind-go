@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-// Generate analyzes dir and writes <outName> (default: httpbinder_gen.go) into outDir
+// Generate analyzes dir and writes <outName> (default: tinybind_gen.go) into outDir
 // (default: dir). Returns the absolute path of the written file.
 func Generate(dir, outDir, outName string) (string, error) {
 	return New(DefaultOptions()).Generate(dir, outDir, outName)
@@ -40,7 +40,7 @@ func (g *Generator) Generate(dir, outDir, outName string) (string, error) {
 		outDir = dir
 	}
 	if outName == "" {
-		outName = "httpbinder_gen.go"
+		outName = "tinybind_gen.go"
 	}
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return "", err

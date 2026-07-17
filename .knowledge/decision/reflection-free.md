@@ -18,7 +18,7 @@ rationale:
   - compile-time validation
   - OpenAPI consistency with runtime
 related:
-  - vision:httpbinder
+  - vision:tinybind
   - requirement:tinygo-wasm
   - concept:code-generation
   - decision:single-source-of-truth

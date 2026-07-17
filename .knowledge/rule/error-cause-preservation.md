@@ -11,7 +11,7 @@ example: |
   user, err := repository.Find(ctx, id)
   if err != nil {
       if errors.Is(err, sql.ErrNoRows) {
-          return UserResponse{}, httpbinder.NotFound(
+          return UserResponse{}, httpbind.NotFound(
               Problem{
                   Code:    "user_not_found",
                   Message: "user not found",
@@ -19,7 +19,7 @@ example: |
               err,
           )
       }
-      return UserResponse{}, httpbinder.Internal(err)
+      return UserResponse{}, httpbind.Internal(err)
   }
 compatible_apis:
   - errors.Is

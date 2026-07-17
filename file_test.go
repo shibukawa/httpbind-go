@@ -1,4 +1,4 @@
-package httpbinder_test
+package httpbind_test
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	httpbinder "github.com/shibukawa/httpbind-go"
+	httpbind "github.com/shibukawa/tinybind-go"
 )
 
 func multipartRequest(t *testing.T, fields map[string]string, files map[string]struct {
@@ -49,11 +49,11 @@ func multipartRequest(t *testing.T, fields map[string]string, files map[string]s
 func TestIsMultipartRequest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
 	req.Header.Set("Content-Type", "multipart/form-data; boundary=abc")
-	if !httpbinder.IsMultipartRequest(req) {
+	if !httpbind.IsMultipartRequest(req) {
 		t.Fatal("expected multipart")
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if httpbinder.IsMultipartRequest(req) {
+	if httpbind.IsMultipartRequest(req) {
 		t.Fatal("json is not multipart")
 	}
 }
@@ -69,7 +69,7 @@ func TestParseMultipartMap_ScalarsAndFile(t *testing.T) {
 			"image": {filename: "pic.png", content: "PNGDATA", ctype: "image/png"},
 		},
 	)
-	form, files, err := httpbinder.ParseMultipartMap(req)
+	form, files, err := httpbind.ParseMultipartMap(req)
 	if err != nil {
 		t.Fatalf("ParseMultipartMap: %v", err)
 	}
@@ -119,11 +119,11 @@ func TestParseMultipartMap_OversizedMapsTo413(t *testing.T) {
 	req.Body = http.MaxBytesReader(nil, req.Body, 32)
 	req.ContentLength = int64(buf.Len())
 
-	_, _, err = httpbinder.ParseMultipartMap(req)
+	_, _, err = httpbind.ParseMultipartMap(req)
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	he, ok := httpbinder.AsHTTPError(err)
+	he, ok := httpbind.AsHTTPError(err)
 	if !ok {
 		t.Fatalf("want HTTPError, got %T %v", err, err)
 	}
@@ -135,63 +135,63 @@ func TestParseMultipartMap_OversizedMapsTo413(t *testing.T) {
 func TestParseMultipartMap_InvalidMultipart(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("not multipart"))
 	req.Header.Set("Content-Type", "multipart/form-data; boundary=xyz")
-	_, _, err := httpbinder.ParseMultipartMap(req)
+	_, _, err := httpbind.ParseMultipartMap(req)
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	he, ok := httpbinder.AsHTTPError(err)
+	he, ok := httpbind.AsHTTPError(err)
 	if !ok || he.Status != http.StatusBadRequest {
 		t.Fatalf("want 400 HTTPError, got %#v", err)
 	}
 }
 
 func TestFile_Empty(t *testing.T) {
-	var z httpbinder.File
+	var z httpbind.File
 	if !z.Empty() {
 		t.Fatal("zero File should be empty")
 	}
-	if (httpbinder.File{Filename: "a"}).Empty() {
+	if (httpbind.File{Filename: "a"}).Empty() {
 		t.Fatal("filename makes non-empty")
 	}
-	if (httpbinder.File{Content: []byte{1}}).Empty() {
+	if (httpbind.File{Content: []byte{1}}).Empty() {
 		t.Fatal("content makes non-empty")
 	}
 }
 
 func TestPayloadTooLarge(t *testing.T) {
-	err := httpbinder.PayloadTooLarge(httpbinder.Problem{Code: "payload_too_large", Message: "too big"})
-	he, ok := httpbinder.AsHTTPError(err)
+	err := httpbind.PayloadTooLarge(httpbind.Problem{Code: "payload_too_large", Message: "too big"})
+	he, ok := httpbind.AsHTTPError(err)
 	if !ok || he.Status != http.StatusRequestEntityTooLarge {
 		t.Fatalf("got %#v", err)
 	}
 }
 
 func TestMaxMultipartBodyBytes_DefaultAndSet(t *testing.T) {
-	prev := httpbinder.MaxMultipartBodyBytes()
-	t.Cleanup(func() { httpbinder.SetMaxMultipartBodyBytes(prev) })
+	prev := httpbind.MaxMultipartBodyBytes()
+	t.Cleanup(func() { httpbind.SetMaxMultipartBodyBytes(prev) })
 
-	if httpbinder.DefaultMaxMultipartBodyBytes != 1<<20 {
-		t.Fatalf("default constant should be 1MiB, got %d", httpbinder.DefaultMaxMultipartBodyBytes)
+	if httpbind.DefaultMaxMultipartBodyBytes != 1<<20 {
+		t.Fatalf("default constant should be 1MiB, got %d", httpbind.DefaultMaxMultipartBodyBytes)
 	}
-	httpbinder.SetMaxMultipartBodyBytes(0)
-	if got := httpbinder.MaxMultipartBodyBytes(); got != httpbinder.DefaultMaxMultipartBodyBytes {
-		t.Fatalf("default: got %d want %d", got, httpbinder.DefaultMaxMultipartBodyBytes)
+	httpbind.SetMaxMultipartBodyBytes(0)
+	if got := httpbind.MaxMultipartBodyBytes(); got != httpbind.DefaultMaxMultipartBodyBytes {
+		t.Fatalf("default: got %d want %d", got, httpbind.DefaultMaxMultipartBodyBytes)
 	}
 
-	httpbinder.SetMaxMultipartBodyBytes(64)
-	if got := httpbinder.MaxMultipartBodyBytes(); got != 64 {
+	httpbind.SetMaxMultipartBodyBytes(64)
+	if got := httpbind.MaxMultipartBodyBytes(); got != 64 {
 		t.Fatalf("set 64: got %d", got)
 	}
-	httpbinder.SetMaxMultipartBodyBytes(-1)
-	if got := httpbinder.MaxMultipartBodyBytes(); got != httpbinder.DefaultMaxMultipartBodyBytes {
+	httpbind.SetMaxMultipartBodyBytes(-1)
+	if got := httpbind.MaxMultipartBodyBytes(); got != httpbind.DefaultMaxMultipartBodyBytes {
 		t.Fatalf("reset via negative: got %d", got)
 	}
 }
 
 func TestParseMultipartMap_EnforcesGlobalBodyLimit(t *testing.T) {
-	prev := httpbinder.MaxMultipartBodyBytes()
-	t.Cleanup(func() { httpbinder.SetMaxMultipartBodyBytes(prev) })
-	httpbinder.SetMaxMultipartBodyBytes(80)
+	prev := httpbind.MaxMultipartBodyBytes()
+	t.Cleanup(func() { httpbind.SetMaxMultipartBodyBytes(prev) })
+	httpbind.SetMaxMultipartBodyBytes(80)
 
 	// Build a multipart body larger than 80 bytes (file content alone is enough).
 	req := multipartRequest(t,
@@ -204,20 +204,20 @@ func TestParseMultipartMap_EnforcesGlobalBodyLimit(t *testing.T) {
 			"image": {filename: "big.bin", content: strings.Repeat("Z", 200), ctype: ""},
 		},
 	)
-	_, _, err := httpbinder.ParseMultipartMap(req)
+	_, _, err := httpbind.ParseMultipartMap(req)
 	if err == nil {
 		t.Fatal("expected oversize error from global limit")
 	}
-	he, ok := httpbinder.AsHTTPError(err)
+	he, ok := httpbind.AsHTTPError(err)
 	if !ok || he.Status != http.StatusRequestEntityTooLarge {
 		t.Fatalf("want 413 HTTPError, got %#v", err)
 	}
 }
 
 func TestParseMultipartMap_GlobalLimitAllowsSmallBody(t *testing.T) {
-	prev := httpbinder.MaxMultipartBodyBytes()
-	t.Cleanup(func() { httpbinder.SetMaxMultipartBodyBytes(prev) })
-	httpbinder.SetMaxMultipartBodyBytes(4 << 10) // 4 KiB
+	prev := httpbind.MaxMultipartBodyBytes()
+	t.Cleanup(func() { httpbind.SetMaxMultipartBodyBytes(prev) })
+	httpbind.SetMaxMultipartBodyBytes(4 << 10) // 4 KiB
 
 	req := multipartRequest(t,
 		map[string]string{"title": "ok"},
@@ -229,7 +229,7 @@ func TestParseMultipartMap_GlobalLimitAllowsSmallBody(t *testing.T) {
 			"image": {filename: "a.txt", content: "hello", ctype: ""},
 		},
 	)
-	form, files, err := httpbinder.ParseMultipartMap(req)
+	form, files, err := httpbind.ParseMultipartMap(req)
 	if err != nil {
 		t.Fatalf("ParseMultipartMap: %v", err)
 	}

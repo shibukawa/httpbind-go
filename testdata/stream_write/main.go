@@ -3,7 +3,7 @@ package app
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type ChatRequest struct {
@@ -16,14 +16,14 @@ type ChatEvent struct {
 }
 
 func chatHandler(w http.ResponseWriter, r *http.Request) {
-	input, err := httpbinder.Bind[ChatRequest](r)
+	input, err := httpbind.Bind[ChatRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 	_ = input
-	var stream httpbinder.Stream[ChatEvent]
-	_ = httpbinder.Write[httpbinder.Stream[ChatEvent]](w, r, stream)
+	var stream httpbind.Stream[ChatEvent]
+	_ = httpbind.Write[httpbind.Stream[ChatEvent]](w, r, stream)
 }
 
 func register(mux *http.ServeMux) {

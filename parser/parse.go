@@ -11,9 +11,9 @@ import (
 )
 
 // ParsePackage analyzes Go sources in dir (same package only) and returns
-// statically discoverable httpbinder route IR.
+// statically discoverable httpbind route IR.
 //
-// Symbol identity for route registration and httpbinder calls is resolved with
+// Symbol identity for route registration and httpbind calls is resolved with
 // go/types (host-side only); see rule:go-types-symbol-identity.
 func ParsePackage(dir string) (*Result, error) {
 	return ParsePackageWithConfig(dir, DefaultConfig())

@@ -3,11 +3,11 @@ id: rule:openapi-success-response
 type: rule
 title: OpenAPI Success Response from Write
 ---
-httpbinder.Write[T] discovery generates a 200 OK response with the schema for T; non-200 success uses api:write-status.
+httpbind.Write[T] discovery generates a 200 OK response with the schema for T; non-200 success uses api:write-status.
 
 ```yaml
 detection: rule:response-model-discovery
-call: "httpbinder.Write[UserResponse](...)"
+call: "httpbind.Write[UserResponse](...)"
 openapi:
   status: 200
   description: OK

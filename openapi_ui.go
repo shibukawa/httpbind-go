@@ -1,4 +1,4 @@
-package httpbinder
+package httpbind
 
 import (
 	"io"
@@ -13,7 +13,7 @@ import (
 // Assets are loaded from a public CDN; this handler does not embed Swagger UI
 // binaries. Mount freely, e.g.:
 //
-//	mux.Handle("GET /docs/{$}", httpbinder.SwaggerUI("/openapi.json"))
+//	mux.Handle("GET /docs/{$}", httpbind.SwaggerUI("/openapi.json"))
 func SwaggerUI(specURL string) http.Handler {
 	if strings.TrimSpace(specURL) == "" {
 		specURL = "/openapi.json"
@@ -41,7 +41,7 @@ const swaggerUIPage = `<!DOCTYPE html>
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>httpbinder API docs</title>
+  <title>httpbind API docs</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css"/>
   <style>
     body { margin: 0; background: #fafafa; }

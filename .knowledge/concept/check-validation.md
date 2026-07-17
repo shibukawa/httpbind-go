@@ -42,5 +42,5 @@ related:
   - decision:reflection-free
   - decision:single-source-of-truth
   - requirement:tinygo-wasm
-  - vision:httpbinder
+  - vision:tinybind
 ```

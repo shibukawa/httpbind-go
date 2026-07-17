@@ -9,17 +9,17 @@ Handlers stay standard net/http functions; they bind, call service logic, then W
 shape: "func(w http.ResponseWriter, r *http.Request)"
 pattern: |
   func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
-      input, err := httpbinder.Bind[CreateUserRequest](r)
+      input, err := httpbind.Bind[CreateUserRequest](r)
       if err != nil {
-          httpbinder.WriteError(w, r, err)
+          httpbind.WriteError(w, r, err)
           return
       }
       output, err := createUser(r.Context(), input)
       if err != nil {
-          httpbinder.WriteError(w, r, err)
+          httpbind.WriteError(w, r, err)
           return
       }
-      httpbinder.Write[CreateUserResponse](w, r, output)
+      httpbind.Write[CreateUserResponse](w, r, output)
   }
 layers:
   handler: concept:net-http-handler
@@ -29,6 +29,6 @@ layers:
   write_error: api:write-error
 router: decision:stdlib-servemux
 related:
-  - system:httpbinder
+  - system:tinybind
   - concept:handler-discovery
 ```

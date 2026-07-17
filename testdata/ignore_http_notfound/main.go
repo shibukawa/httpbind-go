@@ -3,20 +3,20 @@ package app
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type ItemRequest struct{}
 type ItemResponse struct{}
 
 func itemHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := httpbinder.Bind[ItemRequest](r)
+	_, err := httpbind.Bind[ItemRequest](r)
 	if err != nil {
-		// stdlib http.NotFound must not be treated as httpbinder error discovery
+		// stdlib http.NotFound must not be treated as httpbind error discovery
 		http.NotFound(w, r)
 		return
 	}
-	_ = httpbinder.Write[ItemResponse](w, r, ItemResponse{})
+	_ = httpbind.Write[ItemResponse](w, r, ItemResponse{})
 }
 
 func register(mux *http.ServeMux) {

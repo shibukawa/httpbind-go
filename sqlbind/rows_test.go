@@ -1,4 +1,4 @@
-package sqlmap
+package sqlbind
 
 import "testing"
 

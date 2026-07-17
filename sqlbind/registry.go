@@ -1,12 +1,15 @@
 //go:build !tinygo
 
-package httpbinder
+package sqlbind
 
 import (
 	"database/sql"
 	"fmt"
+	"reflect"
 	"sync"
 )
+
+func typeKey[T any]() reflect.Type { return reflect.TypeFor[T]() }
 
 type scanRowsFunc func(*sql.Rows) (any, error)
 
@@ -26,5 +29,5 @@ func lookupScanner(t any) (scanRowsFunc, bool) {
 }
 
 func missingScannerError(t interface{ String() string }) error {
-	return Internal(fmt.Errorf("httpbinder: no SQL scanner registered for %s", t.String()))
+	return fmt.Errorf("sqlbind: no SQL scanner registered for %s", t.String())
 }

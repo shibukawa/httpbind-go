@@ -3,19 +3,19 @@ package app
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type APIRequest struct{}
 type APIResponse struct{}
 
 func apiHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := httpbinder.Bind[APIRequest](r)
+	_, err := httpbind.Bind[APIRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
-	_ = httpbinder.Write[APIResponse](w, r, APIResponse{})
+	_ = httpbind.Write[APIResponse](w, r, APIResponse{})
 }
 
 func register(mux *http.ServeMux) {

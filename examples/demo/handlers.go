@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	httpbinder "github.com/shibukawa/httpbind-go"
+	httpbind "github.com/shibukawa/tinybind-go"
 )
 
 // in-memory toy store for the demo
@@ -13,31 +13,31 @@ var users = map[string]UserGetResponse{
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
-	_ = httpbinder.Write[HealthResponse](w, r, HealthResponse{Status: "ok"})
+	_ = httpbind.Write[HealthResponse](w, r, HealthResponse{Status: "ok"})
 }
 
 func createUserHandler(w http.ResponseWriter, r *http.Request) {
-	input, err := httpbinder.Bind[CreateUserRequest](r)
+	input, err := httpbind.Bind[CreateUserRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 	if input.Name == "" || input.Email == "" {
-		httpbinder.WriteError(w, r, httpbinder.Validation(
-			httpbinder.Field("name", "payload", "required"),
-			httpbinder.Field("email", "payload", "required"),
+		httpbind.WriteError(w, r, httpbind.Validation(
+			httpbind.Field("name", "payload", "required"),
+			httpbind.Field("email", "payload", "required"),
 		))
 		return
 	}
 	if !strings.Contains(input.Email, "@") {
-		httpbinder.WriteError(w, r, httpbinder.BadRequest(httpbinder.Problem{
+		httpbind.WriteError(w, r, httpbind.BadRequest(httpbind.Problem{
 			Code:    "invalid_email",
 			Message: "email is invalid",
 		}))
 		return
 	}
 	if input.Name == "taken" {
-		httpbinder.WriteError(w, r, httpbinder.Conflict(httpbinder.Problem{
+		httpbind.WriteError(w, r, httpbind.Conflict(httpbind.Problem{
 			Code:    "duplicate_name",
 			Message: "name already exists",
 		}))
@@ -52,19 +52,19 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 		Email: input.Email,
 		OrgID: input.OrgID,
 	}
-	if err := httpbinder.Write[CreateUserResponse](w, r, out); err != nil {
-		httpbinder.WriteError(w, r, err)
+	if err := httpbind.Write[CreateUserResponse](w, r, out); err != nil {
+		httpbind.WriteError(w, r, err)
 	}
 }
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
-	input, err := httpbinder.Bind[SearchRequest](r)
+	input, err := httpbind.Bind[SearchRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 	if input.Keyword == "" {
-		httpbinder.WriteError(w, r, httpbinder.BadRequest(httpbinder.Problem{
+		httpbind.WriteError(w, r, httpbind.BadRequest(httpbind.Problem{
 			Code:    "missing_keyword",
 			Message: "keyword is required",
 		}))
@@ -80,79 +80,79 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		Filter:  input.Filter,
 		Hits:    1,
 	}
-	if err := httpbinder.Write[SearchResponse](w, r, out); err != nil {
-		httpbinder.WriteError(w, r, err)
+	if err := httpbind.Write[SearchResponse](w, r, out); err != nil {
+		httpbind.WriteError(w, r, err)
 	}
 }
 
 func echoHandler(w http.ResponseWriter, r *http.Request) {
-	input, err := httpbinder.Bind[EchoRequest](r)
+	input, err := httpbind.Bind[EchoRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 	if input.Message == "" {
-		httpbinder.WriteError(w, r, httpbinder.Validation(
-			httpbinder.Field("message", "payload", "required"),
+		httpbind.WriteError(w, r, httpbind.Validation(
+			httpbind.Field("message", "payload", "required"),
 		))
 		return
 	}
 	out := EchoResponse{Message: input.Message, N: input.N}
-	if err := httpbinder.Write[EchoResponse](w, r, out); err != nil {
-		httpbinder.WriteError(w, r, err)
+	if err := httpbind.Write[EchoResponse](w, r, out); err != nil {
+		httpbind.WriteError(w, r, err)
 	}
 }
 
 func sessionHandler(w http.ResponseWriter, r *http.Request) {
-	input, err := httpbinder.Bind[SessionRequest](r)
+	input, err := httpbind.Bind[SessionRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 	if input.Session == "" {
-		httpbinder.WriteError(w, r, httpbinder.Unauthorized(httpbinder.Problem{
+		httpbind.WriteError(w, r, httpbind.Unauthorized(httpbind.Problem{
 			Code:    "no_session",
 			Message: "session cookie missing",
 		}))
 		return
 	}
 	out := SessionResponse{Session: input.Session, OK: true}
-	if err := httpbinder.Write[SessionResponse](w, r, out); err != nil {
-		httpbinder.WriteError(w, r, err)
+	if err := httpbind.Write[SessionResponse](w, r, out); err != nil {
+		httpbind.WriteError(w, r, err)
 	}
 }
 
 func getUserHandler(w http.ResponseWriter, r *http.Request) {
-	input, err := httpbinder.Bind[UserGetRequest](r)
+	input, err := httpbind.Bind[UserGetRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 	u, ok := users[input.ID]
 	if !ok {
-		httpbinder.WriteError(w, r, httpbinder.NotFound(httpbinder.Problem{
+		httpbind.WriteError(w, r, httpbind.NotFound(httpbind.Problem{
 			Code:    "user_not_found",
 			Message: "user not found",
 		}))
 		return
 	}
-	if err := httpbinder.Write[UserGetResponse](w, r, u); err != nil {
-		httpbinder.WriteError(w, r, err)
+	if err := httpbind.Write[UserGetResponse](w, r, u); err != nil {
+		httpbind.WriteError(w, r, err)
 	}
 }
 
 // chatStreamHandler demos NewStream + multiple Write calls.
 // Transport (SSE / NDJSON-JSONL / JSON array) is selected from Accept / ?stream= / User-Agent.
 func chatStreamHandler(w http.ResponseWriter, r *http.Request) {
-	input, err := httpbinder.Bind[ChatRequest](r)
+	input, err := httpbind.Bind[ChatRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 
-	stream, err := httpbinder.NewStream[ChatEvent](w, r)
+	stream, err := httpbind.NewStream[ChatEvent](w, r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 	defer stream.Close()
@@ -167,7 +167,7 @@ func chatStreamHandler(w http.ResponseWriter, r *http.Request) {
 		{Type: "start"},
 		{Type: "delta", Delta: msg + " "},
 		{Type: "delta", Delta: "from "},
-		{Type: "delta", Delta: "httpbinder"},
+		{Type: "delta", Delta: "httpbind"},
 		{Type: "meta", Delta: string(stream.Format())},
 		{Type: "done"},
 	}
@@ -179,7 +179,7 @@ func chatStreamHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func forbiddenDemoHandler(w http.ResponseWriter, r *http.Request) {
-	httpbinder.WriteError(w, r, httpbinder.Forbidden(httpbinder.Problem{
+	httpbind.WriteError(w, r, httpbind.Forbidden(httpbind.Problem{
 		Code:    "forbidden",
 		Message: "you shall not pass",
 	}))
@@ -206,9 +206,9 @@ func RegisterDemoRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /chat", chatStreamHandler)
 	mux.HandleFunc("GET /forbidden", forbiddenDemoHandler)
 
-	mux.HandleFunc("GET /openapi.json", httpbinder.OpenAPIJSON)
-	mux.HandleFunc("GET /openapi.yaml", httpbinder.OpenAPIYAML)
-	mux.Handle("GET /docs/{$}", httpbinder.SwaggerUI("/openapi.json"))
+	mux.HandleFunc("GET /openapi.json", httpbind.OpenAPIJSON)
+	mux.HandleFunc("GET /openapi.yaml", httpbind.OpenAPIYAML)
+	mux.Handle("GET /docs/{$}", httpbind.SwaggerUI("/openapi.json"))
 	mux.HandleFunc("GET /docs", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/docs/", http.StatusFound)
 	})
@@ -218,7 +218,7 @@ const indexHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>httpbinder demo</title>
+  <title>httpbind demo</title>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 54rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.45; }
     code, pre { background: #f4f4f5; border-radius: 4px; }
@@ -230,7 +230,7 @@ const indexHTML = `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <h1>httpbinder demo</h1>
+  <h1>httpbind demo</h1>
   <p class="muted">Bind / Write / WriteError / OpenAPI / <code>NewStream[T]</code> (SSE / NDJSON-JSONL / JSON array).</p>
   <ul>
     <li><a href="/docs/">GET /docs/</a> — Swagger UI</li>

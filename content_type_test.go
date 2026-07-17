@@ -1,11 +1,11 @@
-package httpbinder_test
+package httpbind_test
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	httpbinder "github.com/shibukawa/httpbind-go"
+	httpbind "github.com/shibukawa/tinybind-go"
 )
 
 func TestIsJSONRequest_JSONAndPlusJSON(t *testing.T) {
@@ -37,7 +37,7 @@ func TestIsJSONRequest_JSONAndPlusJSON(t *testing.T) {
 		if tc.ct != "" {
 			req.Header.Set("Content-Type", tc.ct)
 		}
-		got := httpbinder.IsJSONRequest(req)
+		got := httpbind.IsJSONRequest(req)
 		if got != tc.want {
 			t.Errorf("Content-Type %q: got %v want %v", tc.ct, got, tc.want)
 		}

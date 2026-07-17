@@ -1,14 +1,13 @@
 ---
 id: api:decode-json
 type: api
-title: httpbinder.DecodeJSON
+title: jsonbind.DecodeJSON
 ---
 Generic JSON decoder from io.Reader into typed T; independent of *http.Request.
 
 ```yaml
-status: implemented
 signature: "func DecodeJSON[T any](r io.Reader) (T, error)"
-example: "v, err := httpbinder.DecodeJSON[CreateUserResponse](r)"
+example: "v, err := jsonbind.DecodeJSON[CreateUserResponse](r)"
 pair: api:encode-json
 behavior:
   - decode one JSON value from r into T
@@ -19,9 +18,11 @@ behavior:
   - enforce policy:json-read-limit before retaining the complete document
 limit_api: "func DecodeJSONLimit[T any](r io.Reader, limit int64) (T, error)"
 errors:
-  - invalid JSON: 400-style problem-capable error or plain decode error (implementation chooses HTTPError when useful)
-  - missing codec for T if registry-only mode: clear internal/missing-codec error
-  - input over limit: PayloadTooLarge / HTTP 413
+  - invalid JSON: transport-neutral jsonbind.Error
+  - invalid field: jsonbind.Error with field identity and cause
+  - missing codec for T: missing_codec jsonbind.Error
+  - input over limit: payload_too_large jsonbind.Error
+http_mapping: api:bind converts JSON errors to HTTP validation, 400, or 413 errors
 differs_from:
   api:bind: Bind maps full HTTP request; DecodeJSON is document-only
   ReadJSONMap: internal map[string]json.RawMessage helper for generated binders
@@ -30,6 +31,6 @@ related:
   - api:encode-json
   - api:bind
   - concept:code-generation
-  - system:httpbinder
+  - system:tinybind
   - policy:json-read-limit
 ```

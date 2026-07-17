@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/httpbind-go/generator"
+	"github.com/shibukawa/tinybind-go/generator"
 )
 
 func TestAnalyzeAndEmit_NoReflect(t *testing.T) {
@@ -14,7 +14,7 @@ func TestAnalyzeAndEmit_NoReflect(t *testing.T) {
 	writeTempModule(t, dir)
 	src := `package sample
 
-import "github.com/shibukawa/httpbind-go"
+import "github.com/shibukawa/tinybind-go"
 
 type Req struct {
 	Name  string
@@ -22,7 +22,7 @@ type Req struct {
 	OrgID string ` + "`path:\"org_id\"`" + `
 	Token string ` + "`header:\"Authorization\"`" + `
 	Note  string ` + "`payload:\"note\"`" + `
-	Image httpbinder.File ` + "`payload:\"image\"`" + `
+	Image httpbind.File ` + "`payload:\"image\"`" + `
 }
 
 type Resp struct {
@@ -62,7 +62,7 @@ type Resp struct {
 		}
 	}
 	if !foundFile {
-		t.Fatal("httpbinder.File field Image not planned")
+		t.Fatal("httpbind.File field Image not planned")
 	}
 	code, err := generator.Emit(plan)
 	if err != nil {

@@ -3,23 +3,23 @@ package openapifixture
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 func createUserHandler(w http.ResponseWriter, r *http.Request) {
-	input, err := httpbinder.Bind[CreateUserRequest](r)
+	input, err := httpbind.Bind[CreateUserRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 	if input.Email == "" {
-		httpbinder.WriteError(w, r, httpbinder.Validation(
-			httpbinder.Field("email", "payload", "required"),
+		httpbind.WriteError(w, r, httpbind.Validation(
+			httpbind.Field("email", "payload", "required"),
 		))
 		return
 	}
 	if input.Name == "conflict" {
-		httpbinder.WriteError(w, r, httpbinder.Conflict(httpbinder.Problem{
+		httpbind.WriteError(w, r, httpbind.Conflict(httpbind.Problem{
 			Code: "duplicate", Message: "name taken",
 		}))
 		return
@@ -29,19 +29,19 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 		Name:  input.Name,
 		Email: input.Email,
 	}
-	if err := httpbinder.Write[CreateUserResponse](w, r, out); err != nil {
-		httpbinder.WriteError(w, r, err)
+	if err := httpbind.Write[CreateUserResponse](w, r, out); err != nil {
+		httpbind.WriteError(w, r, err)
 	}
 }
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
-	input, err := httpbinder.Bind[SearchRequest](r)
+	input, err := httpbind.Bind[SearchRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 	if input.Keyword == "" {
-		httpbinder.WriteError(w, r, httpbinder.BadRequest(httpbinder.Problem{
+		httpbind.WriteError(w, r, httpbind.BadRequest(httpbind.Problem{
 			Code: "missing_keyword", Message: "keyword required",
 		}))
 		return
@@ -51,18 +51,18 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		Page:    input.Page,
 		Filter:  input.Filter,
 	}
-	if err := httpbinder.Write[SearchResponse](w, r, out); err != nil {
-		httpbinder.WriteError(w, r, err)
+	if err := httpbind.Write[SearchResponse](w, r, out); err != nil {
+		httpbind.WriteError(w, r, err)
 	}
 }
 
 func getMissingHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := httpbinder.Bind[CreateUserRequest](r)
+	_, err := httpbind.Bind[CreateUserRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
-	httpbinder.WriteError(w, r, httpbinder.NotFound(httpbinder.Problem{
+	httpbind.WriteError(w, r, httpbind.NotFound(httpbind.Problem{
 		Code: "user_not_found", Message: "missing",
 	}))
 }

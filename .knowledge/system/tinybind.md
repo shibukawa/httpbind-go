@@ -1,12 +1,17 @@
 ---
-id: system:httpbinder
+id: system:tinybind
 type: system
-title: httpbinder Library
+title: tinybind-go Library
 ---
-Go library and code generator for typed HTTP request binding, response writing, validation, streaming, OpenAPI, and standalone JSON I/O.
+TinyGo-oriented Go library and generator with dependency-isolated HTTP, JSON, and SQL binding runtimes.
 
 ```yaml
-role: runtime plus ahead-of-time generator
+runtime_packages:
+  - github.com/shibukawa/tinybind-go/jsonbind: standalone JSON codec runtime
+  - github.com/shibukawa/tinybind-go: package httpbind; net/http runtime
+  - github.com/shibukawa/tinybind-go/sqlbind: database/sql runtime
+generator_command: cmd/tinybind-gen
+package_boundary: decision:runtime-package-boundaries
 runtime_style: generated code only; no reflection
 public_api:
   - api:bind
@@ -30,7 +35,7 @@ outputs:
   - streaming metadata
   - typed JSON codecs for registered models
 related:
-  - vision:httpbinder
+  - vision:tinybind
   - flow:code-generation
   - flow:handler-request
   - concept:request-binding
@@ -53,6 +58,5 @@ related:
   - requirement:analysis-diagnostics
   - rule:analysis-diagnostics-check
   - rule:same-package-convention
+  - decision:runtime-package-boundaries
 ```
-
-

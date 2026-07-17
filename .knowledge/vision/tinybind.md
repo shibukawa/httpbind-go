@@ -1,9 +1,9 @@
 ---
-id: vision:httpbinder
+id: vision:tinybind
 type: vision
-title: httpbinder Vision
+title: tinybind-go Vision
 ---
-httpbinder is a code-generation-first library that bridges Go types and HTTP APIs without runtime reflection.
+tinybind-go provides code-generated typed binding without application-field reflection and isolates platform dependencies by mapping mode.
 
 ```yaml
 source_of_truth:
@@ -19,7 +19,7 @@ principles:
   - decision:single-source-of-truth
   - decision:reflection-free
 targets:
-  - system:httpbinder
+  - system:tinybind
   - requirement:tinygo-wasm
   - concept:code-generation
   - concept:openapi-generation

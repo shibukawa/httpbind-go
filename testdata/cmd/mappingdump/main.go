@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/shibukawa/httpbind-go"
-	"github.com/shibukawa/httpbind-go/internal/mappingfixture"
+	"github.com/shibukawa/tinybind-go"
+	"github.com/shibukawa/tinybind-go/internal/mappingfixture"
 )
 
 func main() {
@@ -17,7 +17,7 @@ func main() {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer secret")
 	req.SetPathValue("org_id", "acme")
-	got, err := httpbinder.Bind[mappingfixture.CreateUserRequest](req)
+	got, err := httpbind.Bind[mappingfixture.CreateUserRequest](req)
 	if err != nil {
 		panic(err)
 	}
@@ -25,7 +25,7 @@ func main() {
 
 	rec := httptest.NewRecorder()
 	wreq := httptest.NewRequest(http.MethodGet, "/", nil)
-	if err := httpbinder.Write[mappingfixture.CreateUserResponse](rec, wreq, mappingfixture.CreateUserResponse{
+	if err := httpbind.Write[mappingfixture.CreateUserResponse](rec, wreq, mappingfixture.CreateUserResponse{
 		ID: "user_123", Name: "Alice", Email: "a@example.com",
 	}); err != nil {
 		panic(err)

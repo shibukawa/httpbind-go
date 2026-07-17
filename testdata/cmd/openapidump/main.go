@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/shibukawa/httpbind-go"
-	"github.com/shibukawa/httpbind-go/generator"
-	_ "github.com/shibukawa/httpbind-go/internal/openapifixture"
+	"github.com/shibukawa/tinybind-go"
+	"github.com/shibukawa/tinybind-go/generator"
+	_ "github.com/shibukawa/tinybind-go/internal/openapifixture"
 )
 
 func main() {
@@ -41,8 +41,8 @@ func main() {
 	}
 
 	rec := httptest.NewRecorder()
-	httpbinder.OpenAPIJSON(rec, httptest.NewRequest(http.MethodGet, "/openapi.json", nil))
+	httpbind.OpenAPIJSON(rec, httptest.NewRequest(http.MethodGet, "/openapi.json", nil))
 	fmt.Printf("serve_status=%d registered_len=%d body_has_31=%v\n",
-		rec.Code, len(httpbinder.OpenAPIDocumentJSON()),
+		rec.Code, len(httpbind.OpenAPIDocumentJSON()),
 		len(rec.Body.Bytes()) > 0 && rec.Code == 200)
 }

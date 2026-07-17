@@ -3,15 +3,15 @@ package app
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type Req struct{}
 type Resp struct{}
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	_, _ = httpbinder.Bind[Req](r)
-	_ = httpbinder.Write[Resp](w, r, Resp{})
+	_, _ = httpbind.Bind[Req](r)
+	_ = httpbind.Write[Resp](w, r, Resp{})
 }
 
 func register(mux *http.ServeMux) {

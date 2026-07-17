@@ -3,7 +3,7 @@ package app
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type ChatRequest struct {
@@ -17,16 +17,16 @@ type ChatEvent struct {
 
 // Preferred incremental streaming path: NewStream + repeated Write.
 func chatHandler(w http.ResponseWriter, r *http.Request) {
-	input, err := httpbinder.Bind[ChatRequest](r)
+	input, err := httpbind.Bind[ChatRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 	_ = input
 
-	stream, err := httpbinder.NewStream[ChatEvent](w, r)
+	stream, err := httpbind.NewStream[ChatEvent](w, r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 	defer stream.Close()

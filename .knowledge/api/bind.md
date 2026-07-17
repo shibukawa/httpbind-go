@@ -1,13 +1,13 @@
 ---
 id: api:bind
 type: api
-title: httpbinder.Bind
+title: httpbind.Bind
 ---
 Generic request binder that maps *http.Request into a typed request struct using generated code.
 
 ```yaml
 signature: "func Bind[T any](r *http.Request) (T, error)"
-example: "input, err := httpbinder.Bind[CreateUserRequest](r)"
+example: "input, err := httpbind.Bind[CreateUserRequest](r)"
 behavior:
   - bind query, payload, path, header, cookie, method per field tags
   - validate check tags then apply defaults per concept:check-validation
@@ -22,7 +22,7 @@ uses:
 discovery: rule:request-model-discovery
 error_path: api:write-error
 related:
-  - system:httpbinder
+  - system:tinybind
   - concept:net-http-handler
   - concept:handler-discovery
   - concept:error-helpers

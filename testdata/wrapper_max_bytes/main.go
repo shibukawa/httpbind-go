@@ -3,7 +3,7 @@ package app
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type UploadRequest struct {
@@ -14,12 +14,12 @@ type UploadResponse struct {
 }
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := httpbinder.Bind[UploadRequest](r)
+	_, err := httpbind.Bind[UploadRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
-	_ = httpbinder.Write[UploadResponse](w, r, UploadResponse{OK: true})
+	_ = httpbind.Write[UploadResponse](w, r, UploadResponse{OK: true})
 }
 
 func register(mux *http.ServeMux) {

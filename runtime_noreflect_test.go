@@ -1,4 +1,4 @@
-package httpbinder_test
+package httpbind_test
 
 import (
 	"go/parser"

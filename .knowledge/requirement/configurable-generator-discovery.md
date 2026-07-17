@@ -15,7 +15,7 @@ configuration:
 defaults:
   calls: Bind, Write, WriteStatus, DecodeJSON, EncodeJSON, NewStream
   routes: net/http package registrars and net/http.ServeMux methods
-  special_types: httpbinder.File
+  special_types: httpbind.File
 behavior:
   - Set is the complete identity set for that field
   - configured sets never retain hidden built-in identities

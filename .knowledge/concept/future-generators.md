@@ -21,5 +21,5 @@ invariant: Go types remain single authoritative definition
 related:
   - decision:single-source-of-truth
   - flow:code-generation
-  - vision:httpbinder
+  - vision:tinybind
 ```

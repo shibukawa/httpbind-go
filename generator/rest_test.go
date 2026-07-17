@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/httpbind-go/generator"
+	"github.com/shibukawa/tinybind-go/generator"
 )
 
 func TestAnalyze_PayloadRestMap(t *testing.T) {

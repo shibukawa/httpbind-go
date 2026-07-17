@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/httpbind-go"
-	"github.com/shibukawa/httpbind-go/internal/tinycheck"
+	"github.com/shibukawa/tinybind-go"
+	"github.com/shibukawa/tinybind-go/internal/tinycheck"
 )
 
 func TestBindWrite(t *testing.T) {
@@ -16,7 +16,7 @@ func TestBindWrite(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer secret")
 	req.SetPathValue("org_id", "acme")
-	got, err := httpbinder.Bind[tinycheck.CreateUserRequest](req)
+	got, err := httpbind.Bind[tinycheck.CreateUserRequest](req)
 	if err != nil {
 		t.Fatalf("bind: %v", err)
 	}
@@ -24,7 +24,7 @@ func TestBindWrite(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 	rec := httptest.NewRecorder()
-	if err := httpbinder.Write[tinycheck.CreateUserResponse](rec, req, tinycheck.CreateUserResponse{
+	if err := httpbind.Write[tinycheck.CreateUserResponse](rec, req, tinycheck.CreateUserResponse{
 		ID: "1", Name: "Alice", Email: "a@example.com",
 	}); err != nil {
 		t.Fatalf("write: %v", err)

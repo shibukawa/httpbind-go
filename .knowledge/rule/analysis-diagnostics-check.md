@@ -3,13 +3,13 @@ id: rule:analysis-diagnostics-check
 type: rule
 title: Analysis Diagnostics Check
 ---
-Host check (petitweb check / httpbinder check) reports registration sites that look like routes but cannot be fully analyzed.
+Host check (petitweb check / tinybind check) reports registration sites that look like routes but cannot be fully analyzed.
 
 ```yaml
 status: implemented
 requirement: requirement:analysis-diagnostics
 tooling:
-  name: check command (petitweb check or httpbinder check)
+  name: check command (petitweb check or tinybind check)
   host_only: true
 severity:
   preferred: error on undiscoverable route-like registration in analyzed packages

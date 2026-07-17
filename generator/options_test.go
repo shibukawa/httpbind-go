@@ -7,14 +7,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/shibukawa/httpbind-go/generator"
+	"github.com/shibukawa/tinybind-go/generator"
 )
 
 func TestOptionsZeroValueDiscoversNothing(t *testing.T) {
 	dir := t.TempDir()
 	writeTempModule(t, dir)
 	writeTestFile(t, filepath.Join(dir, "main.go"), `package sample
-import hb "github.com/shibukawa/httpbind-go"
+import hb "github.com/shibukawa/tinybind-go/jsonbind"
 type Note struct{ Text string }
 func use() { _, _ = hb.DecodeJSON[Note](nil) }
 `)
@@ -40,7 +40,7 @@ func DecodeJSON[T any](io.Reader) (T, error) { var zero T; return zero, nil }
 `)
 	writeTestFile(t, filepath.Join(dir, "main.go"), `package sample
 import (
- hb "github.com/shibukawa/httpbind-go"
+ hb "github.com/shibukawa/tinybind-go/jsonbind"
  "tempmod/compat"
 )
 type Standard struct{ ID int }
@@ -57,7 +57,7 @@ func use() { _, _ = hb.DecodeJSON[Standard](nil); _, _ = compat.DecodeJSON[Compa
 	assertTypeUsage(t, plan, "Standard", 0)
 	assertTypeUsage(t, plan, "Compatible", generator.UsageDecodeJSON)
 
-	both := generator.Options{RuntimePackages: generator.PatternSet[string]{Set: []string{"github.com/shibukawa/httpbind-go", "tempmod/compat"}}}
+	both := generator.Options{RuntimePackages: generator.PatternSet[string]{Set: []string{"github.com/shibukawa/tinybind-go/jsonbind", "tempmod/compat"}}}
 	plan, err = generator.New(both).Analyze(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func register(mux *petit.ServeMux) { mux.HandleFunc("POST /notes", route) }
 		{PackagePath: "net/http", Name: "ServeMux"},
 		{PackagePath: "tempmod/handler", Name: "ServeMux"},
 	}
-	opts.RuntimePackages.Set = []string{"github.com/shibukawa/httpbind-go", "tempmod/handler"}
+	opts.RuntimePackages.Set = []string{"github.com/shibukawa/tinybind-go", "tempmod/handler"}
 	g := generator.New(opts)
 	plan, err := g.Analyze(dir)
 	if err != nil {
@@ -158,7 +158,7 @@ func TestRunCannotReenableDisabledOpenAPI(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("Run = %d, stderr=%s", code, stderr.String())
 	}
-	if _, err := os.Stat(filepath.Join(dir, "httpbinder_openapi_gen.go")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, "tinybind_openapi_gen.go")); !os.IsNotExist(err) {
 		t.Fatalf("disabled OpenAPI was generated: %v", err)
 	}
 	if _, err := generator.New(opts).BuildOpenAPI(dir); !errors.Is(err, generator.ErrFeatureDisabled) {

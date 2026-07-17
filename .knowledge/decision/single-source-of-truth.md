@@ -21,7 +21,7 @@ pipeline:
       - streaming metadata
 runtime: generated code is the implementation
 related:
-  - vision:httpbinder
+  - vision:tinybind
   - concept:code-generation
   - concept:openapi-generation
   - concept:openapi-embed

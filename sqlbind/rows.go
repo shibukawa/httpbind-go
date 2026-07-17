@@ -1,5 +1,4 @@
-// Package sqlmap contains reflection-free primitives used by generated SQL scanners.
-package sqlmap
+package sqlbind
 
 import (
 	"database/sql"
@@ -13,7 +12,7 @@ type Row map[string]any
 // ForEach scans rows without retaining the full result.
 func ForEach(rows *sql.Rows, fn func(Row) error) error {
 	if rows == nil {
-		return fmt.Errorf("httpbinder: nil sql.Rows")
+		return fmt.Errorf("sqlbind: nil sql.Rows")
 	}
 	cols, err := rows.Columns()
 	if err != nil {
@@ -43,7 +42,7 @@ func ForEach(rows *sql.Rows, fn func(Row) error) error {
 func Key(row Row, column string) (key string, present bool, err error) {
 	v, ok := row[column]
 	if !ok {
-		return "", false, fmt.Errorf("httpbinder: SQL result has no column %q", column)
+		return "", false, fmt.Errorf("sqlbind: SQL result has no column %q", column)
 	}
 	if v == nil {
 		return "", false, nil
@@ -61,7 +60,7 @@ func RequiredKey(row Row, column string) (string, error) {
 		return "", err
 	}
 	if !present {
-		return "", fmt.Errorf("httpbinder: NULL root group key %q", column)
+		return "", fmt.Errorf("sqlbind: NULL root group key %q", column)
 	}
 	return k, nil
 }
@@ -69,7 +68,7 @@ func RequiredKey(row Row, column string) (string, error) {
 func value(row Row, column string) (any, error) {
 	v, ok := row[column]
 	if !ok {
-		return nil, fmt.Errorf("httpbinder: SQL result has no column %q", column)
+		return nil, fmt.Errorf("sqlbind: SQL result has no column %q", column)
 	}
 	return v, nil
 }

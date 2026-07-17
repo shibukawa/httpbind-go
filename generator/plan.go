@@ -80,14 +80,17 @@ func (f FieldPlan) GoType() string {
 	case KindRestRaw:
 		return "map[string]json.RawMessage"
 	case "file":
-		return "httpbinder.File"
+		return "httpbind.File"
 	default:
 		return f.Kind
 	}
 }
 
-// httpbinderImportPath is the module path of this library (for recognizing File).
-const httpbinderImportPath = "github.com/shibukawa/httpbind-go"
+const (
+	httpbindImportPath = "github.com/shibukawa/tinybind-go"
+	jsonbindImportPath = "github.com/shibukawa/tinybind-go/jsonbind"
+	sqlbindImportPath  = "github.com/shibukawa/tinybind-go/sqlbind"
+)
 
 // TypePlan is the mapping plan for one struct type.
 type TypePlan struct {
@@ -185,10 +188,12 @@ func AnalyzePackageWithOptions(dir string, opts Options) (*PackagePlan, error) {
 			base = filepath.Base(fset.File(f.Pos()).Name())
 		}
 		if strings.HasSuffix(base, "_test.go") ||
-			strings.HasSuffix(base, "_httpbinder_gen.go") ||
+			strings.HasSuffix(base, "_httpbind_gen.go") ||
 			strings.HasSuffix(base, "_openapi_gen.go") ||
-			base == "httpbinder_gen.go" ||
-			base == "httpbinder_openapi_gen.go" {
+			base == "httpbind_gen.go" ||
+			base == "httpbind_openapi_gen.go" ||
+			base == "tinybind_gen.go" ||
+			base == "tinybind_openapi_gen.go" {
 			continue
 		}
 		binderNames := configuredTypeNames(f, normalized.fileTypes, pkg.Imports)
@@ -262,7 +267,7 @@ func configuredTypeNames(f *ast.File, configured []TypePattern, imports map[stri
 	return out
 }
 
-// discoverGenericTypeArgs finds type arguments of httpbinder Bind/Write/DecodeJSON/EncodeJSON
+// discoverGenericTypeArgs finds type arguments of httpbind Bind/Write/DecodeJSON/EncodeJSON
 // using go/types-resolved function identity (import-alias safe).
 func discoverGenericTypeArgs(f *ast.File, info *types.Info, symbols []DiscoverySymbol) map[string]Usage {
 	out := map[string]Usage{}
@@ -413,7 +418,7 @@ func isHTTPBinderGeneric(obj types.Object) bool {
 	if !ok || f.Pkg() == nil {
 		return false
 	}
-	if f.Pkg().Path() != httpbinderImportPath {
+	if f.Pkg().Path() != httpbindImportPath {
 		return false
 	}
 	switch f.Name() {
@@ -435,16 +440,16 @@ func genericTypeArgExprs(fun ast.Expr) []ast.Expr {
 	}
 }
 
-// httpbinderImportNames returns local identifiers that refer to this library
-// (default name "httpbinder" or explicit/aliased imports).
-func httpbinderImportNames(f *ast.File) map[string]bool {
+// httpbindImportNames returns local identifiers that refer to this library
+// (default name "httpbind" or explicit/aliased imports).
+func httpbindImportNames(f *ast.File) map[string]bool {
 	out := make(map[string]bool)
 	if f == nil {
 		return out
 	}
 	for _, imp := range f.Imports {
 		path, err := strconv.Unquote(imp.Path.Value)
-		if err != nil || path != httpbinderImportPath {
+		if err != nil || path != httpbindImportPath {
 			continue
 		}
 		if imp.Name != nil {
@@ -458,7 +463,7 @@ func httpbinderImportNames(f *ast.File) map[string]bool {
 			}
 			continue
 		}
-		out["httpbinder"] = true
+		out["httpbind"] = true
 	}
 	return out
 }
@@ -487,7 +492,7 @@ func analyzeStruct(name string, st *ast.StructType, binderNames map[string]bool)
 				case SourceInput, SourcePayload:
 					fp.Source = SourcePayload
 				default:
-					return TypePlan{}, false, fmt.Errorf("field %s: httpbinder.File only supports payload/input tags, got %s", id.Name, src)
+					return TypePlan{}, false, fmt.Errorf("field %s: httpbind.File only supports payload/input tags, got %s", id.Name, src)
 				}
 			}
 			if fp.IsRest() {

@@ -1,14 +1,14 @@
 ---
 id: api:write
 type: api
-title: httpbinder.Write
+title: httpbind.Write
 ---
 Generic response writer that serializes a typed value or stream to the HTTP response.
 
 ```yaml
 signature: "func Write[T any](w http.ResponseWriter, r *http.Request, value T) error"
 examples:
-  - "httpbinder.Write[CreateUserResponse](w, r, output)"
+  - "httpbind.Write[CreateUserResponse](w, r, output)"
 behavior:
   - serialize ordinary response values with HTTP 200 OK
   - no runtime field reflection on T
@@ -20,7 +20,7 @@ uses:
 discovery: rule:response-model-discovery
 openapi: rule:openapi-success-response
 related:
-  - system:httpbinder
+  - system:tinybind
   - concept:net-http-handler
   - concept:handler-discovery
   - api:write-error

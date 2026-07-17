@@ -25,8 +25,8 @@ formats:
   ndjson: one JSON object line per Write (JSONL family)
   json-array: single application/json array document across Writes + Close
 removed_apis:
-  - httpbinder.WriteNDJSON
-  - httpbinder.WriteSSE
+  - httpbind.WriteNDJSON
+  - httpbind.WriteSSE
 reason: batch helpers could not be called incrementally without re-writing headers
 related:
   - api:new-stream

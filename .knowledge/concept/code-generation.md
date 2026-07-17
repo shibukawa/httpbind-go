@@ -18,7 +18,7 @@ function_examples:
   - "func bindCreateUserRequest(r *http.Request) (CreateUserRequest, error)"
   - "func validateCreateUserRequest(v *CreateUserRequest) error"
   - "func writeCreateUserResponse(w http.ResponseWriter, r *http.Request, resp CreateUserResponse) error"
-  - "func writeChatEventStream(w http.ResponseWriter, r *http.Request, stream httpbinder.Stream[ChatEvent]) error"
+  - "func writeChatEventStream(w http.ResponseWriter, r *http.Request, stream httpbind.Stream[ChatEvent]) error"
 public_wrappers:
   - api:bind
   - api:write

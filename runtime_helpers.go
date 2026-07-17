@@ -1,4 +1,4 @@
-package httpbinder
+package httpbind
 
 import (
 	"encoding/json"
@@ -9,44 +9,28 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+
+	"github.com/shibukawa/tinybind-go/jsonbind"
 )
 
 // DefaultMaxJSONBodyBytes is the default cap for JSON document reads (1 MiB).
-const DefaultMaxJSONBodyBytes int64 = 1 << 20
+const DefaultMaxJSONBodyBytes = jsonbind.DefaultMaxJSONBodyBytes
 
-var maxJSONBodyBytes atomic.Int64
-var errJSONBodyTooLarge = errors.New("httpbinder: JSON body too large")
+var errJSONBodyTooLarge = jsonbind.ErrBodyTooLarge
 
 // SetMaxJSONBodyBytes changes the process-wide JSON body limit. A non-positive
 // value restores DefaultMaxJSONBodyBytes.
 func SetMaxJSONBodyBytes(n int64) {
-	if n <= 0 {
-		maxJSONBodyBytes.Store(0)
-	} else {
-		maxJSONBodyBytes.Store(n)
-	}
+	jsonbind.SetMaxJSONBodyBytes(n)
 }
 
 // MaxJSONBodyBytes returns the effective JSON body limit.
 func MaxJSONBodyBytes() int64 {
-	if n := maxJSONBodyBytes.Load(); n > 0 {
-		return n
-	}
-	return DefaultMaxJSONBodyBytes
+	return jsonbind.MaxJSONBodyBytes()
 }
 
 func readJSONBytes(r io.Reader, limit int64) ([]byte, error) {
-	if limit <= 0 {
-		limit = DefaultMaxJSONBodyBytes
-	}
-	data, err := io.ReadAll(io.LimitReader(r, limit+1))
-	if err != nil {
-		return nil, err
-	}
-	if int64(len(data)) > limit {
-		return nil, errJSONBodyTooLarge
-	}
-	return data, nil
+	return jsonbind.ReadLimit(r, limit)
 }
 
 // DefaultMultipartMaxMemory is the maxMemory argument passed to
@@ -58,7 +42,7 @@ const DefaultMultipartMaxMemory int64 = 32 << 20
 // DefaultMaxMultipartBodyBytes is the default cap on multipart request bodies
 // enforced by ParseMultipartMap (1 MiB). Override with SetMaxMultipartBodyBytes.
 // Without this, io.ReadAll / unrestricted ParseMultipartForm would accept
-// arbitrarily large bodies inside httpbind-go alone.
+// arbitrarily large bodies inside tinybind-go alone.
 const DefaultMaxMultipartBodyBytes int64 = 1 << 20
 
 // maxMultipartBodyBytes holds the process-wide multipart body limit.
@@ -133,7 +117,7 @@ func IsMultipartRequest(r *http.Request) bool {
 // ParseMultipartMap parses a multipart/form-data body into scalar form fields
 // (first value wins) and named file parts (first file wins per field name).
 //
-// The request body is capped at MaxMultipartBodyBytes() so httpbind-go itself
+// The request body is capped at MaxMultipartBodyBytes() so tinybind-go itself
 // enforces a size limit (default 1 MiB): Content-Length is checked when known,
 // r.Body is wrapped with http.MaxBytesReader, and per-file reads use LimitReader.
 // Oversized bodies and oversize file parts map to HTTP 413.
@@ -189,7 +173,7 @@ func ParseMultipartMap(r *http.Request) (form map[string]string, files map[strin
 }
 
 // errFileTooLarge is returned when a single file part exceeds MaxMultipartBodyBytes.
-var errFileTooLarge = errors.New("httpbinder: multipart file too large")
+var errFileTooLarge = errors.New("httpbind: multipart file too large")
 
 func fileFromHeader(fh *multipart.FileHeader, limit int64) (File, error) {
 	if limit <= 0 {
@@ -259,109 +243,47 @@ func isRequestTooLarge(err error) bool {
 
 // RawJSONMap decodes a JSON object RawMessage into a map of raw fields.
 func RawJSONMap(raw json.RawMessage) (map[string]json.RawMessage, error) {
-	if len(raw) == 0 {
-		return map[string]json.RawMessage{}, nil
-	}
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &m); err != nil {
-		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid JSON object"}, err)
-	}
-	if m == nil {
-		return nil, BadRequest(Problem{Code: "json_parse", Message: "JSON value must be an object"}, nil)
-	}
-	return m, nil
+	return jsonbind.RawJSONMap(raw)
 }
 
 // BytesJSONMap decodes a full JSON document (bytes) as an object map.
 func BytesJSONMap(data []byte) (map[string]json.RawMessage, error) {
-	return RawJSONMap(json.RawMessage(data))
+	return jsonbind.BytesJSONMap(data)
 }
 
 // RawJSONArray decodes a JSON array RawMessage into element raw values.
 func RawJSONArray(raw json.RawMessage) ([]json.RawMessage, error) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	var arr []json.RawMessage
-	if err := json.Unmarshal(raw, &arr); err != nil {
-		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid JSON array"}, err)
-	}
-	return arr, nil
+	return jsonbind.RawJSONArray(raw)
 }
 
 // DecodeJSONMapStringString decodes a JSON object with string values.
 func DecodeJSONMapStringString(raw json.RawMessage) (map[string]string, error) {
-	if len(raw) == 0 {
-		return map[string]string{}, nil
-	}
-	var m map[string]string
-	if err := json.Unmarshal(raw, &m); err != nil {
-		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid string map"}, err)
-	}
-	if m == nil {
-		m = map[string]string{}
-	}
-	return m, nil
+	return jsonbind.DecodeJSONMapStringString(raw)
 }
 
 // DecodeJSONStringSlice decodes a JSON array of strings.
 func DecodeJSONStringSlice(raw json.RawMessage) ([]string, error) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	var s []string
-	if err := json.Unmarshal(raw, &s); err != nil {
-		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid string array"}, err)
-	}
-	return s, nil
+	return jsonbind.DecodeJSONStringSlice(raw)
 }
 
 // DecodeJSONIntSlice decodes a JSON array of ints.
 func DecodeJSONIntSlice(raw json.RawMessage) ([]int, error) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	var s []int
-	if err := json.Unmarshal(raw, &s); err != nil {
-		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid int array"}, err)
-	}
-	return s, nil
+	return jsonbind.DecodeJSONIntSlice(raw)
 }
 
 // DecodeJSONInt64Slice decodes a JSON array of int64.
 func DecodeJSONInt64Slice(raw json.RawMessage) ([]int64, error) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	var s []int64
-	if err := json.Unmarshal(raw, &s); err != nil {
-		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid int64 array"}, err)
-	}
-	return s, nil
+	return jsonbind.DecodeJSONInt64Slice(raw)
 }
 
 // DecodeJSONBoolSlice decodes a JSON array of bools.
 func DecodeJSONBoolSlice(raw json.RawMessage) ([]bool, error) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	var s []bool
-	if err := json.Unmarshal(raw, &s); err != nil {
-		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid bool array"}, err)
-	}
-	return s, nil
+	return jsonbind.DecodeJSONBoolSlice(raw)
 }
 
 // DecodeJSONFloat64Slice decodes a JSON array of float64.
 func DecodeJSONFloat64Slice(raw json.RawMessage) ([]float64, error) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	var s []float64
-	if err := json.Unmarshal(raw, &s); err != nil {
-		return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid float64 array"}, err)
-	}
-	return s, nil
+	return jsonbind.DecodeJSONFloat64Slice(raw)
 }
 
 // ReadJSONMap decodes a JSON object body into a map of raw messages.
@@ -403,45 +325,12 @@ func ReadJSONMap(r *http.Request) (map[string]json.RawMessage, error) {
 // Nested JSON values are decoded into any (objects/arrays/numbers/bools/strings/null).
 // Prefer non-nil empty map when nothing remains.
 func RestJSONAny(jsonBody map[string]json.RawMessage, exclude []string) (map[string]any, error) {
-	out := make(map[string]any)
-	if jsonBody == nil {
-		return out, nil
-	}
-	skip := excludeSet(exclude)
-	for k, raw := range jsonBody {
-		if skip[k] {
-			continue
-		}
-		var v any
-		if len(raw) == 0 || string(raw) == "null" {
-			out[k] = nil
-			continue
-		}
-		if err := json.Unmarshal(raw, &v); err != nil {
-			return nil, BadRequest(Problem{Code: "json_parse", Message: "invalid JSON rest value"}, err)
-		}
-		out[k] = v
-	}
-	return out, nil
+	return jsonbind.RestJSONAny(jsonBody, exclude)
 }
 
 // RestJSONRaw builds map[string]json.RawMessage from leftover JSON object keys not in exclude.
 func RestJSONRaw(jsonBody map[string]json.RawMessage, exclude []string) map[string]json.RawMessage {
-	out := make(map[string]json.RawMessage)
-	if jsonBody == nil {
-		return out
-	}
-	skip := excludeSet(exclude)
-	for k, raw := range jsonBody {
-		if skip[k] {
-			continue
-		}
-		// Copy bytes so callers can mutate independently.
-		cp := make(json.RawMessage, len(raw))
-		copy(cp, raw)
-		out[k] = cp
-	}
-	return out
+	return jsonbind.RestJSONRaw(jsonBody, exclude)
 }
 
 // RestFormAny builds map[string]any from leftover form keys not in exclude (string values).
@@ -534,47 +423,27 @@ func CookieValue(r *http.Request, name string) (string, bool) {
 
 // DecodeJSONString unmarshals a JSON raw value as string.
 func DecodeJSONString(raw json.RawMessage) (string, error) {
-	var s string
-	if err := json.Unmarshal(raw, &s); err != nil {
-		return "", err
-	}
-	return s, nil
+	return jsonbind.DecodeJSONString(raw)
 }
 
 // DecodeJSONInt unmarshals a JSON raw value as int.
 func DecodeJSONInt(raw json.RawMessage) (int, error) {
-	var n int
-	if err := json.Unmarshal(raw, &n); err != nil {
-		return 0, err
-	}
-	return n, nil
+	return jsonbind.DecodeJSONInt(raw)
 }
 
 // DecodeJSONInt64 unmarshals a JSON raw value as int64.
 func DecodeJSONInt64(raw json.RawMessage) (int64, error) {
-	var n int64
-	if err := json.Unmarshal(raw, &n); err != nil {
-		return 0, err
-	}
-	return n, nil
+	return jsonbind.DecodeJSONInt64(raw)
 }
 
 // DecodeJSONBool unmarshals a JSON raw value as bool.
 func DecodeJSONBool(raw json.RawMessage) (bool, error) {
-	var b bool
-	if err := json.Unmarshal(raw, &b); err != nil {
-		return false, err
-	}
-	return b, nil
+	return jsonbind.DecodeJSONBool(raw)
 }
 
 // DecodeJSONFloat64 unmarshals a JSON raw value as float64.
 func DecodeJSONFloat64(raw json.RawMessage) (float64, error) {
-	var f float64
-	if err := json.Unmarshal(raw, &f); err != nil {
-		return 0, err
-	}
-	return f, nil
+	return jsonbind.DecodeJSONFloat64(raw)
 }
 
 // ParseInt converts a string to int.

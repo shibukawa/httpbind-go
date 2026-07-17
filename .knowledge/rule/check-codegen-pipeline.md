@@ -34,7 +34,7 @@ generated_shape: |
   }
 errors:
   style: fixed English templates per rule
-  map_to: httpbinder.Validation / Field style problem details
+  map_to: httpbind.Validation / Field style problem details
   custom_messages: deferred past v1
   i18n: deferred
 messages_examples:

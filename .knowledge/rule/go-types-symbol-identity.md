@@ -3,7 +3,7 @@ id: rule:go-types-symbol-identity
 type: rule
 title: go/types Symbol Identity
 ---
-Resolve call sites with go/types so only the listed stdlib and httpbinder symbols participate in route and handler discovery.
+Resolve call sites with go/types so only the listed stdlib and tinybind symbols participate in route and handler discovery.
 
 ```yaml
 status: implemented
@@ -21,8 +21,8 @@ route_registration_only:
   - "(*net/http.ServeMux).Handle"
   - "(*net/http.ServeMux).HandleFunc"
 
-httpbinder_calls_only:
-  package: github.com/shibukawa/httpbind-go
+tinybind_calls_only:
+  package: github.com/shibukawa/tinybind-go
   functions:
     - Bind
     - Write
@@ -49,10 +49,10 @@ httpbinder_calls_only:
 alias_import:
   required: true
   example: |
-    import hb "github.com/shibukawa/httpbind-go"
+    import hb "github.com/shibukawa/tinybind-go"
     hb.Bind[T](r)           # recognized via types
     hb.BadRequest(...)      # recognized via types
-  forbid: matching only default name "httpbinder"
+  forbid: matching only default name "httpbind"
 
 false_positive_reject:
   - otherpkg.HandleFunc(...)

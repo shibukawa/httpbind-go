@@ -9,14 +9,14 @@ import (
 	"strings"
 	"testing"
 
-	httpbinder "github.com/shibukawa/httpbind-go"
-	"github.com/shibukawa/httpbind-go/generator"
-	"github.com/shibukawa/httpbind-go/internal/checkfixture"
+	httpbind "github.com/shibukawa/tinybind-go"
+	"github.com/shibukawa/tinybind-go/generator"
+	"github.com/shibukawa/tinybind-go/internal/checkfixture"
 )
 
 func mustFieldErr(t *testing.T, err error, field, substr string) {
 	t.Helper()
-	he, ok := httpbinder.AsHTTPError(err)
+	he, ok := httpbind.AsHTTPError(err)
 	if !ok {
 		t.Fatalf("expected HTTPError, got %T %v", err, err)
 	}
@@ -40,7 +40,7 @@ func mustFieldErr(t *testing.T, err error, field, substr string) {
 
 func TestBind_CheckRequiredAndEmail(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/?name=&email=bad", nil)
-	_, err := httpbinder.Bind[checkfixture.CheckRequest](req)
+	_, err := httpbind.Bind[checkfixture.CheckRequest](req)
 	if err == nil {
 		t.Fatal("expected validation error")
 	}
@@ -51,7 +51,7 @@ func TestBind_CheckRequiredAndEmail(t *testing.T) {
 func TestBind_CheckMinMaxMinLenEnumPattern(t *testing.T) {
 	q := "name=Al&email=a@b.co&age=200&sort=sideways&code=ab"
 	req := httptest.NewRequest(http.MethodGet, "/?"+q, nil)
-	_, err := httpbinder.Bind[checkfixture.CheckRequest](req)
+	_, err := httpbind.Bind[checkfixture.CheckRequest](req)
 	if err == nil {
 		t.Fatal("expected validation error")
 	}
@@ -65,7 +65,7 @@ func TestBind_CheckUUIDDateTimeSuccessAndFailure(t *testing.T) {
 	// failures
 	q := "name=Al&email=a@b.co&id=not-uuid&born=01/02/2024&at=99:99:99&when=2024-01-02T15:04:05"
 	req := httptest.NewRequest(http.MethodGet, "/?"+q, nil)
-	_, err := httpbinder.Bind[checkfixture.CheckRequest](req)
+	_, err := httpbind.Bind[checkfixture.CheckRequest](req)
 	if err == nil {
 		t.Fatal("expected validation error")
 	}
@@ -80,7 +80,7 @@ func TestBind_CheckUUIDDateTimeSuccessAndFailure(t *testing.T) {
 		"&born=2024-01-02&at=15:04:05&when=2024-01-02T15:04:05Z" +
 		"&sort=asc&code=ABC&age=30&page=2"
 	req = httptest.NewRequest(http.MethodGet, "/?"+q, nil)
-	got, err := httpbinder.Bind[checkfixture.CheckRequest](req)
+	got, err := httpbind.Bind[checkfixture.CheckRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestBind_CheckUUIDDateTimeSuccessAndFailure(t *testing.T) {
 func TestBind_SentinelDefaultAfterValidate(t *testing.T) {
 	// omitted page → default -1 after successful validate
 	req := httptest.NewRequest(http.MethodGet, "/?name=Al&email=a@b.co", nil)
-	got, err := httpbinder.Bind[checkfixture.CheckRequest](req)
+	got, err := httpbind.Bind[checkfixture.CheckRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestBind_SentinelDefaultAfterValidate(t *testing.T) {
 
 	// explicit -1 fails min and must not become "success with default"
 	req = httptest.NewRequest(http.MethodGet, "/?name=Al&email=a@b.co&page=-1", nil)
-	_, err = httpbinder.Bind[checkfixture.CheckRequest](req)
+	_, err = httpbind.Bind[checkfixture.CheckRequest](req)
 	if err == nil {
 		t.Fatal("expected validation error for page=-1")
 	}
@@ -110,7 +110,7 @@ func TestBind_SentinelDefaultAfterValidate(t *testing.T) {
 
 	// valid page
 	req = httptest.NewRequest(http.MethodGet, "/?name=Al&email=a@b.co&page=3", nil)
-	got, err = httpbinder.Bind[checkfixture.CheckRequest](req)
+	got, err = httpbind.Bind[checkfixture.CheckRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestBind_SentinelDefaultAfterValidate(t *testing.T) {
 
 func TestBind_OptionalEmailSkippedWhenAbsent(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/?name=Al&email=a@b.co", nil)
-	got, err := httpbinder.Bind[checkfixture.CheckRequest](req)
+	got, err := httpbind.Bind[checkfixture.CheckRequest](req)
 	if err != nil {
 		t.Fatalf("Bind: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestBind_OptionalEmailSkippedWhenAbsent(t *testing.T) {
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/?name=Al&email=a@b.co&optional=bad", nil)
-	_, err = httpbinder.Bind[checkfixture.CheckRequest](req)
+	_, err = httpbind.Bind[checkfixture.CheckRequest](req)
 	if err == nil {
 		t.Fatal("expected optional email failure")
 	}

@@ -3,20 +3,20 @@ id: rule:error-response-discovery
 type: rule
 title: Error Response Discovery
 ---
-Recognized httpbinder error constructors feed generated OpenAPI error responses.
+Recognized tinybind error constructors feed generated OpenAPI error responses.
 
 ```yaml
 recognized_constructors:
-  - httpbinder.BadRequest
-  - httpbinder.Unauthorized
-  - httpbinder.Forbidden
-  - httpbinder.NotFound
-  - httpbinder.Conflict
-  - httpbinder.PayloadTooLarge
-  - httpbinder.Internal
-  - httpbinder.Validation
+  - httpbind.BadRequest
+  - httpbind.Unauthorized
+  - httpbind.Forbidden
+  - httpbind.NotFound
+  - httpbind.Conflict
+  - httpbind.PayloadTooLarge
+  - httpbind.Internal
+  - httpbind.Validation
 symbol_identity: rule:go-types-symbol-identity
-must_be_package: github.com/shibukawa/httpbind-go
+must_be_package: github.com/shibukawa/tinybind-go
 alias_ok: true
 note: import alias must still resolve; name-only match of BadRequest is insufficient
 purpose: generate OpenAPI error responses

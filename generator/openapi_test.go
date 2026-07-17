@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/httpbind-go/generator"
+	"github.com/shibukawa/tinybind-go/generator"
 )
 
 func TestBuildOpenAPI_FromFixtureGoSource(t *testing.T) {
@@ -124,7 +124,7 @@ func TestBuildOpenAPI_YAMLRequiredList(t *testing.T) {
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type Req struct {
@@ -137,12 +137,12 @@ type Resp struct {
 
 func init() {
 	http.HandleFunc("POST /x", func(w http.ResponseWriter, r *http.Request) {
-		_, err := httpbinder.Bind[Req](r)
+		_, err := httpbind.Bind[Req](r)
 		if err != nil {
-			httpbinder.WriteError(w, r, err)
+			httpbind.WriteError(w, r, err)
 			return
 		}
-		_ = httpbinder.Write[Resp](w, r, Resp{OK: true})
+		_ = httpbind.Write[Resp](w, r, Resp{OK: true})
 	})
 }
 `
@@ -170,7 +170,7 @@ func init() {
 func TestGenerateOpenAPI_EmitsRegisterNotHandwrittenYAML(t *testing.T) {
 	srcDir := filepath.Join("..", "internal", "openapifixture")
 	out := t.TempDir()
-	path, err := generator.GenerateOpenAPI(srcDir, out, "httpbinder_openapi_gen.go")
+	path, err := generator.GenerateOpenAPI(srcDir, out, "tinybind_openapi_gen.go")
 	if err != nil {
 		t.Fatal(err)
 	}

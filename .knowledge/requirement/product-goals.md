@@ -3,7 +3,7 @@ id: requirement:product-goals
 type: requirement
 title: Product Goals
 ---
-Core product goals for httpbinder API design and runtime behavior.
+Core product goals for tinybind API design and runtime behavior.
 
 ```yaml
 goals:

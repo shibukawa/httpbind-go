@@ -22,7 +22,7 @@ must_become: rule:analysis-diagnostics-check
 convention: rule:same-package-convention
 escape_hatches:
   - explicit route annotation
-  - httpbinder route helper
+  - tinybind route helper
 related:
   - concept:route-discovery
   - concept:handler-discovery

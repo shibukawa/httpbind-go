@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/httpbind-go/generator"
+	"github.com/shibukawa/tinybind-go/generator"
 )
 
 func TestParseCheckTag_CoreRules(t *testing.T) {
@@ -91,7 +91,7 @@ type Sentinel struct {
 		t.Fatal("reflect in generated code")
 	}
 	// validate before defaults
-	vi := strings.Index(s, "httpbinder.Validation(checkFields")
+	vi := strings.Index(s, "httpbind.Validation(checkFields")
 	di := strings.Index(s, "out.N = -1")
 	if vi < 0 || di < 0 || vi > di {
 		t.Fatalf("expected validate before default; vi=%d di=%d\n%s", vi, di, s)

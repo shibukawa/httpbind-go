@@ -1,14 +1,13 @@
 ---
 id: api:encode-json
 type: api
-title: httpbinder.EncodeJSON
+title: jsonbind.EncodeJSON
 ---
 Generic compact JSON encoder of typed T to io.Writer; independent of http.ResponseWriter.
 
 ```yaml
-status: implemented
 signature: "func EncodeJSON[T any](w io.Writer, v T) error"
-example: "err := httpbinder.EncodeJSON(w, output)"
+example: "err := jsonbind.EncodeJSON(w, output)"
 pair: api:decode-json
 behavior:
   - encode v as compact JSON to w
@@ -17,7 +16,7 @@ behavior:
   - prefer generated codec when T is registered (decision:reflection-free)
 name_note: |
   Existing untyped helper WriteJSON(http.ResponseWriter, status int, v any) stays
-  an HTTP/codegen helper name; public standalone API is EncodeJSON (no rename required).
+  in httpbind; public standalone API is jsonbind.EncodeJSON.
 differs_from:
   api:write: Write sets HTTP status/headers and uses Accept/stream paths
   api:write-error: problem+json for errors
@@ -28,5 +27,5 @@ related:
   - api:write
   - concept:code-generation
   - concept:response-binding
-  - system:httpbinder
+  - system:tinybind
 ```

@@ -3,7 +3,7 @@ package app
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type CreateUserRequest struct {
@@ -15,12 +15,12 @@ type CreateUserResponse struct {
 
 func register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /users", func(w http.ResponseWriter, r *http.Request) {
-		input, err := httpbinder.Bind[CreateUserRequest](r)
+		input, err := httpbind.Bind[CreateUserRequest](r)
 		if err != nil {
-			httpbinder.WriteError(w, r, err)
+			httpbind.WriteError(w, r, err)
 			return
 		}
 		_ = input
-		_ = httpbinder.Write[CreateUserResponse](w, r, CreateUserResponse{ID: "1"})
+		_ = httpbind.Write[CreateUserResponse](w, r, CreateUserResponse{ID: "1"})
 	})
 }

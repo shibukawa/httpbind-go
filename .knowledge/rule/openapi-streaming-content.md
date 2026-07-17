@@ -6,7 +6,7 @@ title: OpenAPI Streaming Response Content Types
 Stream[T] handlers may document multiple response content types; runtime still negotiates the transport.
 
 ```yaml
-return_type: "httpbinder.Stream[Event]"
+return_type: "httpbind.Stream[Event]"
 possible_content_types:
   - text/event-stream
   - application/x-ndjson

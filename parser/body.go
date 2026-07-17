@@ -34,7 +34,7 @@ func (p *packageParser) analyzeBody(body *ast.BlockStmt) bodyInfo {
 			return true
 		}
 
-		// httpbinder.Bind[T] / Write[T] / WriteStatus[T] / NewStream[T]
+		// httpbind.Bind[T] / Write[T] / WriteStatus[T] / NewStream[T]
 		if isConfiguredFunc(obj, p.config.GenericFunctions) {
 			name := callFuncName(obj)
 			typeArgs := genericTypeArgExprs(call)
@@ -97,7 +97,7 @@ func (p *packageParser) analyzeBody(body *ast.BlockStmt) bodyInfo {
 							info.Stream = elem
 						}
 						if info.Response == "" {
-							info.Response = "httpbinder.Stream[" + elem + "]"
+							info.Response = "httpbind.Stream[" + elem + "]"
 						}
 						statusSet[200] = struct{}{}
 					}
@@ -106,7 +106,7 @@ func (p *packageParser) analyzeBody(body *ast.BlockStmt) bodyInfo {
 			return true
 		}
 
-		// httpbinder error constructors (alias-safe via types)
+		// httpbind error constructors (alias-safe via types)
 		if isConfiguredFunc(obj, p.config.ErrorFunctions) {
 			errorSet[callFuncName(obj)] = struct{}{}
 			return true
@@ -157,7 +157,7 @@ func typeArgIssue(expr ast.Expr) string {
 		// Stream[T] is handled as response string; nested generics beyond Ident/selector on Write less common
 		// Allow Ident element only for simple forms; IndexExpr for Stream[ChatEvent] uses X=Ident/selector
 		if idx, ok := e.(*ast.IndexExpr); ok {
-			// e.g. Stream[ChatEvent] or httpbinder.Stream[ChatEvent]
+			// e.g. Stream[ChatEvent] or httpbind.Stream[ChatEvent]
 			if isStreamIndex(idx) {
 				if issue := typeArgIssue(idx.Index); issue != "" {
 					return issue
@@ -284,7 +284,7 @@ func httpStatusName(name string) (int, bool) {
 }
 
 // parseResponseType turns Write type arg into response name + optional stream element.
-// Handles: CreateUserResponse, Stream[ChatEvent], httpbinder.Stream[ChatEvent]
+// Handles: CreateUserResponse, Stream[ChatEvent], httpbind.Stream[ChatEvent]
 func parseResponseType(typeStr string) (response, streamElem string) {
 	s := typeStr
 	if i := lastIndexStream(s); i >= 0 {

@@ -1,7 +1,7 @@
 ---
 id: api:write-error
 type: api
-title: httpbinder.WriteError
+title: httpbind.WriteError
 ---
 Writes an error as an RFC 9457 Problem Details response and keeps internal causes out of the client body.
 
@@ -9,7 +9,7 @@ Writes an error as an RFC 9457 Problem Details response and keeps internal cause
 signature: "func WriteError(w http.ResponseWriter, r *http.Request, err error)"
 example: |
   if err != nil {
-      httpbinder.WriteError(w, r, err)
+      httpbind.WriteError(w, r, err)
       return
   }
 behavior:
@@ -20,7 +20,7 @@ behavior:
 policy: policy:problem-details
 helpers: concept:error-helpers
 related:
-  - system:httpbinder
+  - system:tinybind
   - concept:net-http-handler
   - rule:error-cause-preservation
 ```

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shibukawa/httpbind-go/parser"
+	"github.com/shibukawa/tinybind-go/parser"
 )
 
 var update = flag.Bool("update", false, "update expected.json golden files")

@@ -1,4 +1,4 @@
-package httpbinder
+package httpbind
 
 import (
 	"strings"

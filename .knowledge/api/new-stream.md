@@ -1,16 +1,16 @@
 ---
 id: api:new-stream
 type: api
-title: httpbinder.NewStream
+title: httpbind.NewStream
 ---
 Creates a typed response stream bound to the ResponseWriter; transport format is chosen from the request.
 
 ```yaml
 signature: "func NewStream[T any](w http.ResponseWriter, r *http.Request) (*Stream[T], error)"
 example: |
-  stream, err := httpbinder.NewStream[ChatEvent](w, r)
+  stream, err := httpbind.NewStream[ChatEvent](w, r)
   if err != nil {
-      httpbinder.WriteError(w, r, err)
+      httpbind.WriteError(w, r, err)
       return
   }
   defer stream.Close()

@@ -11,7 +11,7 @@ api:write:
   openapi_status: 200
   schema: T from Write[T]
 api:write-status:
-  call: "httpbinder.WriteStatus[T](w, r, status, value)"
+  call: "httpbind.WriteStatus[T](w, r, status, value)"
   status_arg:
     preferred: integer literal or named const resolvable to int (e.g. http.StatusCreated)
     when_static: emit that status under responses

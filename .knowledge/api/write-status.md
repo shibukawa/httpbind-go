@@ -1,7 +1,7 @@
 ---
 id: api:write-status
 type: api
-title: httpbinder.WriteStatus
+title: httpbind.WriteStatus
 ---
 Typed response writer with explicit HTTP success status; preferred over wrapping Body in a Response struct for TinyGo and codegen simplicity.
 
@@ -9,8 +9,8 @@ Typed response writer with explicit HTTP success status; preferred over wrapping
 status: implemented
 signature: "func WriteStatus[T any](w http.ResponseWriter, r *http.Request, status int, value T) error"
 examples:
-  - "httpbinder.WriteStatus[CreateUserResponse](w, r, http.StatusCreated, out)"
-  - "httpbinder.WriteStatus[struct{}](w, r, http.StatusNoContent, struct{}{})"
+  - "httpbind.WriteStatus[CreateUserResponse](w, r, http.StatusCreated, out)"
+  - "httpbind.WriteStatus[struct{}](w, r, http.StatusNoContent, struct{}{})"
 behavior:
   - write status then serialize value as JSON (or empty body policy for 204)
   - no runtime field reflection on T
@@ -36,5 +36,5 @@ related:
   - concept:code-generation
   - rule:openapi-success-response
   - rule:openapi-success-status
-  - system:httpbinder
+  - system:tinybind
 ```

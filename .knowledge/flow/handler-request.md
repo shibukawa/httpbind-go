@@ -23,5 +23,5 @@ flow:
     default: api:write-error with policy:problem-details
 related:
   - concept:net-http-handler
-  - system:httpbinder
+  - system:tinybind
 ```

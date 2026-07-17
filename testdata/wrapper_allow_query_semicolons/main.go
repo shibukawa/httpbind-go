@@ -3,7 +3,7 @@ package app
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type SearchRequest struct {
@@ -12,12 +12,12 @@ type SearchRequest struct {
 type SearchResponse struct{}
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := httpbinder.Bind[SearchRequest](r)
+	_, err := httpbind.Bind[SearchRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
-	_ = httpbinder.Write[SearchResponse](w, r, SearchResponse{})
+	_ = httpbind.Write[SearchResponse](w, r, SearchResponse{})
 }
 
 func register(mux *http.ServeMux) {

@@ -15,7 +15,7 @@ recommended_mount: "GET /openapi.json"
 example: |
   mux.HandleFunc(
       "GET /openapi.json",
-      httpbinder.OpenAPIJSON,
+      httpbind.OpenAPIJSON,
   )
 source: concept:openapi-embed
 related:

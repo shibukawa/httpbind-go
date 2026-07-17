@@ -1,12 +1,11 @@
 ---
 id: api:scan-rows
 type: api
-title: httpbinder.ScanRows
+title: sqlbind.ScanRows
 ---
 Map flat joined database/sql rows into grouped typed object trees through generated scanners.
 
 ```yaml
-status: required
 signature: "func ScanRows[T any](rows *sql.Rows) ([]T, error)"
 input: database/sql column names and row values
 output: roots in first-seen key order with nested slice children
@@ -21,6 +20,7 @@ errors:
   - unsupported SQL-to-Go conversion
   - missing generated scanner
 runtime: no application field reflection
+package: github.com/shibukawa/tinybind-go/sqlbind
 related:
   - rule:sql-group-key
   - rule:usage-directed-generation

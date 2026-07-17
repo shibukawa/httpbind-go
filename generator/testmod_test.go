@@ -8,7 +8,7 @@ import (
 )
 
 // writeTempModule writes a go.mod that replace-points at this module root so
-// packages.Load can type-check temp packages that import httpbind-go.
+// packages.Load can type-check temp packages that import tinybind-go.
 func writeTempModule(t *testing.T, dir string) {
 	t.Helper()
 	root, err := filepath.Abs("..")
@@ -17,8 +17,8 @@ func writeTempModule(t *testing.T, dir string) {
 	}
 	mod := "module tempmod\n\n" +
 		"go 1.25\n\n" +
-		"require github.com/shibukawa/httpbind-go v0.0.0\n\n" +
-		"replace github.com/shibukawa/httpbind-go => " + filepath.ToSlash(root) + "\n"
+		"require github.com/shibukawa/tinybind-go v0.0.0\n\n" +
+		"replace github.com/shibukawa/tinybind-go => " + filepath.ToSlash(root) + "\n"
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(mod), 0o644); err != nil {
 		t.Fatal(err)
 	}

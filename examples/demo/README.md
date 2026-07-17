@@ -1,10 +1,10 @@
-# httpbinder demo
+# httpbind demo
 
 Sample app that exercises the main library features end-to-end.
 
 | Feature | Where |
 |---------|--------|
-| Generated Bind / Write | `httpbinder_gen.go` (`go generate`) |
+| Generated Bind / Write | `tinybind_gen.go` (`go generate`) |
 | Default `input` (query + JSON/form body) | `CreateUserRequest`, `EchoRequest` |
 | `query` / `payload` | `SearchRequest` |
 | `path` / `header` | create user, get user |
@@ -17,7 +17,7 @@ Sample app that exercises the main library features end-to-end.
 ## Streaming model
 
 ```go
-stream, err := httpbinder.NewStream[ChatEvent](w, r)
+stream, err := httpbind.NewStream[ChatEvent](w, r)
 if err != nil { ... }
 defer stream.Close()
 
@@ -95,8 +95,8 @@ examples/demo/
   handlers.go                 # routes + NewStream chat
   types.go
   generate.go                 # go:generate
-  httpbinder_gen.go           # generated Bind/Write
-  httpbinder_openapi_gen.go   # generated OpenAPI embed
+  tinybind_gen.go           # generated Bind/Write
+  tinybind_openapi_gen.go   # generated OpenAPI embed
   demo_test.go
   README.md
 ```
@@ -106,5 +106,5 @@ examples/demo/
 ```bash
 go generate ./examples/demo
 # equivalent:
-# go run ./cmd/httpbinder-gen -dir ./examples/demo
+# go run ./cmd/tinybind-gen -dir ./examples/demo
 ```

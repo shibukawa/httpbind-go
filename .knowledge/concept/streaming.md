@@ -7,12 +7,12 @@ Streaming uses a writable Stream[T] obtained from NewStream; handlers call Write
 
 ```yaml
 api: api:new-stream
-type: "httpbinder.Stream[T]"
+type: "httpbind.Stream[T]"
 not:
   - WriteNDJSON batch helper
   - WriteSSE batch helper
 handler_shape: |
-  stream, err := httpbinder.NewStream[ChatEvent](w, r)
+  stream, err := httpbind.NewStream[ChatEvent](w, r)
   if err != nil { ... }
   defer stream.Close()
   _ = stream.Write(ChatEvent{Type: "delta", Delta: "hi"})
@@ -41,5 +41,5 @@ related:
   - api:stream-write
   - rule:stream-content-negotiation
   - concept:net-http-handler
-  - system:httpbinder
+  - system:tinybind
 ```

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shibukawa/httpbind-go/parser"
+	"github.com/shibukawa/tinybind-go/parser"
 )
 
 // Document is an OpenAPI 3.1 document represented as ordered JSON-friendly maps.
@@ -496,7 +496,7 @@ func stripPackage(name string) string {
 	if i := strings.LastIndex(name, "."); i >= 0 {
 		name = name[i+1:]
 	}
-	// httpbinder.Stream[ChatEvent] already handled elsewhere
+	// httpbind.Stream[ChatEvent] already handled elsewhere
 	return name
 }
 

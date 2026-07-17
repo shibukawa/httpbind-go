@@ -1,4 +1,4 @@
-package httpbinder_test
+package httpbind_test
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	httpbinder "github.com/shibukawa/httpbind-go"
+	httpbind "github.com/shibukawa/tinybind-go"
 )
 
 type evt struct {
@@ -20,11 +20,11 @@ func TestNewStream_MultipleWrites_NDJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/chat", nil)
 	req.Header.Set("User-Agent", "curl/8.4.0")
 
-	s, err := httpbinder.NewStream[evt](rec, req)
+	s, err := httpbind.NewStream[evt](rec, req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Format() != httpbinder.StreamNDJSON {
+	if s.Format() != httpbind.StreamNDJSON {
 		t.Fatalf("format %q", s.Format())
 	}
 	if err := s.Write(evt{Type: "a", N: 1}); err != nil {
@@ -53,12 +53,12 @@ func TestNewStream_AcceptSSE(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/chat", nil)
 	req.Header.Set("Accept", "text/html, text/event-stream, application/json")
 
-	s, err := httpbinder.NewStream[evt](rec, req)
+	s, err := httpbind.NewStream[evt](rec, req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// first matching stream media type: text/html ignored, then event-stream
-	if s.Format() != httpbinder.StreamSSE {
+	if s.Format() != httpbind.StreamSSE {
 		t.Fatalf("format %q", s.Format())
 	}
 	_ = s.Write(evt{Type: "x", N: 1})
@@ -78,11 +78,11 @@ func TestNewStream_JSONArray_AcceptJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/chat", nil)
 	req.Header.Set("Accept", "application/json")
 
-	s, err := httpbinder.NewStream[evt](rec, req)
+	s, err := httpbind.NewStream[evt](rec, req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Format() != httpbinder.StreamJSONArray {
+	if s.Format() != httpbind.StreamJSONArray {
 		t.Fatalf("format %q", s.Format())
 	}
 	if !strings.Contains(rec.Header().Get("Content-Type"), "application/json") {
@@ -112,11 +112,11 @@ func TestNewStream_JSONArray_AcceptJSON(t *testing.T) {
 func TestNewStream_JSONArray_EmptyClose(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/chat?stream=json", nil)
-	s, err := httpbinder.NewStream[evt](rec, req)
+	s, err := httpbind.NewStream[evt](rec, req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Format() != httpbinder.StreamJSONArray {
+	if s.Format() != httpbind.StreamJSONArray {
 		t.Fatalf("format %q", s.Format())
 	}
 	_ = s.Close()
@@ -129,11 +129,11 @@ func TestNewStream_JSONArray_QueryOverridesUA(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/chat?stream=array", nil)
 	req.Header.Set("User-Agent", "curl/8.0")
-	s, err := httpbinder.NewStream[evt](rec, req)
+	s, err := httpbind.NewStream[evt](rec, req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Format() != httpbinder.StreamJSONArray {
+	if s.Format() != httpbind.StreamJSONArray {
 		t.Fatalf("format %q", s.Format())
 	}
 }
@@ -142,11 +142,11 @@ func TestNewStream_JSONL_NotArray(t *testing.T) {
 	// JSONL/NDJSON must stay line-delimited, not a JSON array.
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/chat?stream=jsonl", nil)
-	s, err := httpbinder.NewStream[evt](rec, req)
+	s, err := httpbind.NewStream[evt](rec, req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Format() != httpbinder.StreamNDJSON {
+	if s.Format() != httpbind.StreamNDJSON {
 		t.Fatalf("format %q want ndjson", s.Format())
 	}
 	_ = s.Write(evt{Type: "a", N: 1})
@@ -162,11 +162,11 @@ func TestNewStream_QueryParamOverridesUA(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/chat?stream=sse", nil)
 	req.Header.Set("User-Agent", "curl/8.0")
 
-	s, err := httpbinder.NewStream[evt](rec, req)
+	s, err := httpbind.NewStream[evt](rec, req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Format() != httpbinder.StreamSSE {
+	if s.Format() != httpbind.StreamSSE {
 		t.Fatalf("format %q", s.Format())
 	}
 }
@@ -176,11 +176,11 @@ func TestNewStream_BrowserUA(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/chat", nil)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/120.0.0.0")
 
-	s, err := httpbinder.NewStream[evt](rec, req)
+	s, err := httpbind.NewStream[evt](rec, req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Format() != httpbinder.StreamSSE {
+	if s.Format() != httpbind.StreamSSE {
 		t.Fatalf("format %q want sse", s.Format())
 	}
 }
@@ -188,7 +188,7 @@ func TestNewStream_BrowserUA(t *testing.T) {
 func TestNewStream_WriteAfterClose(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	s, err := httpbinder.NewStream[evt](rec, req)
+	s, err := httpbind.NewStream[evt](rec, req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,19 +201,19 @@ func TestNewStream_WriteAfterClose(t *testing.T) {
 func TestNegotiateStreamFormat_Exported(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/?stream=ndjson", nil)
 	req.Header.Set("Accept", "text/event-stream")
-	if httpbinder.NegotiateStreamFormat(req) != httpbinder.StreamNDJSON {
+	if httpbind.NegotiateStreamFormat(req) != httpbind.StreamNDJSON {
 		t.Fatal("query should win over Accept")
 	}
 
 	req2 := httptest.NewRequest(http.MethodGet, "/", nil)
 	req2.Header.Set("Accept", "application/json")
-	if httpbinder.NegotiateStreamFormat(req2) != httpbinder.StreamJSONArray {
+	if httpbind.NegotiateStreamFormat(req2) != httpbind.StreamJSONArray {
 		t.Fatal("application/json should select JSON array (not JSONL)")
 	}
 
 	req3 := httptest.NewRequest(http.MethodGet, "/", nil)
 	req3.Header.Set("Accept", "application/jsonl")
-	if httpbinder.NegotiateStreamFormat(req3) != httpbinder.StreamNDJSON {
+	if httpbind.NegotiateStreamFormat(req3) != httpbind.StreamNDJSON {
 		t.Fatal("application/jsonl should select NDJSON")
 	}
 }

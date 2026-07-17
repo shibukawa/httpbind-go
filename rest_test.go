@@ -1,10 +1,10 @@
-package httpbinder_test
+package httpbind_test
 
 import (
 	"encoding/json"
 	"testing"
 
-	httpbinder "github.com/shibukawa/httpbind-go"
+	httpbind "github.com/shibukawa/tinybind-go"
 )
 
 func TestRestJSONAny_ExcludesAndDecodesNested(t *testing.T) {
@@ -14,7 +14,7 @@ func TestRestJSONAny_ExcludesAndDecodesNested(t *testing.T) {
 		"meta":  json.RawMessage(`{"source":"import"}`),
 		"count": json.RawMessage(`2`),
 	}
-	got, err := httpbinder.RestJSONAny(body, []string{"name", "email"})
+	got, err := httpbind.RestJSONAny(body, []string{"name", "email"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,14 +39,14 @@ func TestRestJSONRaw_Copy(t *testing.T) {
 		"name": json.RawMessage(`"x"`),
 		"k":    json.RawMessage(`{"a":1}`),
 	}
-	got := httpbinder.RestJSONRaw(body, []string{"name"})
+	got := httpbind.RestJSONRaw(body, []string{"name"})
 	if len(got) != 1 || string(got["k"]) != `{"a":1}` {
 		t.Fatalf("%#v", got)
 	}
 }
 
 func TestRestFormAny(t *testing.T) {
-	got := httpbinder.RestFormAny(map[string]string{
+	got := httpbind.RestFormAny(map[string]string{
 		"name": "n",
 		"x":    "1",
 	}, []string{"name"})

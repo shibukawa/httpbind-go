@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/shibukawa/httpbind-go/parser"
+	"github.com/shibukawa/tinybind-go/parser"
 )
 
 func TestCheckPackage_DynamicPatternDiagnostic(t *testing.T) {
@@ -16,20 +16,20 @@ func TestCheckPackage_DynamicPatternDiagnostic(t *testing.T) {
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type Req struct{ Name string }
 type Resp struct{ ID string }
 
 func good(w http.ResponseWriter, r *http.Request) {
-	_, _ = httpbinder.Bind[Req](r)
-	_ = httpbinder.Write[Resp](w, r, Resp{ID: "1"})
+	_, _ = httpbind.Bind[Req](r)
+	_ = httpbind.Write[Resp](w, r, Resp{ID: "1"})
 }
 
 func bad(w http.ResponseWriter, r *http.Request) {
-	_, _ = httpbinder.Bind[Req](r)
-	_ = httpbinder.Write[Resp](w, r, Resp{})
+	_, _ = httpbind.Bind[Req](r)
+	_ = httpbind.Write[Resp](w, r, Resp{})
 }
 
 func register(mux *http.ServeMux) {
@@ -97,20 +97,20 @@ func TestParsePackage_WriteStatusSuccessStatuses(t *testing.T) {
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type CreateReq struct{ Name string }
 type CreateResp struct{ ID string }
 
 func create(w http.ResponseWriter, r *http.Request) {
-	in, err := httpbinder.Bind[CreateReq](r)
+	in, err := httpbind.Bind[CreateReq](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 	_ = in
-	_ = httpbinder.WriteStatus[CreateResp](w, r, http.StatusCreated, CreateResp{ID: "1"})
+	_ = httpbind.WriteStatus[CreateResp](w, r, http.StatusCreated, CreateResp{ID: "1"})
 }
 
 func register(mux *http.ServeMux) {

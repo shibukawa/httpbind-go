@@ -6,7 +6,7 @@ title: Embedded OpenAPI Document
 Generator builds an in-memory OpenAPI model and embeds it in generated Go code for runtime serving.
 
 ```yaml
-generated_file_example: httpbinder_openapi_gen.go
+generated_file_example: tinybind_openapi_gen.go
 embedded_symbol_example: "var generatedOpenAPI = ..."
 includes:
   - embedded OpenAPI specification

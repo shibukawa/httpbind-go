@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type UserRequest struct {
@@ -15,21 +15,21 @@ type UserResponse struct {
 }
 
 func userHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := httpbinder.Bind[UserRequest](r)
+	_, err := httpbind.Bind[UserRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 
-	_ = httpbinder.BadRequest(httpbinder.Problem{Code: "invalid_email", Message: "bad"})
-	_ = httpbinder.Unauthorized(httpbinder.Problem{Code: "auth", Message: "no"})
-	_ = httpbinder.Forbidden(httpbinder.Problem{Code: "forbid", Message: "no"})
-	_ = httpbinder.NotFound(httpbinder.Problem{Code: "missing", Message: "no"})
-	_ = httpbinder.Conflict(httpbinder.Problem{Code: "dup", Message: "no"})
-	_ = httpbinder.Internal(errors.New("boom"))
-	_ = httpbinder.Validation(httpbinder.Field("email", "payload", "invalid"))
+	_ = httpbind.BadRequest(httpbind.Problem{Code: "invalid_email", Message: "bad"})
+	_ = httpbind.Unauthorized(httpbind.Problem{Code: "auth", Message: "no"})
+	_ = httpbind.Forbidden(httpbind.Problem{Code: "forbid", Message: "no"})
+	_ = httpbind.NotFound(httpbind.Problem{Code: "missing", Message: "no"})
+	_ = httpbind.Conflict(httpbind.Problem{Code: "dup", Message: "no"})
+	_ = httpbind.Internal(errors.New("boom"))
+	_ = httpbind.Validation(httpbind.Field("email", "payload", "invalid"))
 
-	_ = httpbinder.Write[UserResponse](w, r, UserResponse{ID: "1"})
+	_ = httpbind.Write[UserResponse](w, r, UserResponse{ID: "1"})
 }
 
 func register(mux *http.ServeMux) {

@@ -3,7 +3,7 @@ package generator
 import (
 	"errors"
 
-	"github.com/shibukawa/httpbind-go/parser"
+	"github.com/shibukawa/tinybind-go/parser"
 )
 
 // ErrFeatureDisabled is returned when a disabled generator artifact is invoked directly.
@@ -67,7 +67,7 @@ type Options struct {
 	GenerateAll     bool
 }
 
-// DefaultOptions returns the complete standard net/http and httpbind-go setup.
+// DefaultOptions returns the standard tinybind runtime setup.
 func DefaultOptions() Options {
 	return Options{
 		ServeMuxes: PatternSet[TypePattern]{Set: []TypePattern{{PackagePath: "net/http", Name: "ServeMux"}}},
@@ -75,8 +75,8 @@ func DefaultOptions() Options {
 			{PackagePath: "net/http", Name: "Handle"},
 			{PackagePath: "net/http", Name: "HandleFunc"},
 		}},
-		RuntimePackages: PatternSet[string]{Set: []string{httpbinderImportPath}},
-		FileTypes:       PatternSet[TypePattern]{Set: []TypePattern{{PackagePath: httpbinderImportPath, Name: "File"}}},
+		RuntimePackages: PatternSet[string]{Set: []string{httpbindImportPath, jsonbindImportPath, sqlbindImportPath}},
+		FileTypes:       PatternSet[TypePattern]{Set: []TypePattern{{PackagePath: httpbindImportPath, Name: "File"}}},
 	}
 }
 

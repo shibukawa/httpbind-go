@@ -4,19 +4,19 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type JobRequest struct{}
 type JobResponse struct{}
 
 func jobHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := httpbinder.Bind[JobRequest](r)
+	_, err := httpbind.Bind[JobRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
-	_ = httpbinder.Write[JobResponse](w, r, JobResponse{})
+	_ = httpbind.Write[JobResponse](w, r, JobResponse{})
 }
 
 func register(mux *http.ServeMux) {

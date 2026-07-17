@@ -1,4 +1,4 @@
-package httpbinder_test
+package httpbind_test
 
 import (
 	"net/http"
@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	httpbinder "github.com/shibukawa/httpbind-go"
+	httpbind "github.com/shibukawa/tinybind-go"
 )
 
 func TestSwaggerUI_ServesHTML(t *testing.T) {
-	h := httpbinder.SwaggerUI("/openapi.json")
+	h := httpbind.SwaggerUI("/openapi.json")
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/docs/", nil)
 	h.ServeHTTP(rec, req)
@@ -35,7 +35,7 @@ func TestSwaggerUI_ServesHTML(t *testing.T) {
 }
 
 func TestSwaggerUI_DefaultSpecURL(t *testing.T) {
-	h := httpbinder.SwaggerUI("")
+	h := httpbind.SwaggerUI("")
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/docs/", nil))
 	if !strings.Contains(rec.Body.String(), `url: "/openapi.json"`) {
@@ -44,7 +44,7 @@ func TestSwaggerUI_DefaultSpecURL(t *testing.T) {
 }
 
 func TestSwaggerUI_EscapesInlineScriptURL(t *testing.T) {
-	h := httpbinder.SwaggerUI(`</script><script>alert(1)</script>`)
+	h := httpbind.SwaggerUI(`</script><script>alert(1)</script>`)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/docs/", nil))
 	body := rec.Body.String()

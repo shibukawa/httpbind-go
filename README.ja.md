@@ -1,8 +1,8 @@
-# httpbind-go (`httpbinder`)
+# tinybind-go
 
 [English](README.md)
 
-リフレクション不要・コード生成ファーストのライブラリで、Go の型と HTTP API をつなぎます。
+TinyGo と通常 Go のための、リフレクション不要・コード生成ファーストのバインディングライブラリです。HTTP・JSON・SQL のランタイム依存を別パッケージに分離しています。
 
 リクエスト／レスポンスの構造体を一度定義するだけで、ジェネレータが型専用のバインダとライタを出力します。同じモデルで **JSON・form・multipart・query**（タグにより path / header / cookie も）を扱えます。レスポンスはクライアントの **`Accept`** に合わせて適応します（ストリーミング時は content negotiation も）。同じ解析結果から **OpenAPI 3.1 も生成**し、バインダ／ライタと常に同期します。ルート登録は別 DSL ではなく、実際の **`net/http` の書き方を静的解析**して発見します（`HandleFunc`、`Handle`、メソッド値、ラッパーなど）。
 
@@ -23,9 +23,9 @@ type CreateUserResponse struct {
 }
 
 func createUserHandler(w http.ResponseWriter, r *http.Request) {
-	input, err := httpbinder.Bind[CreateUserRequest](r)
+	input, err := httpbind.Bind[CreateUserRequest](r)
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
 	// Name/Email: query および/または JSON/form/multipart ボディ（input）
@@ -36,14 +36,14 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 		Email: input.Email,
 		OrgID: input.OrgID,
 	}
-	_ = httpbinder.Write[CreateUserResponse](w, r, out)
+	_ = httpbind.Write[CreateUserResponse](w, r, out)
 }
 ```
 
 パッケージに対してジェネレータを実行します（バインダ + OpenAPI 埋め込み）:
 
 ```bash
-go run ./cmd/httpbinder-gen -dir . -openapi
+go run ./cmd/tinybind-gen -dir . -openapi
 ```
 
 ### 構造体タグ リファレンス
@@ -55,7 +55,7 @@ go run ./cmd/httpbinder-gen -dir . -openapi
 | （なし）または `input:"name"` | **query + payload** | デフォルト。payload は JSON・`application/x-www-form-urlencoded`・`multipart/form-data` を含む。通常のユーザー入力フィールドではタグ省略可。 |
 | `query:"page"` | query のみ | ボディからは読まない。 |
 | `payload:"name"` | ボディのみ | `Content-Type` に応じて JSON / form / multipart。query 文字列からは読まない。 |
-| `payload:"image"` と `httpbinder.File` | multipart のファイルパート | 名前付きパートからファイル名・Content-Type・サイズ・バイト列を bind。payload のみ（query 不可）。multipart ボディ上限はデフォルト **1 MiB**。`httpbinder.SetMaxMultipartBodyBytes` で変更可。 |
+| `payload:"image"` と `httpbind.File` | multipart のファイルパート | 名前付きパートからファイル名・Content-Type・サイズ・バイト列を bind。payload のみ（query 不可）。multipart ボディ上限はデフォルト **1 MiB**。`httpbind.SetMaxMultipartBodyBytes` で変更可。 |
 | `path:"org_id"` | path パラメータ | ルートパターンの `{org_id}`（相当）と対応。 |
 | `header:"Authorization"` | リクエストヘッダ | タグ値がヘッダ名。 |
 | `cookie:"session"` | cookie | タグ値が cookie 名。 |
@@ -81,9 +81,9 @@ type SearchRequest struct {
 ### ストリーミング（理想 API）
 
 ```go
-stream, err := httpbinder.NewStream[ChatEvent](w, r)
+stream, err := httpbind.NewStream[ChatEvent](w, r)
 if err != nil {
-    httpbinder.WriteError(w, r, err)
+    httpbind.WriteError(w, r, err)
     return
 }
 defer stream.Close()
@@ -104,16 +104,18 @@ _ = stream.Write(ChatEvent{Type: "done"})
 
 | パス | 役割 |
 |------|------|
-| `.`（`package httpbinder`） | ランタイム: Bind / Write / WriteError / NewStream / OpenAPI 配信 / SwaggerUI |
+| `.`（`package httpbind`） | ランタイム: Bind / Write / WriteError / NewStream / OpenAPI 配信 / SwaggerUI |
+| `jsonbind/` | 単独の DecodeJSON / EncodeJSON。`net/http` と `database/sql` を import しない |
+| `sqlbind/` | ScanRows と行変換ヘルパ。`net/http` を import しない |
 | `generator/` | フィールド計画に基づくバインダ／ライタ + OpenAPI 3.1 埋め込み生成 |
 | `parser/` | ルート／ハンドラ発見（`Bind`、`Write`、`NewStream`、エラー） |
-| `cmd/httpbinder-gen` | CLI: パッケージ dir からバインダ + OpenAPI を生成 |
+| `cmd/tinybind-gen` | CLI: パッケージ dir からバインダ + OpenAPI を生成 |
 | `examples/demo` | 一通り触れるサンプルアプリ |
 | `internal/*` | テスト用フィクスチャ |
 | `testdata/cmd/*` | 開発用ヘルパ（配布対象外。`testdata` 配下のため `go get` / `./...` の対象外） |
 
 ```bash
-go run ./cmd/httpbinder-gen -dir ./path/to/package
+go run ./cmd/tinybind-gen -dir ./path/to/package
 ```
 
 独自ジェネレータのコマンドは `generator.Main` を呼ぶだけで作れます。
@@ -123,7 +125,7 @@ go run ./cmd/httpbinder-gen -dir ./path/to/package
 ```go
 package main
 
-import "github.com/shibukawa/httpbind-go/generator"
+import "github.com/shibukawa/tinybind-go/generator"
 
 func main() {
     options := generator.DefaultOptions()
@@ -132,7 +134,9 @@ func main() {
         {PackagePath: "github.com/shibukawa/petitweb-go/handler", Name: "ServeMux"},
     }
     options.RuntimePackages.Set = []string{
-        "github.com/shibukawa/httpbind-go",
+        "github.com/shibukawa/tinybind-go",
+        "github.com/shibukawa/tinybind-go/jsonbind",
+        "github.com/shibukawa/tinybind-go/sqlbind",
         "github.com/shibukawa/petitweb-go/handler",
     }
     generator.Main(options)
@@ -148,13 +152,15 @@ func main() {
 無効化できます。
 
 生成は利用箇所単位で絞られ、`DecodeJSON[T]` だけを使うコードには JSON
-デコーダだけが生成され、`net/http` へ依存しません。従来どおり有効な全
+デコーダだけが生成され、root の HTTP runtime と `net/http` へ依存しません。従来どおり有効な全
 マッピングを生成する場合は `Options.GenerateAll`、互換File型は
 `Options.FileTypes.Set` で明示できます。
 
-JSON の読み込み上限はデフォルト 1 MiB です。全体設定は
-`SetMaxJSONBodyBytes`、呼び出し単位では `DecodeJSONLimit` を使います。
-超過時は HTTP 413 になります。
+単独 JSON API は `jsonbind.DecodeJSON` / `jsonbind.EncodeJSON` です。
+JSON の読み込み上限はデフォルト 1 MiB で、全体設定は
+`jsonbind.SetMaxJSONBodyBytes`、呼び出し単位では
+`jsonbind.DecodeJSONLimit` を使います。`jsonbind` は transport-neutral な
+エラーを返し、HTTP request の上限超過は `httpbind.Bind` が 413 に変換します。
 
 JOIN 結果は生成されたreflection-freeコードを使う `ScanRows[T]` で木構造にまとめられます。各階層で一つの
 スカラーフィールドに `groupkey:""`、列名には `db:"column_name"` を付けます。
@@ -170,7 +176,7 @@ type User struct {
     ID int `db:"user_id" groupkey:""`
 }
 
-organizations, err := httpbinder.ScanRows[Organization](rows)
+organizations, err := sqlbind.ScanRows[Organization](rows)
 ```
 
 ## デモ
@@ -187,7 +193,7 @@ curl 例の詳細は [`examples/demo/README.md`](examples/demo/README.md) を参
 
 ## TinyGo
 
-リフレクション不要なバインダ経路は TinyGo を設計目標にしています。ツールチェイン制限は以下を参照。
+生成バインディングコードは TinyGo を第一級の対象とします。JSON runtime は `net/http` から独立しており、TinyGo の HTTP 標準ライブラリ経路が使えない js/wasm でも利用できます。
 
 検証済み: **TinyGo 0.41.1 + Go 1.26.x**。
 
@@ -201,15 +207,17 @@ curl 例の詳細は [`examples/demo/README.md`](examples/demo/README.md) を参
 - `WriteError` は problem JSON を手組み（`encoding/json` と RawMessage の組み合わせの脆さを避ける）。
 - レジストリの `reflect.Type` は **型の識別キー**のみで、フィールド走査には使わない。
 - 生成される bind/write コードは `reflect` を import しない。
+- JSON-only 生成コードは `jsonbind` だけを import し、`tinygo build -target wasm` で検証する。
 
 ### 既知の制限
 
 | 項目 | 制限 |
 |------|------|
 | ツールチェイン | プロジェクト基準は TinyGo 0.41.1 + Go 1.26.x |
+| js/wasm HTTP | TinyGo 0.41.1 + Go 1.26.x は `net/http/roundtrip_js.go` 内で失敗するため、HTTP 不要の WASM では `jsonbind` を使う |
 | ストリーミング | `NewStream` はホストの `go test` を推奨。TinyGo 行列は未整備 |
 | ServeMux | TinyGo 下では `ServeHTTP` + `SetPathValue` でのハンドラ試験を推奨 |
-| Multipart `File` | `httpbinder.File`（`payload`）で対応。サイズ/MIME の `check` は未対応。ボディ上限のデフォルトは **1 MiB**（`SetMaxMultipartBodyBytes`） |
+| Multipart `File` | `httpbind.File`（`payload`）で対応。サイズ/MIME の `check` は未対応。ボディ上限のデフォルトは **1 MiB**（`SetMaxMultipartBodyBytes`） |
 | SQLマッピング | `ScanRows` と生成SQLスキャナはホストGo向けで、TinyGoビルドから除外 |
 | ジェネレータ | ホスト側のみ（`go run` / `go test`） |
 

@@ -1,4 +1,4 @@
-module github.com/shibukawa/httpbind-go
+module github.com/shibukawa/tinybind-go
 
 go 1.26.0
 

@@ -1,4 +1,4 @@
-package httpbinder
+package httpbind
 
 import (
 	"encoding/json"
@@ -25,7 +25,7 @@ const (
 //
 // Ideal handler usage:
 //
-//	stream, err := httpbinder.NewStream[ChatEvent](w, r)
+//	stream, err := httpbind.NewStream[ChatEvent](w, r)
 //	if err != nil { ... }
 //	defer stream.Close()
 //	_ = stream.Write(ChatEvent{Type: "delta", Delta: "hi"})
@@ -84,10 +84,10 @@ func (s *Stream[T]) Format() StreamFormat {
 // Callable many times; does not re-send HTTP status or headers.
 func (s *Stream[T]) Write(v T) error {
 	if s == nil {
-		return Internal(fmt.Errorf("httpbinder: nil stream"))
+		return Internal(fmt.Errorf("httpbind: nil stream"))
 	}
 	if s.closed {
-		return Internal(fmt.Errorf("httpbinder: stream closed"))
+		return Internal(fmt.Errorf("httpbind: stream closed"))
 	}
 	switch s.format {
 	case StreamSSE:

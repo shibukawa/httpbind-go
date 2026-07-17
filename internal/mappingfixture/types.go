@@ -3,7 +3,7 @@ package mappingfixture
 import (
 	"encoding/json"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 // CreateUserRequest exercises default input, path, and header sources.
@@ -37,9 +37,9 @@ type SearchResponse struct {
 
 // UploadAvatarRequest exercises multipart File + scalar form fields + path.
 type UploadAvatarRequest struct {
-	UserID string          `path:"user_id"`
-	Title  string          `payload:"title"`
-	Image  httpbinder.File `payload:"image"`
+	UserID string        `path:"user_id"`
+	Title  string        `payload:"title"`
+	Image  httpbind.File `payload:"image"`
 }
 
 // PatchWithExtrasRequest exercises payload:"*" rest map for leftover body keys.

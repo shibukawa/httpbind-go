@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/shibukawa/httpbind-go/parser"
+	"github.com/shibukawa/tinybind-go/parser"
 )
 
 func writeStrictTestModule(t *testing.T, dir string) {
@@ -15,7 +15,7 @@ func writeStrictTestModule(t *testing.T, dir string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mod := "module stricttest\n\ngo 1.25\n\nrequire github.com/shibukawa/httpbind-go v0.0.0\n\nreplace github.com/shibukawa/httpbind-go => " + filepath.ToSlash(root) + "\n"
+	mod := "module stricttest\n\ngo 1.25\n\nrequire github.com/shibukawa/tinybind-go v0.0.0\n\nreplace github.com/shibukawa/tinybind-go => " + filepath.ToSlash(root) + "\n"
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(mod), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestParsePackage_RejectsForeignHandleFunc(t *testing.T) {
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type FakeMux struct{}
@@ -50,8 +50,8 @@ type Req struct{ X string }
 type Resp struct{ Y string }
 
 func h(w http.ResponseWriter, r *http.Request) {
-	_, _ = httpbinder.Bind[Req](r)
-	_ = httpbinder.Write[Resp](w, r, Resp{})
+	_, _ = httpbind.Bind[Req](r)
+	_ = httpbind.Write[Resp](w, r, Resp{})
 }
 
 func register() {
@@ -86,7 +86,7 @@ func TestParsePackage_AliasImportRecognized(t *testing.T) {
 import (
 	"net/http"
 
-	hb "github.com/shibukawa/httpbind-go"
+	hb "github.com/shibukawa/tinybind-go"
 )
 
 type Req struct{ Name string }
@@ -141,7 +141,7 @@ func TestParsePackage_RejectsForeignBindAndError(t *testing.T) {
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type Req struct{ Name string }
@@ -157,19 +157,19 @@ func BadRequest(msg string) error { return nil }
 func Write[T any](w http.ResponseWriter, r *http.Request, v T) error { return nil }
 
 func h(w http.ResponseWriter, r *http.Request) {
-	// Local same-named generics/functions — must not count as httpbinder.
+	// Local same-named generics/functions — must not count as httpbind.
 	_, _ = Bind[Req](r)
 	_ = BadRequest("nope")
 	_ = Write[Resp](w, r, Resp{})
 
-	// Real httpbinder call for request only
-	in, err := httpbinder.Bind[Req](r)
+	// Real httpbind call for request only
+	in, err := httpbind.Bind[Req](r)
 	_ = in
 	if err != nil {
-		httpbinder.WriteError(w, r, err)
+		httpbind.WriteError(w, r, err)
 		return
 	}
-	_ = httpbinder.Write[Resp](w, r, Resp{ID: "1"})
+	_ = httpbind.Write[Resp](w, r, Resp{ID: "1"})
 }
 
 func register(mux *http.ServeMux) {
@@ -204,15 +204,15 @@ func TestParsePackage_HTTPPackageHandleFunc(t *testing.T) {
 import (
 	"net/http"
 
-	"github.com/shibukawa/httpbind-go"
+	"github.com/shibukawa/tinybind-go"
 )
 
 type Req struct{}
 type Resp struct{}
 
 func h(w http.ResponseWriter, r *http.Request) {
-	_, _ = httpbinder.Bind[Req](r)
-	_ = httpbinder.Write[Resp](w, r, Resp{})
+	_, _ = httpbind.Bind[Req](r)
+	_ = httpbind.Write[Resp](w, r, Resp{})
 }
 
 func register() {

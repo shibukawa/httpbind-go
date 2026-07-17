@@ -1,4 +1,4 @@
-package httpbinder
+package httpbind
 
 // File is an uploaded file bound from a multipart/form-data part.
 // After a successful bind, Filename, ContentType (when the client sent one),

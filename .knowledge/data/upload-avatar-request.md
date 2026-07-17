@@ -9,7 +9,7 @@ Example file upload request with path user id and multipart image payload.
 type: |
   type UploadAvatarRequest struct {
       UserID string          `path:"user_id"`
-      Image  httpbinder.File `payload:"image"`
+      Image  httpbind.File `payload:"image"`
   }
 binding:
   Image: multipart/form-data via data:file

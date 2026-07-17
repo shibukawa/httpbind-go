@@ -35,7 +35,7 @@ generated_examples:
   - "func bindCreateUserRequest(r *http.Request) (CreateUserRequest, error)"
 related:
   - concept:code-generation
-  - system:httpbinder
+  - system:tinybind
   - concept:net-http-handler
   - concept:check-validation
   - term:payload-rest

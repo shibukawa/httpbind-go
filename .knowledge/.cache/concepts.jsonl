@@ -1,15 +1,15 @@
-{"category": "interface", "id": "api:bind", "path": ".knowledge/api/bind.md", "role": "primary", "title": "httpbinder.Bind", "type": "api"}
-{"category": "interface", "id": "api:decode-json", "path": ".knowledge/api/decode-json.md", "role": "primary", "title": "httpbinder.DecodeJSON", "type": "api"}
-{"category": "interface", "id": "api:encode-json", "path": ".knowledge/api/encode-json.md", "role": "primary", "title": "httpbinder.EncodeJSON", "type": "api"}
+{"category": "interface", "id": "api:bind", "path": ".knowledge/api/bind.md", "role": "primary", "title": "httpbind.Bind", "type": "api"}
+{"category": "interface", "id": "api:decode-json", "path": ".knowledge/api/decode-json.md", "role": "primary", "title": "jsonbind.DecodeJSON", "type": "api"}
+{"category": "interface", "id": "api:encode-json", "path": ".knowledge/api/encode-json.md", "role": "primary", "title": "jsonbind.EncodeJSON", "type": "api"}
 {"category": "interface", "id": "api:generator-main", "path": ".knowledge/api/generator-main.md", "role": "primary", "title": "Configurable Generator CLI Main", "type": "api"}
-{"category": "interface", "id": "api:new-stream", "path": ".knowledge/api/new-stream.md", "role": "primary", "title": "httpbinder.NewStream", "type": "api"}
+{"category": "interface", "id": "api:new-stream", "path": ".knowledge/api/new-stream.md", "role": "primary", "title": "httpbind.NewStream", "type": "api"}
 {"category": "interface", "id": "api:openapi-json", "path": ".knowledge/api/openapi-json.md", "role": "primary", "title": "OpenAPI JSON Handler", "type": "api"}
 {"category": "interface", "id": "api:openapi-yaml", "path": ".knowledge/api/openapi-yaml.md", "role": "primary", "title": "OpenAPI YAML Handler", "type": "api"}
-{"category": "interface", "id": "api:scan-rows", "path": ".knowledge/api/scan-rows.md", "role": "primary", "title": "httpbinder.ScanRows", "type": "api"}
+{"category": "interface", "id": "api:scan-rows", "path": ".knowledge/api/scan-rows.md", "role": "primary", "title": "sqlbind.ScanRows", "type": "api"}
 {"category": "interface", "id": "api:stream-write", "path": ".knowledge/api/stream-write.md", "role": "primary", "title": "Stream Write and Close", "type": "api"}
-{"category": "interface", "id": "api:write-error", "path": ".knowledge/api/write-error.md", "role": "primary", "title": "httpbinder.WriteError", "type": "api"}
-{"category": "interface", "id": "api:write-status", "path": ".knowledge/api/write-status.md", "role": "primary", "title": "httpbinder.WriteStatus", "type": "api"}
-{"category": "interface", "id": "api:write", "path": ".knowledge/api/write.md", "role": "primary", "title": "httpbinder.Write", "type": "api"}
+{"category": "interface", "id": "api:write-error", "path": ".knowledge/api/write-error.md", "role": "primary", "title": "httpbind.WriteError", "type": "api"}
+{"category": "interface", "id": "api:write-status", "path": ".knowledge/api/write-status.md", "role": "primary", "title": "httpbind.WriteStatus", "type": "api"}
+{"category": "interface", "id": "api:write", "path": ".knowledge/api/write.md", "role": "primary", "title": "httpbind.Write", "type": "api"}
 {"category": "concept", "id": "concept:check-validation", "path": ".knowledge/concept/check-validation.md", "role": "supporting", "title": "Check Tag Validation", "type": "concept"}
 {"category": "concept", "id": "concept:code-generation", "path": ".knowledge/concept/code-generation.md", "role": "supporting", "title": "Generated Runtime Code", "type": "concept"}
 {"category": "concept", "id": "concept:error-helpers", "path": ".knowledge/concept/error-helpers.md", "role": "supporting", "title": "Error Helpers", "type": "concept"}
@@ -28,7 +28,7 @@
 {"category": "concept", "id": "concept:stdlib-wrapper-unwrap", "path": ".knowledge/concept/stdlib-wrapper-unwrap.md", "role": "supporting", "title": "Stdlib Handler Wrapper Unwrap", "type": "concept"}
 {"category": "concept", "id": "concept:streaming", "path": ".knowledge/concept/streaming.md", "role": "supporting", "title": "Typed Streaming", "type": "concept"}
 {"category": "structure", "id": "data:create-user-request", "path": ".knowledge/data/create-user-request.md", "role": "supporting", "title": "CreateUserRequest Example", "type": "data"}
-{"category": "structure", "id": "data:file", "path": ".knowledge/data/file.md", "role": "supporting", "title": "httpbinder.File", "type": "data"}
+{"category": "structure", "id": "data:file", "path": ".knowledge/data/file.md", "role": "supporting", "title": "httpbind.File", "type": "data"}
 {"category": "structure", "id": "data:generator-options", "path": ".knowledge/data/generator-options.md", "role": "supporting", "title": "Generator Discovery Options", "type": "data"}
 {"category": "structure", "id": "data:nested-order-request", "path": ".knowledge/data/nested-order-request.md", "role": "supporting", "title": "NestedOrderRequest Example", "type": "data"}
 {"category": "structure", "id": "data:patch-with-extras-request", "path": ".knowledge/data/patch-with-extras-request.md", "role": "supporting", "title": "PatchWithExtrasRequest Example", "type": "data"}
@@ -38,6 +38,7 @@
 {"category": "constraint", "id": "decision:check-tag-validation", "path": ".knowledge/decision/check-tag-validation.md", "role": "supporting", "title": "Check Tags as Validation SSOT", "type": "decision"}
 {"category": "constraint", "id": "decision:openapi-31", "path": ".knowledge/decision/openapi-31.md", "role": "supporting", "title": "OpenAPI 3.1 Target", "type": "decision"}
 {"category": "constraint", "id": "decision:reflection-free", "path": ".knowledge/decision/reflection-free.md", "role": "supporting", "title": "Reflection-Free Runtime", "type": "decision"}
+{"category": "constraint", "id": "decision:runtime-package-boundaries", "path": ".knowledge/decision/runtime-package-boundaries.md", "role": "supporting", "title": "Runtime Package Boundaries", "type": "decision"}
 {"category": "constraint", "id": "decision:single-source-of-truth", "path": ".knowledge/decision/single-source-of-truth.md", "role": "supporting", "title": "Single Source of Truth", "type": "decision"}
 {"category": "constraint", "id": "decision:stdlib-servemux", "path": ".knowledge/decision/stdlib-servemux.md", "role": "supporting", "title": "Stdlib ServeMux Routing", "type": "decision"}
 {"category": "behavior", "id": "flow:code-generation", "path": ".knowledge/flow/code-generation.md", "role": "primary", "title": "Code Generation Pipeline", "type": "flow"}
@@ -89,10 +90,10 @@
 {"category": "constraint", "id": "rule:wrapper-max-bytes-handler", "path": ".knowledge/rule/wrapper-max-bytes-handler.md", "role": "supporting", "title": "MaxBytesHandler Unwrap", "type": "rule"}
 {"category": "constraint", "id": "rule:wrapper-strip-prefix", "path": ".knowledge/rule/wrapper-strip-prefix.md", "role": "supporting", "title": "StripPrefix Unwrap", "type": "rule"}
 {"category": "constraint", "id": "rule:wrapper-timeout-handler", "path": ".knowledge/rule/wrapper-timeout-handler.md", "role": "supporting", "title": "TimeoutHandler Unwrap", "type": "rule"}
-{"category": "external", "id": "system:httpbinder", "path": ".knowledge/system/httpbinder.md", "role": "supporting", "title": "httpbinder Library", "type": "system"}
+{"category": "external", "id": "system:tinybind", "path": ".knowledge/system/tinybind.md", "role": "supporting", "title": "tinybind-go Library", "type": "system"}
 {"category": "vocabulary", "id": "term:http-metadata", "path": ".knowledge/term/http-metadata.md", "role": "supporting", "title": "HTTP Metadata Tags", "type": "term"}
 {"category": "vocabulary", "id": "term:input", "path": ".knowledge/term/input.md", "role": "supporting", "title": "input Tag", "type": "term"}
 {"category": "vocabulary", "id": "term:payload-rest", "path": ".knowledge/term/payload-rest.md", "role": "supporting", "title": "payload Rest Tag", "type": "term"}
 {"category": "vocabulary", "id": "term:payload", "path": ".knowledge/term/payload.md", "role": "supporting", "title": "payload Tag", "type": "term"}
 {"category": "vocabulary", "id": "term:query", "path": ".knowledge/term/query.md", "role": "supporting", "title": "query Tag", "type": "term"}
-{"category": "objective", "id": "vision:httpbinder", "path": ".knowledge/vision/httpbinder.md", "role": "primary", "title": "httpbinder Vision", "type": "vision"}
+{"category": "objective", "id": "vision:tinybind", "path": ".knowledge/vision/tinybind.md", "role": "primary", "title": "tinybind-go Vision", "type": "vision"}

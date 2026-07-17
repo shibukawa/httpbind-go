@@ -13,7 +13,7 @@ import (
 
 const (
 	netHTTPPath     = "net/http"
-	httpbinderPath  = "github.com/shibukawa/httpbind-go"
+	httpbindPath    = "github.com/shibukawa/tinybind-go"
 	serveMuxTypeStr = "net/http.ServeMux"
 )
 
@@ -38,8 +38,8 @@ func DefaultConfig() Config {
 			{PackagePath: netHTTPPath, Name: "Handle", ReceiverPackagePath: netHTTPPath, ReceiverType: "ServeMux"},
 			{PackagePath: netHTTPPath, Name: "HandleFunc", ReceiverPackagePath: netHTTPPath, ReceiverType: "ServeMux"},
 		},
-		GenericFunctions: namesToSymbols(httpbinderPath, httpbinderGenericFns),
-		ErrorFunctions:   namesToSymbols(httpbinderPath, httpbinderErrorFns),
+		GenericFunctions: namesToSymbols(httpbindPath, httpbindGenericFns),
+		ErrorFunctions:   namesToSymbols(httpbindPath, httpbindErrorFns),
 	}
 }
 
@@ -51,9 +51,9 @@ func namesToSymbols(path string, names map[string]struct{}) []FunctionSymbol {
 	return out
 }
 
-// Fixed allowlist of httpbinder function names used in discovery.
+// Fixed allowlist of httpbind function names used in discovery.
 var (
-	httpbinderGenericFns = map[string]struct{}{
+	httpbindGenericFns = map[string]struct{}{
 		"Bind":        {},
 		"Write":       {},
 		"WriteStatus": {},
@@ -61,7 +61,7 @@ var (
 		"DecodeJSON":  {},
 		"EncodeJSON":  {},
 	}
-	httpbinderErrorFns = map[string]struct{}{
+	httpbindErrorFns = map[string]struct{}{
 		"BadRequest":      {},
 		"Unauthorized":    {},
 		"Forbidden":       {},
@@ -71,7 +71,7 @@ var (
 		"Internal":        {},
 		"Validation":      {},
 	}
-	httpbinderOtherFns = map[string]struct{}{
+	httpbindOtherFns = map[string]struct{}{
 		"WriteError": {},
 	}
 )
@@ -228,14 +228,14 @@ func isServeMuxType(t types.Type) bool {
 	return obj.Pkg().Path() == netHTTPPath && obj.Name() == "ServeMux"
 }
 
-// isHTTPBinderFunc reports whether obj is a package-level function in httpbind-go
+// isHTTPBinderFunc reports whether obj is a configured tinybind runtime function
 // with one of the allowed names in allowed.
 func isHTTPBinderFunc(obj types.Object, allowed map[string]struct{}) bool {
 	f, ok := obj.(*types.Func)
 	if !ok {
 		return false
 	}
-	if f.Pkg() == nil || f.Pkg().Path() != httpbinderPath {
+	if f.Pkg() == nil || f.Pkg().Path() != httpbindPath {
 		return false
 	}
 	// Methods are not expected; only package functions.
@@ -247,11 +247,11 @@ func isHTTPBinderFunc(obj types.Object, allowed map[string]struct{}) bool {
 }
 
 func isHTTPBinderGenericCall(obj types.Object) bool {
-	return isHTTPBinderFunc(obj, httpbinderGenericFns)
+	return isHTTPBinderFunc(obj, httpbindGenericFns)
 }
 
 func isHTTPBinderErrorCall(obj types.Object) bool {
-	return isHTTPBinderFunc(obj, httpbinderErrorFns)
+	return isHTTPBinderFunc(obj, httpbindErrorFns)
 }
 
 // callFuncName returns the simple function name if obj is *types.Func.
@@ -286,10 +286,12 @@ func orderedSyntaxFiles(pkg *packages.Package) []*ast.File {
 		if strings.HasSuffix(base, "_test.go") {
 			continue
 		}
-		if strings.HasSuffix(base, "_httpbinder_gen.go") ||
+		if strings.HasSuffix(base, "_httpbind_gen.go") ||
 			strings.HasSuffix(base, "_openapi_gen.go") ||
-			base == "httpbinder_gen.go" ||
-			base == "httpbinder_openapi_gen.go" {
+			base == "httpbind_gen.go" ||
+			base == "httpbind_openapi_gen.go" ||
+			base == "tinybind_gen.go" ||
+			base == "tinybind_openapi_gen.go" {
 			continue
 		}
 		pairs = append(pairs, pair{name: name, file: f})

@@ -1,10 +1,12 @@
-package httpbinder
+package httpbind
 
 import (
 	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/shibukawa/tinybind-go/jsonbind"
 )
 
 // Write serializes a typed response value to the HTTP response via a registered writer.
@@ -26,13 +28,9 @@ func WriteStatus[T any](w http.ResponseWriter, r *http.Request, status int, valu
 		w.WriteHeader(http.StatusNoContent)
 		return nil
 	}
-	enc, ok := lookupEncoder(typeKey[T]())
-	if !ok {
-		return missingEncoderError(typeKey[T]())
-	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	return enc(w, value)
+	return jsonbind.EncodeJSON(w, value)
 }
 
 // WriteError writes err as an RFC 9457 Problem Details response.
