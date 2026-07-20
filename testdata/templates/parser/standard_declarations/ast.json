@@ -1,0 +1,210 @@
+{
+  "pos": {
+    "line": 1,
+    "col": 1
+  },
+  "package": {
+    "kind": "template:package",
+    "pos": {
+      "line": 1,
+      "col": 1
+    },
+    "name": "shop.templates"
+  },
+  "imports": [
+    {
+      "pos": {
+        "line": 3,
+        "col": 1
+      },
+      "path": "shared/types",
+      "alias": "Shared"
+    }
+  ],
+  "declarations": [
+    {
+      "kind": "template:type",
+      "pos": {
+        "line": 5,
+        "col": 1
+      },
+      "name": "User",
+      "fields": [
+        {
+          "pos": {
+            "line": 6,
+            "col": 3
+          },
+          "name": "name",
+          "type": {
+            "pos": {
+              "line": 6,
+              "col": 9
+            },
+            "name": "string"
+          }
+        },
+        {
+          "pos": {
+            "line": 7,
+            "col": 3
+          },
+          "name": "active",
+          "type": {
+            "pos": {
+              "line": 7,
+              "col": 11
+            },
+            "name": "bool"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "template:enum",
+      "pos": {
+        "line": 10,
+        "col": 1
+      },
+      "name": "Tone",
+      "members": [
+        {
+          "pos": {
+            "line": 10,
+            "col": 13
+          },
+          "name": "Primary"
+        },
+        {
+          "pos": {
+            "line": 10,
+            "col": 22
+          },
+          "name": "Secondary"
+        }
+      ]
+    },
+    {
+      "kind": "template:external",
+      "pos": {
+        "line": 12,
+        "col": 1
+      },
+      "name": "FormatName",
+      "parameters": [
+        {
+          "pos": {
+            "line": 12,
+            "col": 21
+          },
+          "name": "value",
+          "type": {
+            "pos": {
+              "line": 12,
+              "col": 28
+            },
+            "name": "string"
+          }
+        }
+      ],
+      "result": {
+        "pos": {
+          "line": 12,
+          "col": 37
+        },
+        "name": "string"
+      }
+    },
+    {
+      "kind": "raw:template",
+      "pos": {
+        "line": 14,
+        "col": 1
+      },
+      "exported": true,
+      "name": "Greeting",
+      "parameters": [
+        {
+          "pos": {
+            "line": 14,
+            "col": 26
+          },
+          "name": "user",
+          "type": {
+            "pos": {
+              "line": 14,
+              "col": 32
+            },
+            "name": "User"
+          }
+        }
+      ],
+      "output": {
+        "pos": {
+          "line": 14,
+          "col": 39
+        },
+        "name": "raw"
+      },
+      "body": [
+        {
+          "kind": "raw:text",
+          "pos": {
+            "line": 14,
+            "col": 44
+          },
+          "text": "\nHello, "
+        },
+        {
+          "kind": "template:expression",
+          "pos": {
+            "line": 15,
+            "col": 8
+          },
+          "context": "raw:text",
+          "expression": {
+            "kind": "template:call",
+            "pos": {
+              "line": 15,
+              "col": 9
+            },
+            "callee": {
+              "kind": "template:identifier",
+              "pos": {
+                "line": 15,
+                "col": 9
+              },
+              "name": "FormatName"
+            },
+            "arguments": [
+              {
+                "kind": "template:member",
+                "pos": {
+                  "line": 15,
+                  "col": 20
+                },
+                "object": {
+                  "kind": "template:identifier",
+                  "pos": {
+                    "line": 15,
+                    "col": 20
+                  },
+                  "name": "user"
+                },
+                "member": "name"
+              }
+            ]
+          }
+        },
+        {
+          "kind": "raw:text",
+          "pos": {
+            "line": 15,
+            "col": 31
+          },
+          "text": "!\n"
+        }
+      ]
+    }
+  ]
+}

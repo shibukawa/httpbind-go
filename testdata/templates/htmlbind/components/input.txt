@@ -1,0 +1,11 @@
+package pages
+
+type User { name: string }
+
+component Badge(label: string, children: html): html {
+<span class="badge"><strong>{label}</strong>{children}</span>
+}
+
+export component Card(user: User): html {
+<Badge label={user.name}><em>member</em></Badge>
+}

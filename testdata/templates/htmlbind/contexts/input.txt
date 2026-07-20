@@ -1,0 +1,14 @@
+package pages
+
+type Payload {
+  message: string
+  count: int
+  enabled: bool
+}
+
+export component Document(markup: string, css: string, javascript: string, payload: Payload): html {
+{RawHTML(markup)}
+<style>{RawCSS(css)}</style>
+<script>{RawJavaScript(javascript)}</script>
+<script>window.payload = {JsonForScript(payload)};</script>
+}

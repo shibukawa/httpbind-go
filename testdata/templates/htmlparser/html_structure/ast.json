@@ -1,0 +1,441 @@
+{
+  "pos": {
+    "line": 1,
+    "col": 1
+  },
+  "declarations": [
+    {
+      "kind": "html:component",
+      "pos": {
+        "line": 1,
+        "col": 1
+      },
+      "exported": false,
+      "name": "Avatar",
+      "parameters": [
+        {
+          "pos": {
+            "line": 1,
+            "col": 18
+          },
+          "name": "user",
+          "type": {
+            "pos": {
+              "line": 1,
+              "col": 24
+            },
+            "name": "User"
+          }
+        },
+        {
+          "pos": {
+            "line": 1,
+            "col": 30
+          },
+          "name": "compact",
+          "type": {
+            "pos": {
+              "line": 1,
+              "col": 39
+            },
+            "name": "bool"
+          }
+        }
+      ],
+      "output": {
+        "pos": {
+          "line": 1,
+          "col": 46
+        },
+        "name": "html"
+      },
+      "body": [
+        {
+          "kind": "html:text",
+          "pos": {
+            "line": 1,
+            "col": 52
+          },
+          "text": "\n"
+        },
+        {
+          "kind": "html:element",
+          "pos": {
+            "line": 2,
+            "col": 1
+          },
+          "name": "article",
+          "attributes": [
+            {
+              "kind": "html:attribute",
+              "pos": {
+                "line": 2,
+                "col": 10
+              },
+              "name": "class",
+              "value": [
+                {
+                  "kind": "html:text",
+                  "pos": {
+                    "line": 2,
+                    "col": 17
+                  },
+                  "text": "card "
+                },
+                {
+                  "kind": "template:expression",
+                  "pos": {
+                    "line": 2,
+                    "col": 22
+                  },
+                  "context": "html:attribute",
+                  "expression": {
+                    "kind": "template:conditional",
+                    "pos": {
+                      "line": 2,
+                      "col": 23
+                    },
+                    "condition": {
+                      "kind": "template:member",
+                      "pos": {
+                        "line": 2,
+                        "col": 23
+                      },
+                      "object": {
+                        "kind": "template:identifier",
+                        "pos": {
+                          "line": 2,
+                          "col": 23
+                        },
+                        "name": "user"
+                      },
+                      "member": "active"
+                    },
+                    "then": {
+                      "kind": "template:literal",
+                      "pos": {
+                        "line": 2,
+                        "col": 37
+                      },
+                      "valueKind": "string",
+                      "value": "active"
+                    },
+                    "else": {
+                      "kind": "template:literal",
+                      "pos": {
+                        "line": 2,
+                        "col": 48
+                      },
+                      "valueKind": "string",
+                      "value": "inactive"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "kind": "html:attribute",
+              "pos": {
+                "line": 2,
+                "col": 61
+              },
+              "name": "data-id",
+              "value": [
+                {
+                  "kind": "template:expression",
+                  "pos": {
+                    "line": 2,
+                    "col": 69
+                  },
+                  "context": "html:attribute",
+                  "expression": {
+                    "kind": "template:member",
+                    "pos": {
+                      "line": 2,
+                      "col": 70
+                    },
+                    "object": {
+                      "kind": "template:identifier",
+                      "pos": {
+                        "line": 2,
+                        "col": 70
+                      },
+                      "name": "user"
+                    },
+                    "member": "id"
+                  }
+                }
+              ]
+            },
+            {
+              "kind": "html:attribute",
+              "pos": {
+                "line": 2,
+                "col": 79
+              },
+              "name": "hidden",
+              "boolean": true
+            }
+          ],
+          "children": [
+            {
+              "kind": "html:text",
+              "pos": {
+                "line": 2,
+                "col": 86
+              },
+              "text": "\n  "
+            },
+            {
+              "kind": "html:comment",
+              "pos": {
+                "line": 3,
+                "col": 3
+              },
+              "text": " profile "
+            },
+            {
+              "kind": "html:text",
+              "pos": {
+                "line": 3,
+                "col": 19
+              },
+              "text": "\n  "
+            },
+            {
+              "kind": "html:element",
+              "pos": {
+                "line": 4,
+                "col": 3
+              },
+              "name": "img",
+              "attributes": [
+                {
+                  "kind": "html:attribute",
+                  "pos": {
+                    "line": 4,
+                    "col": 8
+                  },
+                  "name": "src",
+                  "value": [
+                    {
+                      "kind": "template:expression",
+                      "pos": {
+                        "line": 4,
+                        "col": 12
+                      },
+                      "context": "html:attribute",
+                      "expression": {
+                        "kind": "template:member",
+                        "pos": {
+                          "line": 4,
+                          "col": 13
+                        },
+                        "object": {
+                          "kind": "template:identifier",
+                          "pos": {
+                            "line": 4,
+                            "col": 13
+                          },
+                          "name": "user"
+                        },
+                        "member": "avatarURL"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "kind": "html:attribute",
+                  "pos": {
+                    "line": 4,
+                    "col": 29
+                  },
+                  "name": "alt",
+                  "value": [
+                    {
+                      "kind": "html:text",
+                      "pos": {
+                        "line": 4,
+                        "col": 34
+                      },
+                      "text": "Avatar for "
+                    },
+                    {
+                      "kind": "template:expression",
+                      "pos": {
+                        "line": 4,
+                        "col": 45
+                      },
+                      "context": "html:attribute",
+                      "expression": {
+                        "kind": "template:member",
+                        "pos": {
+                          "line": 4,
+                          "col": 46
+                        },
+                        "object": {
+                          "kind": "template:identifier",
+                          "pos": {
+                            "line": 4,
+                            "col": 46
+                          },
+                          "name": "user"
+                        },
+                        "member": "name"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "html:text",
+              "pos": {
+                "line": 4,
+                "col": 58
+              },
+              "text": "\n  "
+            },
+            {
+              "kind": "html:component",
+              "pos": {
+                "line": 5,
+                "col": 3
+              },
+              "name": "UserBadge",
+              "arguments": [
+                {
+                  "kind": "html:attribute",
+                  "pos": {
+                    "line": 5,
+                    "col": 14
+                  },
+                  "name": "user",
+                  "value": [
+                    {
+                      "kind": "template:expression",
+                      "pos": {
+                        "line": 5,
+                        "col": 19
+                      },
+                      "context": "html:attribute",
+                      "expression": {
+                        "kind": "template:identifier",
+                        "pos": {
+                          "line": 5,
+                          "col": 20
+                        },
+                        "name": "user"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "kind": "html:attribute",
+                  "pos": {
+                    "line": 5,
+                    "col": 26
+                  },
+                  "name": "compact",
+                  "value": [
+                    {
+                      "kind": "template:expression",
+                      "pos": {
+                        "line": 5,
+                        "col": 34
+                      },
+                      "context": "html:attribute",
+                      "expression": {
+                        "kind": "template:identifier",
+                        "pos": {
+                          "line": 5,
+                          "col": 35
+                        },
+                        "name": "compact"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "selfClosing": true
+            },
+            {
+              "kind": "html:text",
+              "pos": {
+                "line": 5,
+                "col": 46
+              },
+              "text": "\n  "
+            },
+            {
+              "kind": "html:element",
+              "pos": {
+                "line": 6,
+                "col": 3
+              },
+              "name": "p",
+              "children": [
+                {
+                  "kind": "template:expression",
+                  "pos": {
+                    "line": 6,
+                    "col": 6
+                  },
+                  "context": "html:child",
+                  "expression": {
+                    "kind": "template:index",
+                    "pos": {
+                      "line": 6,
+                      "col": 7
+                    },
+                    "object": {
+                      "kind": "template:member",
+                      "pos": {
+                        "line": 6,
+                        "col": 7
+                      },
+                      "object": {
+                        "kind": "template:identifier",
+                        "pos": {
+                          "line": 6,
+                          "col": 7
+                        },
+                        "name": "user"
+                      },
+                      "member": "tags"
+                    },
+                    "index": {
+                      "kind": "template:literal",
+                      "pos": {
+                        "line": 6,
+                        "col": 17
+                      },
+                      "valueKind": "number",
+                      "value": "0"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "kind": "html:text",
+              "pos": {
+                "line": 6,
+                "col": 24
+              },
+              "text": "\n"
+            }
+          ]
+        },
+        {
+          "kind": "html:text",
+          "pos": {
+            "line": 7,
+            "col": 11
+          },
+          "text": "\n"
+        }
+      ]
+    }
+  ]
+}

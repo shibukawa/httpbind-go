@@ -1,0 +1,5 @@
+template Mixed(value: string): raw {
+<div data-value="literal">SELECT * FROM records;</div>
+escaped {{if not_a_template_keyword}} remains unchanged
+dynamic: {value}
+}

@@ -1,0 +1,365 @@
+{
+  "pos": {
+    "line": 1,
+    "col": 1
+  },
+  "declarations": [
+    {
+      "kind": "html:component",
+      "pos": {
+        "line": 1,
+        "col": 1
+      },
+      "exported": true,
+      "name": "UserList",
+      "parameters": [
+        {
+          "pos": {
+            "line": 1,
+            "col": 27
+          },
+          "name": "users",
+          "type": {
+            "pos": {
+              "line": 1,
+              "col": 34
+            },
+            "name": "User",
+            "array": true
+          }
+        },
+        {
+          "pos": {
+            "line": 1,
+            "col": 42
+          },
+          "name": "showInactive",
+          "type": {
+            "pos": {
+              "line": 1,
+              "col": 56
+            },
+            "name": "bool"
+          }
+        }
+      ],
+      "output": {
+        "pos": {
+          "line": 1,
+          "col": 63
+        },
+        "name": "html"
+      },
+      "body": [
+        {
+          "kind": "html:text",
+          "pos": {
+            "line": 1,
+            "col": 69
+          },
+          "text": "\n"
+        },
+        {
+          "kind": "html:element",
+          "pos": {
+            "line": 2,
+            "col": 1
+          },
+          "name": "ul",
+          "children": [
+            {
+              "kind": "html:text",
+              "pos": {
+                "line": 2,
+                "col": 5
+              },
+              "text": "\n"
+            },
+            {
+              "kind": "template:for",
+              "pos": {
+                "line": 3,
+                "col": 1
+              },
+              "context": "html:child",
+              "variable": "user",
+              "index": "index",
+              "iterable": {
+                "kind": "template:identifier",
+                "pos": {
+                  "line": 3,
+                  "col": 21
+                },
+                "name": "users"
+              },
+              "body": [
+                {
+                  "kind": "html:text",
+                  "pos": {
+                    "line": 3,
+                    "col": 27
+                  },
+                  "text": "\n  "
+                },
+                {
+                  "kind": "template:if",
+                  "pos": {
+                    "line": 4,
+                    "col": 3
+                  },
+                  "context": "html:child",
+                  "condition": {
+                    "kind": "template:member",
+                    "pos": {
+                      "line": 4,
+                      "col": 7
+                    },
+                    "object": {
+                      "kind": "template:identifier",
+                      "pos": {
+                        "line": 4,
+                        "col": 7
+                      },
+                      "name": "user"
+                    },
+                    "member": "active"
+                  },
+                  "then": [
+                    {
+                      "kind": "html:text",
+                      "pos": {
+                        "line": 4,
+                        "col": 19
+                      },
+                      "text": "\n    "
+                    },
+                    {
+                      "kind": "html:element",
+                      "pos": {
+                        "line": 5,
+                        "col": 5
+                      },
+                      "name": "li",
+                      "attributes": [
+                        {
+                          "kind": "html:attribute",
+                          "pos": {
+                            "line": 5,
+                            "col": 9
+                          },
+                          "name": "data-index",
+                          "value": [
+                            {
+                              "kind": "template:expression",
+                              "pos": {
+                                "line": 5,
+                                "col": 20
+                              },
+                              "context": "html:attribute",
+                              "expression": {
+                                "kind": "template:identifier",
+                                "pos": {
+                                  "line": 5,
+                                  "col": 21
+                                },
+                                "name": "index"
+                              }
+                            }
+                          ]
+                        }
+                      ],
+                      "children": [
+                        {
+                          "kind": "template:expression",
+                          "pos": {
+                            "line": 5,
+                            "col": 28
+                          },
+                          "context": "html:child",
+                          "expression": {
+                            "kind": "template:member",
+                            "pos": {
+                              "line": 5,
+                              "col": 29
+                            },
+                            "object": {
+                              "kind": "template:identifier",
+                              "pos": {
+                                "line": 5,
+                                "col": 29
+                              },
+                              "name": "user"
+                            },
+                            "member": "name"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "html:text",
+                      "pos": {
+                        "line": 5,
+                        "col": 44
+                      },
+                      "text": "\n  "
+                    }
+                  ],
+                  "else": [
+                    {
+                      "kind": "template:if",
+                      "pos": {
+                        "line": 6,
+                        "col": 3
+                      },
+                      "context": "html:child",
+                      "condition": {
+                        "kind": "template:identifier",
+                        "pos": {
+                          "line": 6,
+                          "col": 12
+                        },
+                        "name": "showInactive"
+                      },
+                      "then": [
+                        {
+                          "kind": "html:text",
+                          "pos": {
+                            "line": 6,
+                            "col": 25
+                          },
+                          "text": "\n    "
+                        },
+                        {
+                          "kind": "html:element",
+                          "pos": {
+                            "line": 7,
+                            "col": 5
+                          },
+                          "name": "li",
+                          "attributes": [
+                            {
+                              "kind": "html:attribute",
+                              "pos": {
+                                "line": 7,
+                                "col": 9
+                              },
+                              "name": "class",
+                              "value": [
+                                {
+                                  "kind": "html:text",
+                                  "pos": {
+                                    "line": 7,
+                                    "col": 16
+                                  },
+                                  "text": "inactive"
+                                }
+                              ]
+                            }
+                          ],
+                          "children": [
+                            {
+                              "kind": "template:expression",
+                              "pos": {
+                                "line": 7,
+                                "col": 26
+                              },
+                              "context": "html:child",
+                              "expression": {
+                                "kind": "template:member",
+                                "pos": {
+                                  "line": 7,
+                                  "col": 27
+                                },
+                                "object": {
+                                  "kind": "template:identifier",
+                                  "pos": {
+                                    "line": 7,
+                                    "col": 27
+                                  },
+                                  "name": "user"
+                                },
+                                "member": "name"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "html:text",
+                          "pos": {
+                            "line": 7,
+                            "col": 42
+                          },
+                          "text": "\n  "
+                        }
+                      ],
+                      "else": [
+                        {
+                          "kind": "html:text",
+                          "pos": {
+                            "line": 8,
+                            "col": 9
+                          },
+                          "text": "\n    "
+                        },
+                        {
+                          "kind": "html:element",
+                          "pos": {
+                            "line": 9,
+                            "col": 5
+                          },
+                          "name": "li",
+                          "children": [
+                            {
+                              "kind": "html:text",
+                              "pos": {
+                                "line": 9,
+                                "col": 9
+                              },
+                              "text": "hidden"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "html:text",
+                          "pos": {
+                            "line": 9,
+                            "col": 20
+                          },
+                          "text": "\n  "
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "html:text",
+                  "pos": {
+                    "line": 10,
+                    "col": 8
+                  },
+                  "text": "\n"
+                }
+              ]
+            },
+            {
+              "kind": "html:text",
+              "pos": {
+                "line": 11,
+                "col": 7
+              },
+              "text": "\n"
+            }
+          ]
+        },
+        {
+          "kind": "html:text",
+          "pos": {
+            "line": 12,
+            "col": 6
+          },
+          "text": "\n"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,245 @@
+{
+  "pos": {
+    "line": 1,
+    "col": 1
+  },
+  "declarations": [
+    {
+      "kind": "raw:template",
+      "pos": {
+        "line": 1,
+        "col": 1
+      },
+      "exported": false,
+      "name": "UserList",
+      "parameters": [
+        {
+          "pos": {
+            "line": 1,
+            "col": 19
+          },
+          "name": "users",
+          "type": {
+            "pos": {
+              "line": 1,
+              "col": 26
+            },
+            "name": "User",
+            "array": true
+          }
+        },
+        {
+          "pos": {
+            "line": 1,
+            "col": 34
+          },
+          "name": "showInactive",
+          "type": {
+            "pos": {
+              "line": 1,
+              "col": 48
+            },
+            "name": "bool"
+          }
+        }
+      ],
+      "output": {
+        "pos": {
+          "line": 1,
+          "col": 55
+        },
+        "name": "raw"
+      },
+      "body": [
+        {
+          "kind": "raw:text",
+          "pos": {
+            "line": 1,
+            "col": 60
+          },
+          "text": "\nbefore\n"
+        },
+        {
+          "kind": "template:for",
+          "pos": {
+            "line": 3,
+            "col": 1
+          },
+          "context": "raw:text",
+          "variable": "user",
+          "index": "index",
+          "iterable": {
+            "kind": "template:identifier",
+            "pos": {
+              "line": 3,
+              "col": 21
+            },
+            "name": "users"
+          },
+          "body": [
+            {
+              "kind": "raw:text",
+              "pos": {
+                "line": 3,
+                "col": 27
+              },
+              "text": "\n  "
+            },
+            {
+              "kind": "template:if",
+              "pos": {
+                "line": 4,
+                "col": 3
+              },
+              "context": "raw:text",
+              "condition": {
+                "kind": "template:member",
+                "pos": {
+                  "line": 4,
+                  "col": 7
+                },
+                "object": {
+                  "kind": "template:identifier",
+                  "pos": {
+                    "line": 4,
+                    "col": 7
+                  },
+                  "name": "user"
+                },
+                "member": "active"
+              },
+              "then": [
+                {
+                  "kind": "raw:text",
+                  "pos": {
+                    "line": 4,
+                    "col": 19
+                  },
+                  "text": "\n    active: "
+                },
+                {
+                  "kind": "template:expression",
+                  "pos": {
+                    "line": 5,
+                    "col": 13
+                  },
+                  "context": "raw:text",
+                  "expression": {
+                    "kind": "template:member",
+                    "pos": {
+                      "line": 5,
+                      "col": 14
+                    },
+                    "object": {
+                      "kind": "template:identifier",
+                      "pos": {
+                        "line": 5,
+                        "col": 14
+                      },
+                      "name": "user"
+                    },
+                    "member": "name"
+                  }
+                },
+                {
+                  "kind": "raw:text",
+                  "pos": {
+                    "line": 5,
+                    "col": 24
+                  },
+                  "text": "\n  "
+                }
+              ],
+              "else": [
+                {
+                  "kind": "template:if",
+                  "pos": {
+                    "line": 6,
+                    "col": 3
+                  },
+                  "context": "raw:text",
+                  "condition": {
+                    "kind": "template:identifier",
+                    "pos": {
+                      "line": 6,
+                      "col": 12
+                    },
+                    "name": "showInactive"
+                  },
+                  "then": [
+                    {
+                      "kind": "raw:text",
+                      "pos": {
+                        "line": 6,
+                        "col": 25
+                      },
+                      "text": "\n    inactive: "
+                    },
+                    {
+                      "kind": "template:expression",
+                      "pos": {
+                        "line": 7,
+                        "col": 15
+                      },
+                      "context": "raw:text",
+                      "expression": {
+                        "kind": "template:member",
+                        "pos": {
+                          "line": 7,
+                          "col": 16
+                        },
+                        "object": {
+                          "kind": "template:identifier",
+                          "pos": {
+                            "line": 7,
+                            "col": 16
+                          },
+                          "name": "user"
+                        },
+                        "member": "name"
+                      }
+                    },
+                    {
+                      "kind": "raw:text",
+                      "pos": {
+                        "line": 7,
+                        "col": 26
+                      },
+                      "text": "\n  "
+                    }
+                  ],
+                  "else": [
+                    {
+                      "kind": "raw:text",
+                      "pos": {
+                        "line": 8,
+                        "col": 9
+                      },
+                      "text": "\n    hidden\n  "
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "raw:text",
+              "pos": {
+                "line": 10,
+                "col": 8
+              },
+              "text": "\n"
+            }
+          ]
+        },
+        {
+          "kind": "raw:text",
+          "pos": {
+            "line": 11,
+            "col": 7
+          },
+          "text": "\nafter\n"
+        }
+      ]
+    }
+  ]
+}

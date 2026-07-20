@@ -1,0 +1,16 @@
+package shop.templates
+
+import "shared/types" as Shared
+
+type User {
+  name: string
+  active: bool
+}
+
+enum Tone { Primary, Secondary }
+
+external FormatName(value: string): string
+
+export template Greeting(user: User): raw {
+Hello, {FormatName(user.name)}!
+}

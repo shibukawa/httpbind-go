@@ -1,0 +1,6 @@
+package pages
+
+export component Hello(): html {
+<!DOCTYPE html>
+<h1>Hello &amp; welcome</h1>
+}

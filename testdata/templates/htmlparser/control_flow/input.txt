@@ -1,0 +1,13 @@
+export component UserList(users: User[], showInactive: bool): html {
+<ul>
+{for user, index in users}
+  {if user.active}
+    <li data-index={index}>{user.name}</li>
+  {else if showInactive}
+    <li class="inactive">{user.name}</li>
+  {else}
+    <li>hidden</li>
+  {/if}
+{/for}
+</ul>
+}

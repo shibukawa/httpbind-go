@@ -1,0 +1,20 @@
+package pages
+
+type User {
+  name: string
+  active: bool
+  nickname: string?
+  profileURL: url
+  tags: string[]
+}
+
+export component Profile(user: User): html {
+<article hidden={not user.active} title={user.nickname}>
+  <a href={user.profileURL}>{user.name}</a>
+  {if user.active}
+    <ul>{for tag, index in user.tags}<li data-index={index}>{tag}</li>{/for}</ul>
+  {else}
+    <p>inactive</p>
+  {/if}
+</article>
+}

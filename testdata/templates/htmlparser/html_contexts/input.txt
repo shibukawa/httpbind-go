@@ -1,0 +1,13 @@
+component Document(title: string, payload: Payload, css: string): html {
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{title}</title>
+    <style>{RawCSS(css)}</style>
+  </head>
+  <body>
+    <script>window.payload = {JsonForScript(payload)};</script>
+    {{literal brace}}
+  </body>
+</html>
+}

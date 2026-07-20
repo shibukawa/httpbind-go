@@ -1,0 +1,13 @@
+template UserList(users: User[], showInactive: bool): raw {
+before
+{for user, index in users}
+  {if user.active}
+    active: {user.name}
+  {else if showInactive}
+    inactive: {user.name}
+  {else}
+    hidden
+  {/if}
+{/for}
+after
+}

@@ -1,0 +1,74 @@
+{
+  "pos": {
+    "line": 1,
+    "col": 1
+  },
+  "declarations": [
+    {
+      "kind": "raw:template",
+      "pos": {
+        "line": 1,
+        "col": 1
+      },
+      "exported": false,
+      "name": "Mixed",
+      "parameters": [
+        {
+          "pos": {
+            "line": 1,
+            "col": 16
+          },
+          "name": "value",
+          "type": {
+            "pos": {
+              "line": 1,
+              "col": 23
+            },
+            "name": "string"
+          }
+        }
+      ],
+      "output": {
+        "pos": {
+          "line": 1,
+          "col": 32
+        },
+        "name": "raw"
+      },
+      "body": [
+        {
+          "kind": "raw:text",
+          "pos": {
+            "line": 1,
+            "col": 37
+          },
+          "text": "\n\u003cdiv data-value=\"literal\"\u003eSELECT * FROM records;\u003c/div\u003e\nescaped {{if not_a_template_keyword}} remains unchanged\ndynamic: "
+        },
+        {
+          "kind": "template:expression",
+          "pos": {
+            "line": 4,
+            "col": 10
+          },
+          "context": "raw:text",
+          "expression": {
+            "kind": "template:identifier",
+            "pos": {
+              "line": 4,
+              "col": 11
+            },
+            "name": "value"
+          }
+        },
+        {
+          "kind": "raw:text",
+          "pos": {
+            "line": 4,
+            "col": 17
+          },
+          "text": "\n"
+        }
+      ]
+    }
+  ]
+}

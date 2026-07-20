@@ -1,0 +1,324 @@
+{
+  "pos": {
+    "line": 1,
+    "col": 1
+  },
+  "declarations": [
+    {
+      "kind": "html:component",
+      "pos": {
+        "line": 1,
+        "col": 1
+      },
+      "exported": false,
+      "name": "Document",
+      "parameters": [
+        {
+          "pos": {
+            "line": 1,
+            "col": 20
+          },
+          "name": "title",
+          "type": {
+            "pos": {
+              "line": 1,
+              "col": 27
+            },
+            "name": "string"
+          }
+        },
+        {
+          "pos": {
+            "line": 1,
+            "col": 35
+          },
+          "name": "payload",
+          "type": {
+            "pos": {
+              "line": 1,
+              "col": 44
+            },
+            "name": "Payload"
+          }
+        },
+        {
+          "pos": {
+            "line": 1,
+            "col": 53
+          },
+          "name": "css",
+          "type": {
+            "pos": {
+              "line": 1,
+              "col": 58
+            },
+            "name": "string"
+          }
+        }
+      ],
+      "output": {
+        "pos": {
+          "line": 1,
+          "col": 67
+        },
+        "name": "html"
+      },
+      "body": [
+        {
+          "kind": "html:text",
+          "pos": {
+            "line": 1,
+            "col": 73
+          },
+          "text": "\n"
+        },
+        {
+          "kind": "html:doctype",
+          "pos": {
+            "line": 2,
+            "col": 1
+          },
+          "text": "DOCTYPE html"
+        },
+        {
+          "kind": "html:text",
+          "pos": {
+            "line": 2,
+            "col": 16
+          },
+          "text": "\n"
+        },
+        {
+          "kind": "html:element",
+          "pos": {
+            "line": 3,
+            "col": 1
+          },
+          "name": "html",
+          "children": [
+            {
+              "kind": "html:text",
+              "pos": {
+                "line": 3,
+                "col": 7
+              },
+              "text": "\n  "
+            },
+            {
+              "kind": "html:element",
+              "pos": {
+                "line": 4,
+                "col": 3
+              },
+              "name": "head",
+              "children": [
+                {
+                  "kind": "html:text",
+                  "pos": {
+                    "line": 4,
+                    "col": 9
+                  },
+                  "text": "\n    "
+                },
+                {
+                  "kind": "html:element",
+                  "pos": {
+                    "line": 5,
+                    "col": 5
+                  },
+                  "name": "title",
+                  "children": [
+                    {
+                      "kind": "template:expression",
+                      "pos": {
+                        "line": 5,
+                        "col": 12
+                      },
+                      "context": "html:child",
+                      "expression": {
+                        "kind": "template:identifier",
+                        "pos": {
+                          "line": 5,
+                          "col": 13
+                        },
+                        "name": "title"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "kind": "html:text",
+                  "pos": {
+                    "line": 5,
+                    "col": 27
+                  },
+                  "text": "\n    "
+                },
+                {
+                  "kind": "html:element",
+                  "pos": {
+                    "line": 6,
+                    "col": 5
+                  },
+                  "name": "style",
+                  "children": [
+                    {
+                      "kind": "template:expression",
+                      "pos": {
+                        "line": 6,
+                        "col": 12
+                      },
+                      "context": "html:style",
+                      "expression": {
+                        "kind": "template:call",
+                        "pos": {
+                          "line": 6,
+                          "col": 13
+                        },
+                        "callee": {
+                          "kind": "template:identifier",
+                          "pos": {
+                            "line": 6,
+                            "col": 13
+                          },
+                          "name": "RawCSS"
+                        },
+                        "arguments": [
+                          {
+                            "kind": "template:identifier",
+                            "pos": {
+                              "line": 6,
+                              "col": 20
+                            },
+                            "name": "css"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "kind": "html:text",
+                  "pos": {
+                    "line": 6,
+                    "col": 33
+                  },
+                  "text": "\n  "
+                }
+              ]
+            },
+            {
+              "kind": "html:text",
+              "pos": {
+                "line": 7,
+                "col": 10
+              },
+              "text": "\n  "
+            },
+            {
+              "kind": "html:element",
+              "pos": {
+                "line": 8,
+                "col": 3
+              },
+              "name": "body",
+              "children": [
+                {
+                  "kind": "html:text",
+                  "pos": {
+                    "line": 8,
+                    "col": 9
+                  },
+                  "text": "\n    "
+                },
+                {
+                  "kind": "html:element",
+                  "pos": {
+                    "line": 9,
+                    "col": 5
+                  },
+                  "name": "script",
+                  "children": [
+                    {
+                      "kind": "html:text",
+                      "pos": {
+                        "line": 9,
+                        "col": 13
+                      },
+                      "text": "window.payload = "
+                    },
+                    {
+                      "kind": "template:expression",
+                      "pos": {
+                        "line": 9,
+                        "col": 30
+                      },
+                      "context": "html:script",
+                      "expression": {
+                        "kind": "template:call",
+                        "pos": {
+                          "line": 9,
+                          "col": 31
+                        },
+                        "callee": {
+                          "kind": "template:identifier",
+                          "pos": {
+                            "line": 9,
+                            "col": 31
+                          },
+                          "name": "JsonForScript"
+                        },
+                        "arguments": [
+                          {
+                            "kind": "template:identifier",
+                            "pos": {
+                              "line": 9,
+                              "col": 45
+                            },
+                            "name": "payload"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "kind": "html:text",
+                      "pos": {
+                        "line": 9,
+                        "col": 54
+                      },
+                      "text": ";"
+                    }
+                  ]
+                },
+                {
+                  "kind": "html:text",
+                  "pos": {
+                    "line": 9,
+                    "col": 64
+                  },
+                  "text": "\n    {literal brace}\n  "
+                }
+              ]
+            },
+            {
+              "kind": "html:text",
+              "pos": {
+                "line": 11,
+                "col": 10
+              },
+              "text": "\n"
+            }
+          ]
+        },
+        {
+          "kind": "html:text",
+          "pos": {
+            "line": 12,
+            "col": 8
+          },
+          "text": "\n"
+        }
+      ]
+    }
+  ]
+}

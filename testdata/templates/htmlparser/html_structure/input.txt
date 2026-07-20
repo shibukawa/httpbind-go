@@ -1,0 +1,8 @@
+component Avatar(user: User, compact: bool): html {
+<article class="card {user.active ? 'active' : 'inactive'}" data-id={user.id} hidden>
+  <!-- profile -->
+  <img src={user.avatarURL} alt="Avatar for {user.name}">
+  <UserBadge user={user} compact={compact} />
+  <p>{user.tags[0]}</p>
+</article>
+}

@@ -1,0 +1,9 @@
+package pages
+
+enum Tone { Primary, Secondary }
+
+external Decorate(value: string, tone: Tone): string
+
+export component Label(value: string, tone: Tone): html {
+<span>{Decorate(value, tone)}</span>
+}

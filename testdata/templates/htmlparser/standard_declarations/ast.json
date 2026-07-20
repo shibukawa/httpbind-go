@@ -1,0 +1,423 @@
+{
+  "pos": {
+    "line": 1,
+    "col": 1
+  },
+  "package": {
+    "kind": "template:package",
+    "pos": {
+      "line": 1,
+      "col": 1
+    },
+    "name": "shop.templates"
+  },
+  "imports": [
+    {
+      "pos": {
+        "line": 3,
+        "col": 1
+      },
+      "path": "shared/types",
+      "alias": "Shared"
+    }
+  ],
+  "declarations": [
+    {
+      "kind": "template:type",
+      "pos": {
+        "line": 5,
+        "col": 1
+      },
+      "name": "User",
+      "fields": [
+        {
+          "pos": {
+            "line": 6,
+            "col": 3
+          },
+          "name": "name",
+          "type": {
+            "pos": {
+              "line": 6,
+              "col": 9
+            },
+            "name": "string"
+          }
+        },
+        {
+          "pos": {
+            "line": 7,
+            "col": 3
+          },
+          "name": "active",
+          "type": {
+            "pos": {
+              "line": 7,
+              "col": 11
+            },
+            "name": "bool"
+          }
+        },
+        {
+          "pos": {
+            "line": 8,
+            "col": 3
+          },
+          "name": "tags",
+          "type": {
+            "pos": {
+              "line": 8,
+              "col": 9
+            },
+            "name": "string",
+            "array": true
+          }
+        },
+        {
+          "pos": {
+            "line": 9,
+            "col": 3
+          },
+          "name": "nickname",
+          "type": {
+            "pos": {
+              "line": 9,
+              "col": 13
+            },
+            "name": "string",
+            "optional": true
+          }
+        }
+      ]
+    },
+    {
+      "kind": "template:enum",
+      "pos": {
+        "line": 12,
+        "col": 1
+      },
+      "name": "Tone",
+      "members": [
+        {
+          "pos": {
+            "line": 12,
+            "col": 13
+          },
+          "name": "Primary"
+        },
+        {
+          "pos": {
+            "line": 12,
+            "col": 22
+          },
+          "name": "Secondary"
+        }
+      ]
+    },
+    {
+      "kind": "template:external",
+      "pos": {
+        "line": 14,
+        "col": 1
+      },
+      "name": "FormatName",
+      "parameters": [
+        {
+          "pos": {
+            "line": 14,
+            "col": 21
+          },
+          "name": "value",
+          "type": {
+            "pos": {
+              "line": 14,
+              "col": 28
+            },
+            "name": "string"
+          }
+        }
+      ],
+      "result": {
+        "pos": {
+          "line": 14,
+          "col": 37
+        },
+        "name": "string"
+      }
+    },
+    {
+      "kind": "html:component",
+      "pos": {
+        "line": 16,
+        "col": 1
+      },
+      "exported": true,
+      "name": "Greeting",
+      "parameters": [
+        {
+          "pos": {
+            "line": 16,
+            "col": 27
+          },
+          "name": "user",
+          "type": {
+            "pos": {
+              "line": 16,
+              "col": 33
+            },
+            "name": "User"
+          }
+        },
+        {
+          "pos": {
+            "line": 16,
+            "col": 39
+          },
+          "name": "count",
+          "type": {
+            "pos": {
+              "line": 16,
+              "col": 46
+            },
+            "name": "int"
+          }
+        }
+      ],
+      "output": {
+        "pos": {
+          "line": 16,
+          "col": 52
+        },
+        "name": "html"
+      },
+      "body": [
+        {
+          "kind": "html:text",
+          "pos": {
+            "line": 16,
+            "col": 58
+          },
+          "text": "\n"
+        },
+        {
+          "kind": "html:element",
+          "pos": {
+            "line": 17,
+            "col": 1
+          },
+          "name": "p",
+          "attributes": [
+            {
+              "kind": "html:attribute",
+              "pos": {
+                "line": 17,
+                "col": 4
+              },
+              "name": "data-active",
+              "value": [
+                {
+                  "kind": "template:expression",
+                  "pos": {
+                    "line": 17,
+                    "col": 16
+                  },
+                  "context": "html:attribute",
+                  "expression": {
+                    "kind": "template:binary",
+                    "pos": {
+                      "line": 17,
+                      "col": 17
+                    },
+                    "operator": "or",
+                    "left": {
+                      "kind": "template:unary",
+                      "pos": {
+                        "line": 17,
+                        "col": 17
+                      },
+                      "operator": "not",
+                      "operand": {
+                        "kind": "template:member",
+                        "pos": {
+                          "line": 17,
+                          "col": 21
+                        },
+                        "object": {
+                          "kind": "template:identifier",
+                          "pos": {
+                            "line": 17,
+                            "col": 21
+                          },
+                          "name": "user"
+                        },
+                        "member": "active"
+                      }
+                    },
+                    "right": {
+                      "kind": "template:binary",
+                      "pos": {
+                        "line": 17,
+                        "col": 36
+                      },
+                      "operator": "!=",
+                      "left": {
+                        "kind": "template:member",
+                        "pos": {
+                          "line": 17,
+                          "col": 36
+                        },
+                        "object": {
+                          "kind": "template:identifier",
+                          "pos": {
+                            "line": 17,
+                            "col": 36
+                          },
+                          "name": "user"
+                        },
+                        "member": "nickname"
+                      },
+                      "right": {
+                        "kind": "template:literal",
+                        "pos": {
+                          "line": 17,
+                          "col": 53
+                        },
+                        "valueKind": "null",
+                        "value": null
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "children": [
+            {
+              "kind": "html:text",
+              "pos": {
+                "line": 17,
+                "col": 59
+              },
+              "text": "\n  Hello, "
+            },
+            {
+              "kind": "template:expression",
+              "pos": {
+                "line": 18,
+                "col": 10
+              },
+              "context": "html:child",
+              "expression": {
+                "kind": "template:call",
+                "pos": {
+                  "line": 18,
+                  "col": 11
+                },
+                "callee": {
+                  "kind": "template:identifier",
+                  "pos": {
+                    "line": 18,
+                    "col": 11
+                  },
+                  "name": "FormatName"
+                },
+                "arguments": [
+                  {
+                    "kind": "template:member",
+                    "pos": {
+                      "line": 18,
+                      "col": 22
+                    },
+                    "object": {
+                      "kind": "template:identifier",
+                      "pos": {
+                        "line": 18,
+                        "col": 22
+                      },
+                      "name": "user"
+                    },
+                    "member": "name"
+                  }
+                ]
+              }
+            },
+            {
+              "kind": "html:text",
+              "pos": {
+                "line": 18,
+                "col": 33
+              },
+              "text": "! "
+            },
+            {
+              "kind": "template:expression",
+              "pos": {
+                "line": 18,
+                "col": 35
+              },
+              "context": "html:child",
+              "expression": {
+                "kind": "template:binary",
+                "pos": {
+                  "line": 18,
+                  "col": 36
+                },
+                "operator": "+",
+                "left": {
+                  "kind": "template:identifier",
+                  "pos": {
+                    "line": 18,
+                    "col": 36
+                  },
+                  "name": "count"
+                },
+                "right": {
+                  "kind": "template:binary",
+                  "pos": {
+                    "line": 18,
+                    "col": 44
+                  },
+                  "operator": "*",
+                  "left": {
+                    "kind": "template:literal",
+                    "pos": {
+                      "line": 18,
+                      "col": 44
+                    },
+                    "valueKind": "number",
+                    "value": "1"
+                  },
+                  "right": {
+                    "kind": "template:literal",
+                    "pos": {
+                      "line": 18,
+                      "col": 48
+                    },
+                    "valueKind": "number",
+                    "value": "2"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "html:text",
+              "pos": {
+                "line": 18,
+                "col": 50
+              },
+              "text": "\n"
+            }
+          ]
+        },
+        {
+          "kind": "html:text",
+          "pos": {
+            "line": 19,
+            "col": 5
+          },
+          "text": "\n"
+        }
+      ]
+    }
+  ]
+}

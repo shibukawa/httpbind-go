@@ -1,0 +1,20 @@
+package shop.templates
+
+import "shared/types" as Shared
+
+type User {
+  name: string
+  active: bool
+  tags: string[]
+  nickname: string?
+}
+
+enum Tone { Primary, Secondary }
+
+external FormatName(value: string): string
+
+export component Greeting(user: User, count: int): html {
+<p data-active={not user.active or user.nickname != null}>
+  Hello, {FormatName(user.name)}! {count + 1 * 2}
+</p>
+}
