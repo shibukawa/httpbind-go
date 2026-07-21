@@ -28,6 +28,19 @@ func use() { _, _ = hb.DecodeJSON[Note](nil) }
 	}
 }
 
+func TestDefaultOptionsIncludeTinyGoDriverServeMux(t *testing.T) {
+	want := generator.TypePattern{
+		PackagePath: "github.com/shibukawa/tinygodriver/httpmux",
+		Name:        "ServeMux",
+	}
+	for _, pattern := range generator.DefaultOptions().ServeMuxes.Set {
+		if pattern == want {
+			return
+		}
+	}
+	t.Fatalf("default ServeMuxes do not include %#v", want)
+}
+
 func TestPatternSetReplacesDefaultsAndCanListBothPackages(t *testing.T) {
 	dir := t.TempDir()
 	writeTempModule(t, dir)

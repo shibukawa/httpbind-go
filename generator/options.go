@@ -70,7 +70,10 @@ type Options struct {
 // DefaultOptions returns the standard tinybind runtime setup.
 func DefaultOptions() Options {
 	return Options{
-		ServeMuxes: PatternSet[TypePattern]{Set: []TypePattern{{PackagePath: "net/http", Name: "ServeMux"}}},
+		ServeMuxes: PatternSet[TypePattern]{Set: []TypePattern{
+			{PackagePath: "net/http", Name: "ServeMux"},
+			{PackagePath: "github.com/shibukawa/tinygodriver/httpmux", Name: "ServeMux"},
+		}},
 		RouteFunctions: PatternSet[SymbolPattern]{Set: []SymbolPattern{
 			{PackagePath: "net/http", Name: "Handle"},
 			{PackagePath: "net/http", Name: "HandleFunc"},

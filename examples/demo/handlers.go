@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	httpbind "github.com/shibukawa/tinybind-go"
+	"github.com/shibukawa/tinygodriver/httpmux"
 )
 
 // in-memory toy store for the demo
@@ -191,7 +192,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // RegisterDemoRoutes mounts all demo routes on mux (also used for OpenAPI discovery).
-func RegisterDemoRoutes(mux *http.ServeMux) {
+func RegisterDemoRoutes(mux *httpmux.ServeMux) {
 	mux.HandleFunc("GET /{$}", indexHandler)
 	mux.HandleFunc("GET /health", healthHandler)
 

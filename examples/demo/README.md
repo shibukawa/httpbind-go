@@ -5,6 +5,8 @@ Sample app that exercises the main library features end-to-end.
 | Feature | Where |
 |---------|--------|
 | Generated Bind / Write | `tinybind_gen.go` (`go generate`) |
+| TinyGo-compatible Go 1.22 routing | `tinygodriver/httpmux` |
+| **configbind** listen port | `ServerConfig` + `configbind_gen.go` (`PORT` / `--port` / `-p`) |
 | Default `input` (query + JSON/form body) | `CreateUserRequest`, `EchoRequest` |
 | `query` / `payload` | `SearchRequest` |
 | `path` / `header` | create user, get user |
@@ -57,7 +59,17 @@ go run ./examples/demo
 | http://localhost:8080/openapi.json | OpenAPI 3.1 |
 
 ```bash
-ADDR=:9090 go run ./examples/demo
+# listen port via configbind (env name follows CLI long opt: port -> PORT)
+PORT=9090 go run ./examples/demo
+# or:
+go run ./examples/demo -- --port 9090
+```
+
+Optional TOML (configdir / `--config-path`):
+
+```toml
+[server]
+port = 9090
 ```
 
 ## Quick checks
@@ -93,10 +105,11 @@ curl -sSN -X POST 'http://localhost:8080/chat' \
 examples/demo/
   main.go
   handlers.go                 # routes + NewStream chat
-  types.go
+  types.go                    # includes ServerConfig (configbind)
   generate.go                 # go:generate
-  tinybind_gen.go           # generated Bind/Write
-  tinybind_openapi_gen.go   # generated OpenAPI embed
+  tinybind_gen.go             # generated Bind/Write
+  tinybind_openapi_gen.go     # generated OpenAPI embed
+  configbind_gen.go           # generated config apply / flags / env
   demo_test.go
   README.md
 ```

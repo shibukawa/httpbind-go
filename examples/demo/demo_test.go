@@ -6,10 +6,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/shibukawa/tinygodriver/httpmux"
 )
 
 func TestDemoRoutes_Smoke(t *testing.T) {
-	mux := http.NewServeMux()
+	mux := httpmux.NewServeMux()
 	RegisterDemoRoutes(mux)
 
 	// create user

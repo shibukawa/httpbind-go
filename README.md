@@ -251,7 +251,7 @@ Verified with **TinyGo 0.41.1 + Go 1.26.x**.
 | Toolchain | Project baseline is TinyGo 0.41.1 + Go 1.26.x |
 | js/wasm HTTP | TinyGo 0.41.1 + Go 1.26.x fails inside `net/http/roundtrip_js.go`; use `jsonbind` for HTTP-free WASM code |
 | Streaming | Prefer host `go test` for `NewStream`; not fully TinyGo-matrixed |
-| ServeMux | Prefer testing handlers with `ServeHTTP` + `SetPathValue` under TinyGo |
+| ServeMux | `DefaultOptions` discovers both `net/http.ServeMux` and `tinygodriver/httpmux.ServeMux`; use `httpmux` for Go 1.22 method and wildcard routing under TinyGo |
 | Multipart `File` | Supported via `httpbind.File` (`payload`); size/MIME `check` rules deferred. Body cap defaults to **1 MiB** (`SetMaxMultipartBodyBytes`) |
 | SQL mapping | `ScanRows` and generated SQL scanners target host Go and are excluded from TinyGo builds |
 | Generator | Host-side only (`go run` / `go test`) |

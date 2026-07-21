@@ -4,16 +4,27 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
+
+	"github.com/shibukawa/tinybind-go/configbind"
+	"github.com/shibukawa/tinygodriver/httpmux"
+
+	// Registers the host Netdever for TinyGo's net package.
+	_ "github.com/shibukawa/tinygodriver/netdev"
 )
 
 func main() {
-	addr := ":8080"
-	if v := os.Getenv("ADDR"); v != "" {
-		addr = v
+	cfg := configbind.Bind[ServerConfig]("server")
+	if _, err := configbind.Load(configbind.LoadOptions{
+		Vendor:   "shibukawa",
+		Tool:     "tinybind-demo",
+		FileName: "config.toml",
+	}); err != nil {
+		log.Fatalf("config: %v", err)
 	}
 
-	mux := http.NewServeMux()
+	addr := fmt.Sprintf(":%d", cfg.Port)
+
+	mux := httpmux.NewServeMux()
 	RegisterDemoRoutes(mux)
 
 	fmt.Printf("httpbind demo listening on http://localhost%s\n", addr)

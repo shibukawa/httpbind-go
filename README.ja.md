@@ -216,7 +216,7 @@ curl 例の詳細は [`examples/demo/README.md`](examples/demo/README.md) を参
 | ツールチェイン | プロジェクト基準は TinyGo 0.41.1 + Go 1.26.x |
 | js/wasm HTTP | TinyGo 0.41.1 + Go 1.26.x は `net/http/roundtrip_js.go` 内で失敗するため、HTTP 不要の WASM では `jsonbind` を使う |
 | ストリーミング | `NewStream` はホストの `go test` を推奨。TinyGo 行列は未整備 |
-| ServeMux | TinyGo 下では `ServeHTTP` + `SetPathValue` でのハンドラ試験を推奨 |
+| ServeMux | `DefaultOptions` は `net/http.ServeMux` と `tinygodriver/httpmux.ServeMux` の両方を探索。TinyGo で Go 1.22 のメソッド・ワイルドカードルーティングを使う場合は `httpmux` を利用 |
 | Multipart `File` | `httpbind.File`（`payload`）で対応。サイズ/MIME の `check` は未対応。ボディ上限のデフォルトは **1 MiB**（`SetMaxMultipartBodyBytes`） |
 | SQLマッピング | `ScanRows` と生成SQLスキャナはホストGo向けで、TinyGoビルドから除外 |
 | ジェネレータ | ホスト側のみ（`go run` / `go test`） |

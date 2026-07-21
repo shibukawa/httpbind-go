@@ -1,5 +1,11 @@
 package main
 
+// ServerConfig is process config loaded via configbind (TOML / env / CLI).
+// With opt:"port,p", the environment variable is PORT (CLI long name based).
+type ServerConfig struct {
+	Port int `default:"8080" help:"HTTP listen port" opt:"port,p"`
+}
+
 // CreateUserRequest demos default input, path, and header binding.
 type CreateUserRequest struct {
 	Name  string
