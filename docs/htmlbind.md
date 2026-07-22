@@ -1,6 +1,6 @@
 # htmlbind User Guide
 
-`htmlbind` compiles typed `.tb.html` templates into Go functions that render to an `io.Writer`. Templates are not parsed at runtime; value types and HTML insertion contexts are checked during generation.
+`htmlbind` compiles typed `.tb.html` templates into Go HTTP response functions. Templates are not parsed at runtime; value types and HTML insertion contexts are checked during generation.
 
 ## What is automated
 
@@ -59,19 +59,38 @@ export component Hello(name: string): html {
 Generated public signature:
 
 ```go
-func Hello(w io.Writer, name string) error
+func Hello(w http.ResponseWriter, r *http.Request, name string) error
 ```
 
-An `http.ResponseWriter` already implements `io.Writer`:
+The generated function sets `Content-Type` to `text/html; charset=utf-8` before writing the body:
 
 ```go
 func hello(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := Hello(w, r.URL.Query().Get("name")); err != nil {
+	if err := Hello(w, r, r.URL.Query().Get("name")); err != nil {
 		http.Error(w, "render failed", http.StatusInternalServerError)
 	}
 }
 ```
+
+## Optional Zstandard compression
+
+Generated HTML responses are uncompressed by default. To allow Zstandard
+compression, enable it once during application startup:
+
+```go
+import runtimehtmlbind "github.com/shibukawa/tinybind-go/htmlbind"
+
+func main() {
+	runtimehtmlbind.ZstdCompression = true
+	// Register handlers and start the server.
+}
+```
+
+When enabled, generated functions add `Vary: Accept-Encoding`. If the request's
+`Accept-Encoding` contains an enabled `zstd` coding, the response is streamed
+through `tinygodriver/compress/zstd` and sent with `Content-Encoding: zstd`.
+The flag is intended as startup configuration and must not be changed while
+requests are being served.
 
 ## Declaring types
 
@@ -113,7 +132,7 @@ const (
 	ToneSecondary Tone = "Secondary"
 )
 
-func Profile(w io.Writer, user User, tone Tone) error
+func Profile(w http.ResponseWriter, r *http.Request, user User, tone Tone) error
 ```
 
 Types declared in a template become types in the generated Go package. Application code constructs those generated types when calling components.
@@ -131,7 +150,7 @@ Types declared in a template become types in the generated Go package. Applicati
 | `url` | `url.URL` |
 | `T[]` | `[]T` |
 | `T?` | `*T` |
-| `html` | `HTML`, primarily for component children |
+| `html` | `HTML` (`func(http.ResponseWriter, *http.Request) error`), primarily for component children |
 
 ## Conditions
 
@@ -202,7 +221,7 @@ export component Card(user: User): html {
 The application-facing signature is only the exported component:
 
 ```go
-func Card(w io.Writer, user User) error
+func Card(w http.ResponseWriter, r *http.Request, user User) error
 ```
 
 A component with a `children: html` parameter receives the content between its start and end tags. Components without children can be called with self-closing syntax:
@@ -343,7 +362,7 @@ export component Name(p1: T1, p2: T2): html { ... }
 Public API:
 
 ```go
-func Name(w io.Writer, p1 T1, p2 T2) error
+func Name(w http.ResponseWriter, r *http.Request, p1 T1, p2 T2) error
 ```
 
 ### No parameters
@@ -353,7 +372,7 @@ export component Layout(): html { ... }
 ```
 
 ```go
-func Layout(w io.Writer) error
+func Layout(w http.ResponseWriter, r *http.Request) error
 ```
 
 ### Private component

@@ -5,12 +5,15 @@ package pages
 import (
 	"html"
 	"io"
-	"net/url"
+	"net/http"
 	"strconv"
 	"strings"
+
+	runtimehtmlbind "github.com/shibukawa/tinybind-go/htmlbind"
+	"net/url"
 )
 
-type HTML func(io.Writer) error
+type HTML func(http.ResponseWriter, *http.Request) error
 type TrustedHTML string
 type TrustedCSS string
 type TrustedJavaScript string
@@ -74,7 +77,18 @@ type User struct {
 	Tags       []string
 }
 
-func Profile(w io.Writer, user User) error {
+func Profile(w http.ResponseWriter, r *http.Request, user User) (_tinybindErr error) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	var _tinybindClose func() error
+	w, _tinybindClose, _tinybindErr = runtimehtmlbind.PrepareResponse(w, r)
+	if _tinybindErr != nil {
+		return _tinybindErr
+	}
+	defer func() {
+		if err := _tinybindClose(); _tinybindErr == nil {
+			_tinybindErr = err
+		}
+	}()
 	if err := _tinybindWrite(w, "\n<article"); err != nil {
 		return err
 	}

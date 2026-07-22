@@ -1,6 +1,6 @@
 # htmlbind 利用ガイド
 
-`htmlbind` は `.tb.html` に書いた型付き HTML テンプレートを、`io.Writer` へ描画する Go 関数へ変換します。テンプレートは実行時に解析されず、値の型と HTML 上の挿入位置をコード生成時に検査します。
+`htmlbind` は `.tb.html` に書いた型付き HTML テンプレートを、HTTP レスポンスを描画する Go 関数へ変換します。テンプレートは実行時に解析されず、値の型と HTML 上の挿入位置をコード生成時に検査します。
 
 ## 自動化されること
 
@@ -59,19 +59,38 @@ export component Hello(name: string): html {
 生成される公開関数シグネチャ:
 
 ```go
-func Hello(w io.Writer, name string) error
+func Hello(w http.ResponseWriter, r *http.Request, name string) error
 ```
 
-`http.ResponseWriter` は `io.Writer` を満たすため、そのまま渡せます。
+生成された関数は body を書く前に `Content-Type` を `text/html; charset=utf-8` に設定します。
 
 ```go
 func hello(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := Hello(w, r.URL.Query().Get("name")); err != nil {
+	if err := Hello(w, r, r.URL.Query().Get("name")); err != nil {
 		http.Error(w, "render failed", http.StatusInternalServerError)
 	}
 }
 ```
+
+## Zstandard 圧縮（オプション）
+
+生成される HTML レスポンスはデフォルトでは圧縮されません。Zstandard
+圧縮を許可するには、アプリケーション起動時に一度だけ有効化します。
+
+```go
+import runtimehtmlbind "github.com/shibukawa/tinybind-go/htmlbind"
+
+func main() {
+	runtimehtmlbind.ZstdCompression = true
+	// handler を登録して server を起動する
+}
+```
+
+有効にすると、生成関数は `Vary: Accept-Encoding` を追加します。request の
+`Accept-Encoding` に有効な `zstd` coding が含まれる場合は、
+`tinygodriver/compress/zstd` を通してストリーム圧縮し、
+`Content-Encoding: zstd` を設定して返します。このフラグは起動時設定用であり、
+request の処理中に変更しないでください。
 
 ## 型を宣言する
 
@@ -113,7 +132,7 @@ const (
 	ToneSecondary Tone = "Secondary"
 )
 
-func Profile(w io.Writer, user User, tone Tone) error
+func Profile(w http.ResponseWriter, r *http.Request, user User, tone Tone) error
 ```
 
 テンプレートで宣言した型は生成後の同じ Go パッケージに属します。Go 側ではその型を使って引数を組み立てます。
@@ -131,7 +150,7 @@ func Profile(w io.Writer, user User, tone Tone) error
 | `url` | `url.URL` |
 | `T[]` | `[]T` |
 | `T?` | `*T` |
-| `html` | `HTML`、component の children 用 |
+| `html` | `HTML`（`func(http.ResponseWriter, *http.Request) error`）、component の children 用 |
 
 ## 条件分岐
 
@@ -202,7 +221,7 @@ export component Card(user: User): html {
 アプリケーションから呼べるシグネチャは公開 component だけです。
 
 ```go
-func Card(w io.Writer, user User) error
+func Card(w http.ResponseWriter, r *http.Request, user User) error
 ```
 
 `children: html` を持つ component は開始タグと終了タグの間の内容を受け取れます。children を取らない component は self-closing でも呼べます。
@@ -340,7 +359,7 @@ export component Name(p1: T1, p2: T2): html { ... }
 呼び出し API:
 
 ```go
-func Name(w io.Writer, p1 T1, p2 T2) error
+func Name(w http.ResponseWriter, r *http.Request, p1 T1, p2 T2) error
 ```
 
 ### 引数なし
@@ -350,7 +369,7 @@ export component Layout(): html { ... }
 ```
 
 ```go
-func Layout(w io.Writer) error
+func Layout(w http.ResponseWriter, r *http.Request) error
 ```
 
 ### private component

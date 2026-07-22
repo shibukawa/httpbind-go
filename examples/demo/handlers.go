@@ -155,8 +155,7 @@ func forbiddenDemoHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = IndexPage(w, indexJavaScript)
+	_ = IndexPage(w, r, indexJavaScript)
 }
 
 // RegisterDemoRoutes mounts all demo routes on mux (also used for OpenAPI discovery).

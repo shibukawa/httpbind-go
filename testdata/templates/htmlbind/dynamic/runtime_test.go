@@ -1,6 +1,8 @@
 package pages
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -19,11 +21,12 @@ func TestRenderedOutput(t *testing.T) {
 		ProfileURL: *profileURL,
 		Tags:       []string{"go", "<html>"},
 	}
-	var output strings.Builder
-	if err := Profile(&output, user); err != nil {
+	output := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	if err := Profile(output, request, user); err != nil {
 		t.Fatal(err)
 	}
-	rendered := output.String()
+	rendered := output.Body.String()
 	for _, want := range []string{
 		`title="A &amp; B"`,
 		`href="https://example.com/profile?q=a&amp;lang=en"`,

@@ -69,20 +69,26 @@ func TestGenerateFixtures(t *testing.T) {
 
 func runGeneratedTests(t *testing.T, generated, runtimeTest []byte) {
 	t.Helper()
-	if len(runtimeTest) == 0 {
-		return
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	for name, content := range map[string][]byte{
-		"go.mod":          []byte("module generatedfixture\n\ngo 1.26\n"),
-		"generated.go":    generated,
-		"runtime_test.go": runtimeTest,
-	} {
+	files := map[string][]byte{
+		"go.mod": []byte("module generatedfixture\n\ngo 1.26\n\n" +
+			"require github.com/shibukawa/tinybind-go v0.0.0\n\n" +
+			"replace github.com/shibukawa/tinybind-go => " + root + "\n"),
+		"generated.go": generated,
+	}
+	if len(runtimeTest) > 0 {
+		files["runtime_test.go"] = runtimeTest
+	}
+	for name, content := range files {
 		if err := os.WriteFile(filepath.Join(dir, name), content, 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	command := exec.Command("go", "test", ".")
+	command := exec.Command("go", "test", "-mod=mod", ".")
 	command.Dir = dir
 	command.Env = append(os.Environ(), "GOWORK=off")
 	if output, err := command.CombinedOutput(); err != nil {
@@ -105,10 +111,51 @@ func typeCheckGenerated(t *testing.T, filename string, source, companion []byte)
 		}
 		parsed = append(parsed, companionFile)
 	}
-	config := types.Config{Importer: importer.Default(), Error: func(err error) { t.Errorf("generated Go type error: %v", err) }}
+	config := types.Config{Importer: generatedImporter{Importer: importer.Default()}, Error: func(err error) { t.Errorf("generated Go type error: %v", err) }}
 	if _, err := config.Check(file.Name.Name, files, parsed, nil); err != nil {
 		t.Fatalf("type-check generated Go: %v", err)
 	}
+}
+
+type generatedImporter struct {
+	types.Importer
+}
+
+func (i generatedImporter) Import(path string) (*types.Package, error) {
+	if path != "github.com/shibukawa/tinybind-go/htmlbind" {
+		return i.Importer.Import(path)
+	}
+	httpPackage, err := i.Importer.Import("net/http")
+	if err != nil {
+		return nil, err
+	}
+	responseWriter := httpPackage.Scope().Lookup("ResponseWriter").Type()
+	request := httpPackage.Scope().Lookup("Request").Type()
+	errorType := types.Universe.Lookup("error").Type()
+	closer := types.NewSignature(
+		nil,
+		types.NewTuple(),
+		types.NewTuple(types.NewVar(token.NoPos, nil, "", errorType)),
+		false,
+	)
+	signature := types.NewSignature(
+		nil,
+		types.NewTuple(
+			types.NewVar(token.NoPos, nil, "w", responseWriter),
+			types.NewVar(token.NoPos, nil, "r", types.NewPointer(request)),
+		),
+		types.NewTuple(
+			types.NewVar(token.NoPos, nil, "w", responseWriter),
+			types.NewVar(token.NoPos, nil, "close", closer),
+			types.NewVar(token.NoPos, nil, "err", errorType),
+		),
+		false,
+	)
+	pkg := types.NewPackage(path, "htmlbind")
+	pkg.Scope().Insert(types.NewFunc(token.NoPos, pkg, "PrepareResponse", signature))
+	pkg.Scope().Insert(types.NewVar(token.NoPos, pkg, "ZstdCompression", types.Typ[types.Bool]))
+	pkg.MarkComplete()
+	return pkg, nil
 }
 
 func TestGenerateDiagnostics(t *testing.T) {

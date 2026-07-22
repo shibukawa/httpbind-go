@@ -80,7 +80,8 @@ func (c *compiler) emit(options GenerateOptions) ([]byte, error) {
 }
 
 func (e *goEmitter) emitImports() {
-	e.b.WriteString("import (\n\t\"html\"\n\t\"io\"\n\t\"strconv\"\n\t\"strings\"\n")
+	e.b.WriteString("import (\n\t\"html\"\n\t\"io\"\n\t\"net/http\"\n\t\"strconv\"\n\t\"strings\"\n")
+	e.b.WriteString("\n\truntimehtmlbind \"github.com/shibukawa/tinybind-go/htmlbind\"\n")
 	if e.c.usesKind(kindDateTime) || e.c.usesKind(kindDate) || e.c.usesKind(kindTime) {
 		e.b.WriteString("\t\"time\"\n")
 	}
@@ -100,7 +101,7 @@ func (e *goEmitter) emitImports() {
 }
 
 func (e *goEmitter) emitRuntimeHelpers() {
-	e.b.WriteString("type HTML func(io.Writer) error\n")
+	e.b.WriteString("type HTML func(http.ResponseWriter, *http.Request) error\n")
 	e.b.WriteString("type TrustedHTML string\ntype TrustedCSS string\ntype TrustedJavaScript string\ntype ScriptJSON string\n\n")
 	e.b.WriteString("func _tinybindWrite(w io.Writer, value string) error { _, err := io.WriteString(w, value); return err }\n")
 	e.b.WriteString("func _tinybindEscape(value string) string { return html.EscapeString(value) }\n")
@@ -158,13 +159,28 @@ func (e *goEmitter) emitDeclaredTypes() {
 
 func (e *goEmitter) emitComponent(component *TemplateDecl) error {
 	name := e.c.componentGoName(component.Name)
-	fmt.Fprintf(&e.b, "func %s(w io.Writer", name)
+	fmt.Fprintf(&e.b, "func %s(w http.ResponseWriter, r *http.Request", name)
 	for _, parameter := range component.Parameters {
 		t, _ := e.c.resolveType(parameter.Type)
 		fmt.Fprintf(&e.b, ", %s %s", goLocalName(parameter.Name), goType(t))
 	}
-	e.b.WriteString(") error {\n")
+	if component.Exported {
+		e.b.WriteString(") (_tinybindErr error) {\n")
+	} else {
+		e.b.WriteString(") error {\n")
+	}
 	e.indent = 1
+	if component.Exported {
+		e.line(`w.Header().Set("Content-Type", "text/html; charset=utf-8")`)
+		e.line("var _tinybindClose func() error")
+		e.line("w, _tinybindClose, _tinybindErr = runtimehtmlbind.PrepareResponse(w, r)")
+		e.line("if _tinybindErr != nil { return _tinybindErr }")
+		e.line("defer func() {")
+		e.indent++
+		e.line("if err := _tinybindClose(); _tinybindErr == nil { _tinybindErr = err }")
+		e.indent--
+		e.line("}()")
+	}
 	body := component.Body.([]Node)
 	if err := e.emitNodes(body, e.c.components[component.Name].params); err != nil {
 		return err
@@ -330,7 +346,7 @@ func (e *goEmitter) emitComponentCall(node *ComponentNode, scope map[string]valu
 	}
 	name := e.c.componentGoName(node.Name)
 	if len(node.Children) == 0 {
-		args := []string{"w"}
+		args := []string{"w", "r"}
 		for _, parameter := range component.order {
 			args = append(args, values[parameter.Name])
 		}
@@ -340,12 +356,13 @@ func (e *goEmitter) emitComponentCall(node *ComponentNode, scope map[string]valu
 	e.line("if err := " + name + "(")
 	e.indent++
 	e.line("w,")
+	e.line("r,")
 	for _, parameter := range component.order {
 		if parameter.Name != "children" {
 			e.line(values[parameter.Name] + ",")
 			continue
 		}
-		e.line("func(w io.Writer) error {")
+		e.line("func(w http.ResponseWriter, r *http.Request) error {")
 		e.indent++
 		if err := e.emitNodes(node.Children, scope); err != nil {
 			return err
@@ -400,7 +417,7 @@ func (e *goEmitter) emitExpressionWrite(expr Expr, context string, scope map[str
 		return nil
 	}
 	if t.kind == kindHTML {
-		e.line("if err := " + code + "(w); err != nil { return err }")
+		e.line("if err := " + code + "(w, r); err != nil { return err }")
 		return nil
 	}
 	if context == "html:script" && t.kind == kindScriptJSON {

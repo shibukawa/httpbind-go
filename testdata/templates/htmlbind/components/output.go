@@ -5,11 +5,14 @@ package pages
 import (
 	"html"
 	"io"
+	"net/http"
 	"strconv"
 	"strings"
+
+	runtimehtmlbind "github.com/shibukawa/tinybind-go/htmlbind"
 )
 
-type HTML func(io.Writer) error
+type HTML func(http.ResponseWriter, *http.Request) error
 type TrustedHTML string
 type TrustedCSS string
 type TrustedJavaScript string
@@ -69,7 +72,7 @@ type User struct {
 	Name string
 }
 
-func renderBadge(w io.Writer, label string, children HTML) error {
+func renderBadge(w http.ResponseWriter, r *http.Request, label string, children HTML) error {
 	if err := _tinybindWrite(w, "\n<span class=\"badge\"><strong>"); err != nil {
 		return err
 	}
@@ -79,7 +82,7 @@ func renderBadge(w io.Writer, label string, children HTML) error {
 	if err := _tinybindWrite(w, "</strong>"); err != nil {
 		return err
 	}
-	if err := children(w); err != nil {
+	if err := children(w, r); err != nil {
 		return err
 	}
 	if err := _tinybindWrite(w, "</span>\n"); err != nil {
@@ -88,14 +91,26 @@ func renderBadge(w io.Writer, label string, children HTML) error {
 	return nil
 }
 
-func Card(w io.Writer, user User) error {
+func Card(w http.ResponseWriter, r *http.Request, user User) (_tinybindErr error) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	var _tinybindClose func() error
+	w, _tinybindClose, _tinybindErr = runtimehtmlbind.PrepareResponse(w, r)
+	if _tinybindErr != nil {
+		return _tinybindErr
+	}
+	defer func() {
+		if err := _tinybindClose(); _tinybindErr == nil {
+			_tinybindErr = err
+		}
+	}()
 	if err := _tinybindWrite(w, "\n"); err != nil {
 		return err
 	}
 	if err := renderBadge(
 		w,
+		r,
 		user.Name,
-		func(w io.Writer) error {
+		func(w http.ResponseWriter, r *http.Request) error {
 			if err := _tinybindWrite(w, "<em>member</em>"); err != nil {
 				return err
 			}

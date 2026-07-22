@@ -1,7 +1,8 @@
 package pages
 
 import (
-	"strings"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -10,12 +11,13 @@ func Decorate(value string, tone Tone) string {
 }
 
 func TestRenderedOutput(t *testing.T) {
-	var output strings.Builder
-	if err := Label(&output, "<value>", TonePrimary); err != nil {
+	output := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	if err := Label(output, request, "<value>", TonePrimary); err != nil {
 		t.Fatal(err)
 	}
 	want := "\n<span>Primary:&lt;value&gt;</span>\n"
-	if output.String() != want {
-		t.Fatalf("output = %q, want %q", output.String(), want)
+	if output.Body.String() != want {
+		t.Fatalf("output = %q, want %q", output.Body.String(), want)
 	}
 }

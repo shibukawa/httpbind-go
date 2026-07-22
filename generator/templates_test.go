@@ -45,10 +45,17 @@ export statement FindUser(id: int): sql.optional<User> {SELECT id, name FROM use
 			t.Errorf("generated output lacks %q", symbol)
 		}
 	}
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture\n\ngo 1.26\n"), 0o644); err != nil {
+	root, err := filepath.Abs("..")
+	if err != nil {
 		t.Fatal(err)
 	}
-	command := exec.Command("go", "test", ".")
+	goMod := "module fixture\n\ngo 1.26\n\n" +
+		"require github.com/shibukawa/tinybind-go v0.0.0\n\n" +
+		"replace github.com/shibukawa/tinybind-go => " + root + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	command := exec.Command("go", "test", "-mod=mod", ".")
 	command.Dir = dir
 	command.Env = append(os.Environ(), "GOWORK=off")
 	if output, err := command.CombinedOutput(); err != nil {

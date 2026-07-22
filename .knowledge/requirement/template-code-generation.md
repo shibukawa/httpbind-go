@@ -19,6 +19,8 @@ compiler_pipeline:
   - delegate expression and control headers to the shared parser; recursively return branch bodies to the format parser
   - parse format structure without introducing format-specific nodes into the shared parser
   - type-check calls and validate format contexts
+  - classify HTML components through data:component-render-capabilities and decision:component-capability-lowering
+  - validate feature combinations through rule:component-capability-combinations
   - validate HTML escaping and SQL parameters, identifiers, result shape, and cardinality
   - lower typed SQL IR using decision:sql-dialect-generation-time
   - expand typed SQL relations before dialect lowering and placeholder emission
