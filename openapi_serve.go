@@ -12,8 +12,7 @@ import (
 	"sync"
 )
 
-// OpenAPIFragment is one package-local generated OpenAPI contribution.
-type OpenAPIFragment struct {
+type openAPIFragment struct {
 	ID   string
 	JSON []byte
 }
@@ -36,7 +35,7 @@ type openAPIComponentOccurrence struct {
 
 var (
 	openAPIMu        sync.RWMutex
-	openAPIFragments []OpenAPIFragment
+	openAPIFragments []openAPIFragment
 	openAPIInfo      *OpenAPIInfo
 )
 
@@ -59,26 +58,10 @@ func SetOpenAPIInfo(info OpenAPIInfo) error {
 // RegisterOpenAPIFragment registers a generated package fragment. ID should be
 // the package import path. Assembly reports conflicting repeated IDs.
 func RegisterOpenAPIFragment(id string, jsonDoc []byte) {
-	fragment := OpenAPIFragment{ID: id, JSON: append([]byte(nil), jsonDoc...)}
+	fragment := openAPIFragment{ID: id, JSON: append([]byte(nil), jsonDoc...)}
 	openAPIMu.Lock()
 	openAPIFragments = append(openAPIFragments, fragment)
 	openAPIMu.Unlock()
-}
-
-// RegisterOpenAPI keeps compatibility with older generated whole-document code.
-// Non-empty JSON is registered as a content-addressed fragment. Passing two nil
-// documents clears registrations for tests.
-func RegisterOpenAPI(jsonDoc, yamlDoc []byte) {
-	if jsonDoc == nil && yamlDoc == nil {
-		ResetOpenAPIFragments()
-		return
-	}
-	identitySource := jsonDoc
-	if identitySource == nil {
-		identitySource = yamlDoc
-	}
-	sum := sha256.Sum256(identitySource)
-	RegisterOpenAPIFragment("legacy:"+hex.EncodeToString(sum[:]), jsonDoc)
 }
 
 // ResetOpenAPIFragments clears registered fragments. It is intended for tests.
@@ -99,7 +82,7 @@ func AssembleOpenAPI() (jsonDoc, yamlDoc []byte, err error) {
 	sort.Slice(fragments, func(i, j int) bool { return fragments[i].ID < fragments[j].ID })
 
 	parsed := make([]parsedOpenAPIFragment, 0, len(fragments))
-	seenIDs := map[string][]byte{}
+	seenIDs := map[string]struct{}{}
 	for _, fragment := range fragments {
 		if fragment.ID == "" || len(fragment.JSON) == 0 {
 			return nil, nil, fmt.Errorf("httpbind: OpenAPI fragment requires ID and JSON")
@@ -108,14 +91,10 @@ func AssembleOpenAPI() (jsonDoc, yamlDoc []byte, err error) {
 		if err := json.Unmarshal(fragment.JSON, &doc); err != nil {
 			return nil, nil, fmt.Errorf("httpbind: parse OpenAPI fragment %q: %w", fragment.ID, err)
 		}
-		canonical, _ := json.Marshal(doc)
-		if previous, ok := seenIDs[fragment.ID]; ok {
-			if bytes.Equal(previous, canonical) {
-				continue
-			}
+		if _, ok := seenIDs[fragment.ID]; ok {
 			return nil, nil, fmt.Errorf("httpbind: conflicting OpenAPI fragment ID %q", fragment.ID)
 		}
-		seenIDs[fragment.ID] = canonical
+		seenIDs[fragment.ID] = struct{}{}
 		parsed = append(parsed, parsedOpenAPIFragment{id: fragment.ID, doc: doc})
 	}
 
@@ -176,26 +155,6 @@ func AssembleOpenAPI() (jsonDoc, yamlDoc []byte, err error) {
 	return jsonDoc, []byte(yaml.String()), nil
 }
 
-// OpenAPIDocumentJSON returns the assembled OpenAPI JSON document, or nil when
-// registrations are missing or conflicting. Use AssembleOpenAPI for errors.
-func OpenAPIDocumentJSON() []byte {
-	doc, _, err := AssembleOpenAPI()
-	if err != nil {
-		return nil
-	}
-	return doc
-}
-
-// OpenAPIDocumentYAML returns the assembled OpenAPI YAML document, or nil when
-// registrations are missing or conflicting. Use AssembleOpenAPI for errors.
-func OpenAPIDocumentYAML() []byte {
-	_, doc, err := AssembleOpenAPI()
-	if err != nil {
-		return nil
-	}
-	return doc
-}
-
 // OpenAPIJSON serves the assembled OpenAPI document as application/json.
 func OpenAPIJSON(w http.ResponseWriter, r *http.Request) {
 	doc, _, err := AssembleOpenAPI()
@@ -220,12 +179,12 @@ func OpenAPIYAML(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(doc)
 }
 
-func snapshotOpenAPIFragments() []OpenAPIFragment {
+func snapshotOpenAPIFragments() []openAPIFragment {
 	openAPIMu.RLock()
 	defer openAPIMu.RUnlock()
-	result := make([]OpenAPIFragment, len(openAPIFragments))
+	result := make([]openAPIFragment, len(openAPIFragments))
 	for i, fragment := range openAPIFragments {
-		result[i] = OpenAPIFragment{ID: fragment.ID, JSON: append([]byte(nil), fragment.JSON...)}
+		result[i] = openAPIFragment{ID: fragment.ID, JSON: append([]byte(nil), fragment.JSON...)}
 	}
 	return result
 }

@@ -11,10 +11,14 @@ type multiPrefixConfig struct {
 	Value string
 }
 
-func TestRegisterBindingSupportsOneTypeAtMultiplePrefixes(t *testing.T) {
+func TestRegisterSupportsOneTypeAtMultiplePrefixes(t *testing.T) {
+	configbind.ResetDefinitions()
+	t.Cleanup(configbind.ResetDefinitions)
 	register := func(prefix, value string) {
 		key := prefix + ".value"
-		configbind.RegisterBinding[multiPrefixConfig](prefix, "example.test.MultiPrefixConfig@"+prefix, configbind.Meta{
+		configbind.Register[multiPrefixConfig](configbind.Definition{
+			TypeName:  "example.test.MultiPrefixConfig",
+			Prefix:    prefix,
 			KnownKeys: []string{key},
 			Defaults:  map[string]string{key: value},
 			FlagMetas: []cliparser.FieldMeta{{Prefix: prefix, Key: "value"}},

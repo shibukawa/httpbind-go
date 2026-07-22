@@ -34,7 +34,7 @@ const (
 	FieldStruct      = codegen.FieldStruct
 )
 
-// Generate emits package source that registers Meta and Apply for each Spec.
+// Generate emits package source that registers one Definition for each Spec.
 func Generate(packageName string, specs []Spec) ([]byte, error) {
 	if packageName == "" {
 		return nil, fmt.Errorf("configbind/codegen: package name required")
@@ -57,7 +57,7 @@ func Generate(packageName string, specs []Spec) ([]byte, error) {
 
 	b.WriteString("func init() {\n")
 	for i, s := range specs {
-		fmt.Fprintf(&b, "\tregister%sBinding%d()\n", s.TypeName, i)
+		fmt.Fprintf(&b, "\tregister%sDefinition%d()\n", s.TypeName, i)
 	}
 	b.WriteString("}\n\n")
 
@@ -65,7 +65,7 @@ func Generate(packageName string, specs []Spec) ([]byte, error) {
 		if s.PackagePath == "" {
 			s.PackagePath = packageName
 		}
-		if err := emitType(&b, s, fmt.Sprintf("register%sBinding%d", s.TypeName, i)); err != nil {
+		if err := emitType(&b, s, fmt.Sprintf("register%sDefinition%d", s.TypeName, i)); err != nil {
 			return nil, err
 		}
 	}
@@ -108,14 +108,13 @@ func emitType(b *bytes.Buffer, s Spec, registerName string) error {
 	}
 
 	typeIdentity := s.PackagePath + "." + s.TypeName
-	fragmentID := typeIdentity + "@" + s.Prefix
 	applyName := "apply" + strings.TrimPrefix(registerName, "register")
 	fmt.Fprintf(b, "func %s() {\n", registerName)
-	b.WriteString("\tconfigbind.RegisterBinding[")
+	b.WriteString("\tconfigbind.Register[")
 	b.WriteString(s.TypeName)
-	b.WriteString("](")
-	fmt.Fprintf(b, "%s, %s, configbind.Meta{\n", strconv.Quote(s.Prefix), strconv.Quote(typeIdentity))
+	b.WriteString("](configbind.Definition{\n")
 	fmt.Fprintf(b, "\t\tTypeName: %s,\n", strconv.Quote(typeIdentity))
+	fmt.Fprintf(b, "\t\tPrefix: %s,\n", strconv.Quote(s.Prefix))
 	b.WriteString("\t\tKnownKeys: []string{\n")
 	for _, k := range keys {
 		fmt.Fprintf(b, "\t\t\t%s,\n", strconv.Quote(k))
@@ -153,8 +152,7 @@ func emitType(b *bytes.Buffer, s Spec, registerName string) error {
 	}
 	b.WriteString("\t\t},\n")
 	fmt.Fprintf(b, "\t\tApply: %s,\n", applyName)
-	b.WriteString("\t})\n")
-	fmt.Fprintf(b, "\tconfigbind.RegisterScaffold(configbind.ScaffoldFragment{ID: %s, Prefix: %s, Fields: []configbind.ScaffoldField{\n", strconv.Quote(fragmentID), strconv.Quote(s.Prefix))
+	b.WriteString("\t\tScaffold: []configbind.ScaffoldField{\n")
 	for _, scaffoldField := range flattenScaffoldFields("", s.Fields) {
 		f := scaffoldField.Field
 		fmt.Fprintf(b, "\t\t{Key: %s, Kind: %s", strconv.Quote(scaffoldField.Key), scaffoldKindName(f.Kind))
@@ -172,7 +170,8 @@ func emitType(b *bytes.Buffer, s Spec, registerName string) error {
 		}
 		b.WriteString("},\n")
 	}
-	b.WriteString("\t}})\n")
+	b.WriteString("\t\t},\n")
+	b.WriteString("\t})\n")
 	b.WriteString("}\n\n")
 
 	// Apply function

@@ -10,14 +10,15 @@ import (
 )
 
 func TestScaffoldsCombineRegisteredFragmentsDeterministically(t *testing.T) {
-	configbind.ResetScaffolds()
-	t.Cleanup(configbind.ResetScaffolds)
+	configbind.ResetDefinitions()
+	t.Cleanup(configbind.ResetDefinitions)
 
 	// Register in reverse output order to prove init order is not observable.
-	server := configbind.ScaffoldFragment{
-		ID:     "example/app.ServerConfig@webserver",
-		Prefix: "webserver",
-		Fields: []configbind.ScaffoldField{
+	server := configbind.Definition{
+		TypeName: "example/app.ServerConfig",
+		Prefix:   "webserver",
+		Apply:    noopApply,
+		Scaffold: []configbind.ScaffoldField{
 			{Key: "port", Kind: configbind.ScaffoldInt, Default: "8080", Opt: "port,p", Help: "HTTP listen port"},
 			{Key: "host", Kind: configbind.ScaffoldString, Default: "localhost", Help: "listen host"},
 			{Key: "origins", Kind: configbind.ScaffoldStringSlice},
@@ -25,17 +26,15 @@ func TestScaffoldsCombineRegisteredFragmentsDeterministically(t *testing.T) {
 			{Key: "tls.enabled", Kind: configbind.ScaffoldBool, Default: "true", Help: "enable TLS"},
 		},
 	}
-	configbind.RegisterScaffold(server)
-	configbind.RegisterScaffold(configbind.ScaffoldFragment{
-		ID:     "example/framework.CacheConfig@middleware.cache",
-		Prefix: "middleware.cache",
-		Fields: []configbind.ScaffoldField{
+	configbind.Register[serverScaffold](server)
+	configbind.Register[cacheScaffold](configbind.Definition{
+		TypeName: "example/framework.CacheConfig",
+		Prefix:   "middleware.cache",
+		Apply:    noopApply,
+		Scaffold: []configbind.ScaffoldField{
 			{Key: "service_name", Kind: configbind.ScaffoldString, Env: "OTEL_SERVICE_NAME"},
 		},
 	})
-	// Identical package initialization is harmless.
-	configbind.RegisterScaffold(server)
-
 	tomlText, err := configbind.ScaffoldTOML()
 	if err != nil {
 		t.Fatal(err)
@@ -87,17 +86,19 @@ WEBSERVER_TLS_ENABLED=true
 }
 
 func TestScaffoldReportsCrossPackageConflicts(t *testing.T) {
-	configbind.ResetScaffolds()
-	t.Cleanup(configbind.ResetScaffolds)
-	configbind.RegisterScaffold(configbind.ScaffoldFragment{
-		ID:     "example/framework.Config@server",
-		Prefix: "server",
-		Fields: []configbind.ScaffoldField{{Key: "port", Kind: configbind.ScaffoldInt, Env: "PORT"}},
+	configbind.ResetDefinitions()
+	t.Cleanup(configbind.ResetDefinitions)
+	configbind.Register[frameworkScaffold](configbind.Definition{
+		TypeName: "example/framework.Config",
+		Prefix:   "server",
+		Apply:    noopApply,
+		Scaffold: []configbind.ScaffoldField{{Key: "port", Kind: configbind.ScaffoldInt, Env: "PORT"}},
 	})
-	configbind.RegisterScaffold(configbind.ScaffoldFragment{
-		ID:     "example/app.Config@server",
-		Prefix: "server",
-		Fields: []configbind.ScaffoldField{{Key: "port", Kind: configbind.ScaffoldInt, Env: "APP_PORT"}},
+	configbind.Register[appScaffold](configbind.Definition{
+		TypeName: "example/app.Config",
+		Prefix:   "server",
+		Apply:    noopApply,
+		Scaffold: []configbind.ScaffoldField{{Key: "port", Kind: configbind.ScaffoldInt, Env: "APP_PORT"}},
 	})
 	if _, err := configbind.ScaffoldTOML(); err == nil || !strings.Contains(err.Error(), "duplicate scaffold key") {
 		t.Fatalf("TOML conflict error=%v", err)
@@ -105,19 +106,30 @@ func TestScaffoldReportsCrossPackageConflicts(t *testing.T) {
 }
 
 func TestScaffoldReportsDuplicateEnvironmentName(t *testing.T) {
-	configbind.ResetScaffolds()
-	t.Cleanup(configbind.ResetScaffolds)
-	configbind.RegisterScaffold(configbind.ScaffoldFragment{
-		ID:     "example/framework.Config@framework",
-		Prefix: "framework",
-		Fields: []configbind.ScaffoldField{{Key: "port", Kind: configbind.ScaffoldInt, Env: "PORT"}},
+	configbind.ResetDefinitions()
+	t.Cleanup(configbind.ResetDefinitions)
+	configbind.Register[frameworkScaffold](configbind.Definition{
+		TypeName: "example/framework.Config",
+		Prefix:   "framework",
+		Apply:    noopApply,
+		Scaffold: []configbind.ScaffoldField{{Key: "port", Kind: configbind.ScaffoldInt, Env: "PORT"}},
 	})
-	configbind.RegisterScaffold(configbind.ScaffoldFragment{
-		ID:     "example/app.Config@app",
-		Prefix: "app",
-		Fields: []configbind.ScaffoldField{{Key: "port", Kind: configbind.ScaffoldInt, Env: "PORT"}},
+	configbind.Register[appScaffold](configbind.Definition{
+		TypeName: "example/app.Config",
+		Prefix:   "app",
+		Apply:    noopApply,
+		Scaffold: []configbind.ScaffoldField{{Key: "port", Kind: configbind.ScaffoldInt, Env: "PORT"}},
 	})
 	if _, err := configbind.ScaffoldEnv(); err == nil || !strings.Contains(err.Error(), "duplicate scaffold environment") {
 		t.Fatalf("env conflict error=%v", err)
 	}
 }
+
+type (
+	serverScaffold    struct{}
+	cacheScaffold     struct{}
+	frameworkScaffold struct{}
+	appScaffold       struct{}
+)
+
+func noopApply(any, *configbind.Overlay) error { return nil }

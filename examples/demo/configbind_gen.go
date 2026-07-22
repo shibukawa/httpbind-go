@@ -11,12 +11,13 @@ import (
 )
 
 func init() {
-	registerServerConfigBinding0()
+	registerServerConfigDefinition0()
 }
 
-func registerServerConfigBinding0() {
-	configbind.RegisterBinding[ServerConfig]("server", "github.com/shibukawa/tinybind-go/examples/demo.ServerConfig", configbind.Meta{
+func registerServerConfigDefinition0() {
+	configbind.Register[ServerConfig](configbind.Definition{
 		TypeName: "github.com/shibukawa/tinybind-go/examples/demo.ServerConfig",
+		Prefix:   "server",
 		KnownKeys: []string{
 			"server.port",
 		},
@@ -26,14 +27,14 @@ func registerServerConfigBinding0() {
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "server", Key: "port", Opt: "port,p", Help: "HTTP listen port"},
 		},
-		Apply: applyServerConfigBinding0,
+		Apply: applyServerConfigDefinition0,
+		Scaffold: []configbind.ScaffoldField{
+			{Key: "port", Kind: configbind.ScaffoldInt, Default: "8080", Opt: "port,p", Help: "HTTP listen port"},
+		},
 	})
-	configbind.RegisterScaffold(configbind.ScaffoldFragment{ID: "github.com/shibukawa/tinybind-go/examples/demo.ServerConfig@server", Prefix: "server", Fields: []configbind.ScaffoldField{
-		{Key: "port", Kind: configbind.ScaffoldInt, Default: "8080", Opt: "port,p", Help: "HTTP listen port"},
-	}})
 }
 
-func applyServerConfigBinding0(dst any, o *configbind.Overlay) error {
+func applyServerConfigDefinition0(dst any, o *configbind.Overlay) error {
 	p, ok := dst.(*ServerConfig)
 	if !ok || p == nil {
 		return fmt.Errorf("configbind: apply ServerConfig: bad destination")

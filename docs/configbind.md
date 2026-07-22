@@ -55,7 +55,7 @@ When config targets are present, the default output is `configbind_gen.go`. The 
 
 ## Generating configuration scaffolds
 
-Each generated package registers scaffold metadata for its own `Bind` calls. Public `configbind` functions combine metadata from the framework and every imported application package:
+Each generated package registers one definition for each `Bind` call. Public `configbind` functions combine their scaffold fields across the framework and every imported application package:
 
 ```go
 func ScaffoldTOML() (string, error)
@@ -98,7 +98,7 @@ PORT=8080
 SERVER_HOST="localhost"
 ```
 
-Generation may run separately in a server framework package and in each modular-monolith package. Importing those generated packages registers all fragments; the final application does not need to rescan their source. Output order is deterministic, and duplicate keys or environment names return an error.
+Generation may run separately in a server framework package and in each modular-monolith package. Importing those generated packages registers all definitions; the final application does not need to rescan their source. Output order is deterministic, and duplicate keys or environment names return an error.
 
 The generator does not create files at runtime or add a scaffold subcommand. Add the command shape that fits your application and call the public output functions:
 

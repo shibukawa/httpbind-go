@@ -12,23 +12,20 @@ import (
 )
 
 func TestOpenAPIJSON_Unregistered(t *testing.T) {
-	// Ensure handler responds (problem or empty path) without panicking when unset.
-	// Other packages may have registered docs in the same process; re-register empty.
-	httpbind.RegisterOpenAPI(nil, nil)
+	httpbind.ResetOpenAPIFragments()
+	t.Cleanup(httpbind.ResetOpenAPIFragments)
 	rec := httptest.NewRecorder()
 	httpbind.OpenAPIJSON(rec, httptest.NewRequest(http.MethodGet, "/", nil))
-	if rec.Code == http.StatusOK && strings.TrimSpace(rec.Body.String()) != "" {
-		// if another test registered, still OK as long as valid response
-		return
-	}
-	if rec.Code != http.StatusInternalServerError && rec.Code != http.StatusOK {
+	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
 	}
 }
 
 func TestOpenAPIJSON_Registered(t *testing.T) {
+	httpbind.ResetOpenAPIFragments()
+	t.Cleanup(httpbind.ResetOpenAPIFragments)
 	doc := []byte(`{"openapi":"3.1.0","info":{"title":"t","version":"0"},"paths":{}}`)
-	httpbind.RegisterOpenAPI(doc, []byte("openapi: 3.1.0\n"))
+	httpbind.RegisterOpenAPIFragment("example/test", doc)
 	rec := httptest.NewRecorder()
 	httpbind.OpenAPIJSON(rec, httptest.NewRequest(http.MethodGet, "/openapi.json", nil))
 	if rec.Code != http.StatusOK {

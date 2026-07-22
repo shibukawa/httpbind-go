@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestGenerateEmitsScaffoldFragmentRegistration(t *testing.T) {
+func TestGenerateEmitsDefinitionRegistration(t *testing.T) {
 	src, err := Generate("fixture", []Spec{{
 		PackagePath: "example.test/fixture",
 		TypeName:    "ServerConfig",
@@ -16,8 +16,9 @@ func TestGenerateEmitsScaffoldFragmentRegistration(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		`configbind.RegisterBinding[ServerConfig]("server", "example.test/fixture.ServerConfig"`,
-		`configbind.RegisterScaffold(configbind.ScaffoldFragment{ID: "example.test/fixture.ServerConfig@server"`,
+		`configbind.Register[ServerConfig](configbind.Definition{`,
+		`TypeName: "example.test/fixture.ServerConfig"`,
+		`Prefix:   "server"`,
 		`{Key: "port", Kind: configbind.ScaffoldInt, Default: "8080"}`,
 	} {
 		if !strings.Contains(string(src), want) {
@@ -35,12 +36,12 @@ func TestGenerateSupportsSameTypeAtMultiplePrefixes(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"registerServerConfigBinding0",
-		"registerServerConfigBinding1",
-		"applyServerConfigBinding0",
-		"applyServerConfigBinding1",
-		`RegisterBinding[ServerConfig]("primary"`,
-		`RegisterBinding[ServerConfig]("secondary"`,
+		"registerServerConfigDefinition0",
+		"registerServerConfigDefinition1",
+		"applyServerConfigDefinition0",
+		"applyServerConfigDefinition1",
+		`Prefix:   "primary"`,
+		`Prefix:   "secondary"`,
 	} {
 		if !strings.Contains(string(src), want) {
 			t.Fatalf("generated multi-prefix symbol %q missing:\n%s", want, src)

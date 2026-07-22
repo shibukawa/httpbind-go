@@ -55,7 +55,7 @@ configbind の対象がある場合、既定では `configbind_gen.go` が生成
 
 ## 設定 file の雛形生成
 
-各 package の生成コードは、その package 内の `Bind` に対応する雛形 metadata を登録します。公開された `configbind` の関数が、framework と import 済みの全 application package の metadata を統合します。
+各 package の生成コードは、その package 内の `Bind` ごとに定義を1つ登録します。公開された `configbind` の関数が、framework と import 済みの全 application package から雛形 field を統合します。
 
 ```go
 func ScaffoldTOML() (string, error)
@@ -98,7 +98,7 @@ PORT=8080
 SERVER_HOST="localhost"
 ```
 
-server framework package とモジュラモノリスの各 package で、別々に generator を実行できます。生成済み package を import すると fragment がすべて登録されるため、最終 application が依存 package の source を再解析する必要はありません。出力順は deterministic で、key や環境変数名が重複した場合は error になります。
+server framework package とモジュラモノリスの各 package で、別々に generator を実行できます。生成済み package を import すると定義がすべて登録されるため、最終 application が依存 package の source を再解析する必要はありません。出力順は deterministic で、key や環境変数名が重複した場合は error になります。
 
 generator は実行時に file を作成せず、application に雛形出力用 subcommand も追加しません。application に合う command をユーザー側で用意して、公開出力関数を呼び出してください。
 

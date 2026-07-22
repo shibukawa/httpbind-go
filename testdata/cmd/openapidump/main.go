@@ -42,7 +42,8 @@ func main() {
 
 	rec := httptest.NewRecorder()
 	httpbind.OpenAPIJSON(rec, httptest.NewRequest(http.MethodGet, "/openapi.json", nil))
+	registered, _, _ := httpbind.AssembleOpenAPI()
 	fmt.Printf("serve_status=%d registered_len=%d body_has_31=%v\n",
-		rec.Code, len(httpbind.OpenAPIDocumentJSON()),
+		rec.Code, len(registered),
 		len(rec.Body.Bytes()) > 0 && rec.Code == 200)
 }

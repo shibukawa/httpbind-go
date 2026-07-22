@@ -9,7 +9,7 @@ import (
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
-// Manual registration mirrors generated RegisterType for unit tests without codegen.
+// Manual registration mirrors generated Register for unit tests without codegen.
 type testServerConfig struct {
 	Port int
 	Host string
@@ -17,8 +17,10 @@ type testServerConfig struct {
 
 func registerTestServerConfig(t *testing.T) {
 	t.Helper()
-	configbind.RegisterType[testServerConfig]("testServerConfig", configbind.Meta{
+	configbind.ResetDefinitions()
+	configbind.Register[testServerConfig](configbind.Definition{
 		TypeName:  "testServerConfig",
+		Prefix:    "webserver",
 		KnownKeys: []string{"webserver.port", "webserver.host"},
 		Defaults: map[string]string{
 			"webserver.port": "8080",

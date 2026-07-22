@@ -73,9 +73,9 @@ func TestOpenAPI_SourceOfTruthIsGoGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reg := httpbind.OpenAPIDocumentJSON()
-	if len(reg) == 0 {
-		t.Fatal("no registered openapi")
+	reg, _, err := httpbind.AssembleOpenAPI()
+	if err != nil {
+		t.Fatal(err)
 	}
 	// Both must be OpenAPI 3.1 with same routes from handlers.go
 	var a, b map[string]any

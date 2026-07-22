@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/shibukawa/tinybind-go/cliparser"
 )
@@ -32,28 +31,7 @@ type ScaffoldField struct {
 	Help    string
 }
 
-// ScaffoldFragment is the generated scaffold metadata for one Bind type and prefix.
-// ID must be stable and package-qualified.
-type ScaffoldFragment struct {
-	ID     string
-	Prefix string
-	Fields []ScaffoldField
-}
-
-var (
-	scaffoldMu        sync.RWMutex
-	scaffoldFragments []ScaffoldFragment
-)
-
-// RegisterScaffold registers generated metadata for later aggregate rendering.
-func RegisterScaffold(fragment ScaffoldFragment) {
-	fragment.Fields = append([]ScaffoldField(nil), fragment.Fields...)
-	scaffoldMu.Lock()
-	scaffoldFragments = append(scaffoldFragments, fragment)
-	scaffoldMu.Unlock()
-}
-
-// ScaffoldTOML renders all registered Bind fragments as one deterministic TOML scaffold.
+// ScaffoldTOML renders all registered definitions as one deterministic TOML scaffold.
 func ScaffoldTOML() (string, error) {
 	entries, err := scaffoldEntries()
 	if err != nil {
@@ -62,11 +40,11 @@ func ScaffoldTOML() (string, error) {
 	var b strings.Builder
 	currentPrefix := ""
 	for _, entry := range entries {
-		if entry.fragment.Prefix != currentPrefix {
+		if entry.definition.Prefix != currentPrefix {
 			if currentPrefix != "" {
 				b.WriteByte('\n')
 			}
-			currentPrefix = entry.fragment.Prefix
+			currentPrefix = entry.definition.Prefix
 			fmt.Fprintf(&b, "[%s]\n", currentPrefix)
 		}
 		writeScaffoldHelp(&b, entry.field.Help)
@@ -93,7 +71,7 @@ func ScaffoldEnv() (string, error) {
 	seen := map[string]string{}
 	for _, entry := range entries {
 		def, err := cliparser.DefFromField(cliparser.FieldMeta{
-			Prefix: entry.fragment.Prefix,
+			Prefix: entry.definition.Prefix,
 			Key:    entry.field.Key,
 			Opt:    entry.field.Opt,
 			Env:    entry.field.Env,
@@ -149,66 +127,48 @@ func WriteScaffoldEnv(w io.Writer) error {
 	return err
 }
 
-// ResetScaffolds clears generated scaffold registrations. It is intended for tests.
-func ResetScaffolds() {
-	scaffoldMu.Lock()
-	scaffoldFragments = nil
-	scaffoldMu.Unlock()
-}
-
 type scaffoldEntry struct {
-	fragment ScaffoldFragment
-	field    ScaffoldField
-	fullKey  string
+	definition Definition
+	field      ScaffoldField
+	fullKey    string
 }
 
 func scaffoldEntries() ([]scaffoldEntry, error) {
-	scaffoldMu.RLock()
-	fragments := make([]ScaffoldFragment, len(scaffoldFragments))
-	for i, fragment := range scaffoldFragments {
-		fragments[i] = fragment
-		fragments[i].Fields = append([]ScaffoldField(nil), fragment.Fields...)
+	definitionsMu.RLock()
+	registered := make([]Definition, 0, len(definitions))
+	for _, definition := range definitions {
+		definition.Scaffold = append([]ScaffoldField(nil), definition.Scaffold...)
+		registered = append(registered, definition)
 	}
-	scaffoldMu.RUnlock()
+	definitionsMu.RUnlock()
 
-	sort.Slice(fragments, func(i, j int) bool {
-		if fragments[i].Prefix != fragments[j].Prefix {
-			return fragments[i].Prefix < fragments[j].Prefix
+	sort.Slice(registered, func(i, j int) bool {
+		if registered[i].Prefix != registered[j].Prefix {
+			return registered[i].Prefix < registered[j].Prefix
 		}
-		return fragments[i].ID < fragments[j].ID
+		return registered[i].TypeName < registered[j].TypeName
 	})
-	seenIDs := map[string]ScaffoldFragment{}
 	seenKeys := map[string]string{}
 	var entries []scaffoldEntry
-	for _, fragment := range fragments {
-		if fragment.ID == "" || fragment.Prefix == "" {
-			return nil, fmt.Errorf("configbind: scaffold fragment requires ID and Prefix")
+	for _, definition := range registered {
+		if !validScaffoldKeyPath(definition.Prefix) {
+			return nil, fmt.Errorf("configbind: scaffold prefix %q is not a bare TOML key path", definition.Prefix)
 		}
-		if !validScaffoldKeyPath(fragment.Prefix) {
-			return nil, fmt.Errorf("configbind: scaffold prefix %q is not a bare TOML key path", fragment.Prefix)
-		}
-		if previous, ok := seenIDs[fragment.ID]; ok {
-			if equalScaffoldFragment(previous, fragment) {
-				continue
-			}
-			return nil, fmt.Errorf("configbind: conflicting scaffold fragment ID %q", fragment.ID)
-		}
-		seenIDs[fragment.ID] = fragment
-		for _, field := range fragment.Fields {
+		for _, field := range definition.Scaffold {
 			if !validScaffoldKeyPath(field.Key) {
 				return nil, fmt.Errorf("configbind: scaffold field key %q is not a bare TOML key path", field.Key)
 			}
-			fullKey := fragment.Prefix + "." + field.Key
+			fullKey := definition.Prefix + "." + field.Key
 			if previous, ok := seenKeys[fullKey]; ok {
-				return nil, fmt.Errorf("configbind: duplicate scaffold key %q in fragments %q and %q", fullKey, previous, fragment.ID)
+				return nil, fmt.Errorf("configbind: duplicate scaffold key %q in definitions %q and %q", fullKey, previous, definition.TypeName)
 			}
-			seenKeys[fullKey] = fragment.ID
-			entries = append(entries, scaffoldEntry{fragment: fragment, field: field, fullKey: fullKey})
+			seenKeys[fullKey] = definition.TypeName
+			entries = append(entries, scaffoldEntry{definition: definition, field: field, fullKey: fullKey})
 		}
 	}
 	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].fragment.Prefix != entries[j].fragment.Prefix {
-			return entries[i].fragment.Prefix < entries[j].fragment.Prefix
+		if entries[i].definition.Prefix != entries[j].definition.Prefix {
+			return entries[i].definition.Prefix < entries[j].definition.Prefix
 		}
 		return entries[i].field.Key < entries[j].field.Key
 	})
@@ -298,18 +258,6 @@ func validScaffoldKeyPath(path string) bool {
 				(r >= '0' && r <= '9') || r == '_' || r == '-') {
 				return false
 			}
-		}
-	}
-	return true
-}
-
-func equalScaffoldFragment(a, b ScaffoldFragment) bool {
-	if a.ID != b.ID || a.Prefix != b.Prefix || len(a.Fields) != len(b.Fields) {
-		return false
-	}
-	for i := range a.Fields {
-		if a.Fields[i] != b.Fields[i] {
-			return false
 		}
 	}
 	return true

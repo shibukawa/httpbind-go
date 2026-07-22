@@ -10,12 +10,13 @@ import (
 )
 
 func init() {
-	registerConfigBinding0()
+	registerConfigDefinition0()
 }
 
-func registerConfigBinding0() {
-	configbind.RegisterBinding[Config]("framework", "github.com/shibukawa/tinybind-go/testdata/configmodulea.Config", configbind.Meta{
+func registerConfigDefinition0() {
+	configbind.Register[Config](configbind.Definition{
 		TypeName: "github.com/shibukawa/tinybind-go/testdata/configmodulea.Config",
+		Prefix:   "framework",
 		KnownKeys: []string{
 			"framework.endpoint",
 		},
@@ -25,14 +26,14 @@ func registerConfigBinding0() {
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "framework", Key: "endpoint", Help: "framework endpoint"},
 		},
-		Apply: applyConfigBinding0,
+		Apply: applyConfigDefinition0,
+		Scaffold: []configbind.ScaffoldField{
+			{Key: "endpoint", Kind: configbind.ScaffoldString, Default: "framework", Help: "framework endpoint"},
+		},
 	})
-	configbind.RegisterScaffold(configbind.ScaffoldFragment{ID: "github.com/shibukawa/tinybind-go/testdata/configmodulea.Config@framework", Prefix: "framework", Fields: []configbind.ScaffoldField{
-		{Key: "endpoint", Kind: configbind.ScaffoldString, Default: "framework", Help: "framework endpoint"},
-	}})
 }
 
-func applyConfigBinding0(dst any, o *configbind.Overlay) error {
+func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 	p, ok := dst.(*Config)
 	if !ok || p == nil {
 		return fmt.Errorf("configbind: apply Config: bad destination")

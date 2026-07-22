@@ -11,12 +11,13 @@ import (
 )
 
 func init() {
-	registerWebServerConfigBinding0()
+	registerWebServerConfigDefinition0()
 }
 
-func registerWebServerConfigBinding0() {
-	configbind.RegisterBinding[WebServerConfig]("webserver", "github.com/shibukawa/tinybind-go/internal/configbindfixture.WebServerConfig", configbind.Meta{
+func registerWebServerConfigDefinition0() {
+	configbind.Register[WebServerConfig](configbind.Definition{
 		TypeName: "github.com/shibukawa/tinybind-go/internal/configbindfixture.WebServerConfig",
+		Prefix:   "webserver",
 		KnownKeys: []string{
 			"webserver.port",
 			"webserver.host",
@@ -36,18 +37,18 @@ func registerWebServerConfigBinding0() {
 			{Prefix: "webserver", Key: "tls.enabled", Help: "enable TLS", Kind: cliparser.KindBool},
 			{Prefix: "webserver", Key: "tls.cert_path", Env: "TLS_CERT_FILE", Help: "TLS certificate path"},
 		},
-		Apply: applyWebServerConfigBinding0,
+		Apply: applyWebServerConfigDefinition0,
+		Scaffold: []configbind.ScaffoldField{
+			{Key: "port", Kind: configbind.ScaffoldInt, Default: "8080", Opt: "port,p", Help: "HTTP listen port"},
+			{Key: "host", Kind: configbind.ScaffoldString, Default: "localhost", Help: "listen host"},
+			{Key: "cors_origins", Kind: configbind.ScaffoldStringSlice, Help: "CORS origins"},
+			{Key: "tls.enabled", Kind: configbind.ScaffoldBool, Default: "false", Help: "enable TLS"},
+			{Key: "tls.cert_path", Kind: configbind.ScaffoldString, Env: "TLS_CERT_FILE", Help: "TLS certificate path"},
+		},
 	})
-	configbind.RegisterScaffold(configbind.ScaffoldFragment{ID: "github.com/shibukawa/tinybind-go/internal/configbindfixture.WebServerConfig@webserver", Prefix: "webserver", Fields: []configbind.ScaffoldField{
-		{Key: "port", Kind: configbind.ScaffoldInt, Default: "8080", Opt: "port,p", Help: "HTTP listen port"},
-		{Key: "host", Kind: configbind.ScaffoldString, Default: "localhost", Help: "listen host"},
-		{Key: "cors_origins", Kind: configbind.ScaffoldStringSlice, Help: "CORS origins"},
-		{Key: "tls.enabled", Kind: configbind.ScaffoldBool, Default: "false", Help: "enable TLS"},
-		{Key: "tls.cert_path", Kind: configbind.ScaffoldString, Env: "TLS_CERT_FILE", Help: "TLS certificate path"},
-	}})
 }
 
-func applyWebServerConfigBinding0(dst any, o *configbind.Overlay) error {
+func applyWebServerConfigDefinition0(dst any, o *configbind.Overlay) error {
 	p, ok := dst.(*WebServerConfig)
 	if !ok || p == nil {
 		return fmt.Errorf("configbind: apply WebServerConfig: bad destination")

@@ -10,12 +10,13 @@ import (
 )
 
 func init() {
-	registerConfigBinding0()
+	registerConfigDefinition0()
 }
 
-func registerConfigBinding0() {
-	configbind.RegisterBinding[Config]("application", "github.com/shibukawa/tinybind-go/testdata/configmoduleb.Config", configbind.Meta{
+func registerConfigDefinition0() {
+	configbind.Register[Config](configbind.Definition{
 		TypeName: "github.com/shibukawa/tinybind-go/testdata/configmoduleb.Config",
+		Prefix:   "application",
 		KnownKeys: []string{
 			"application.endpoint",
 		},
@@ -25,14 +26,14 @@ func registerConfigBinding0() {
 		FlagMetas: []cliparser.FieldMeta{
 			{Prefix: "application", Key: "endpoint", Help: "application endpoint"},
 		},
-		Apply: applyConfigBinding0,
+		Apply: applyConfigDefinition0,
+		Scaffold: []configbind.ScaffoldField{
+			{Key: "endpoint", Kind: configbind.ScaffoldString, Default: "application", Help: "application endpoint"},
+		},
 	})
-	configbind.RegisterScaffold(configbind.ScaffoldFragment{ID: "github.com/shibukawa/tinybind-go/testdata/configmoduleb.Config@application", Prefix: "application", Fields: []configbind.ScaffoldField{
-		{Key: "endpoint", Kind: configbind.ScaffoldString, Default: "application", Help: "application endpoint"},
-	}})
 }
 
-func applyConfigBinding0(dst any, o *configbind.Overlay) error {
+func applyConfigDefinition0(dst any, o *configbind.Overlay) error {
 	p, ok := dst.(*Config)
 	if !ok || p == nil {
 		return fmt.Errorf("configbind: apply Config: bad destination")

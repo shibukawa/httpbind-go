@@ -3,16 +3,16 @@ id: requirement:scaffold-generation
 type: requirement
 title: Config Scaffold Generation
 ---
-Each discovered Bind type-and-prefix registration contributes data:config-scaffold-fragment; configbind public APIs render combined TOML and .env scaffolds.
+Each discovered Bind type-and-prefix registration contributes one configbind Definition; configbind public APIs render combined TOML and .env scaffolds from its scaffold fields.
 
 ```yaml
 priority: must
 intent: bootstrap shared config files from Bind structs only
-delivery: generated per-struct registration plus public runtime aggregation
+delivery: one generated Definition registration per Bind plus public runtime aggregation
 mechanism:
-  - each package generator emits one fragment per discovered Bind type-and-prefix registration
-  - generated package init registers fragments with configbind
-  - api:config-scaffold-output merges all registered fragments and returns or writes TOML and .env text
+  - each package generator emits one Definition per discovered Bind type-and-prefix registration
+  - generated package init registers each Definition once with configbind
+  - api:config-scaffold-output merges scaffold fields from all registered definitions and returns or writes TOML and .env text
   - application owns any CLI command and destination file
 inputs:
   - api:configbind-bind registrations only
@@ -32,8 +32,8 @@ constraints:
   - codegen performs no runtime file write
   - codegen adds no application CLI command or subcommand
   - final application generation does not rescan framework or module dependency source
-  - registration never replaces another struct fragment
-  - fragment identity includes Go package path, Bind type identity, and prefix
+  - registry key includes the Go type and Bind prefix
+  - diagnostic identity includes the Go package path and Bind type identity
   - output order does not depend on package init order
   - do not emit inline tables, arrays of tables, or quoted keys
   - nested structs become nested tables or dotted bare keys

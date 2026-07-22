@@ -26,15 +26,15 @@ func TestGenerateConfigBindFromFixture(t *testing.T) {
 	}
 	text := string(data)
 	for _, want := range []string{
-		"RegisterBinding[WebServerConfig]",
+		"Register[WebServerConfig]",
 		`"webserver.port"`,
 		`"webserver.tls.enabled"`,
 		`Opt: "port,p"`,
 		`Env: "TLS_CERT_FILE"`,
-		`RegisterScaffold(configbind.ScaffoldFragment`,
+		`Scaffold: []configbind.ScaffoldField`,
 		`Key: "tls.cert_path"`,
 		`Env: "TLS_CERT_FILE"`,
-		"applyWebServerConfigBinding0",
+		"applyWebServerConfigDefinition0",
 		"cliparser.FieldMeta",
 	} {
 		if !strings.Contains(text, want) {
