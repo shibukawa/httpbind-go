@@ -3,7 +3,7 @@ id: flow:configbind-codegen
 type: flow
 title: configbind Codegen Pipeline
 ---
-Generator reads Bind and SubCommand AST usage and emits reflection-free apply, CLI wiring, key tables, and scaffold text.
+Generator reads Bind and SubCommand AST usage and emits reflection-free apply, CLI wiring, key tables, and scaffold constants.
 
 ```yaml
 flow:
@@ -55,8 +55,8 @@ flow:
       refs:
         - concept:config-overlay
         - term:config-key
-    - id: emit-scaffold-subcommands
-      action: embed TOML and .env with help comments; print to stdout
+    - id: emit-scaffold-constants
+      action: embed TOML and .env with help comments as exported Go constants; leave output commands to the application
       refs:
         - requirement:scaffold-generation
         - concept:scaffold-templates

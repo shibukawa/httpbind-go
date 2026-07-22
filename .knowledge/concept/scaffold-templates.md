@@ -3,15 +3,15 @@ id: concept:scaffold-templates
 type: concept
 title: Scaffold Templates
 ---
-Plain-text TOML and .env templates embedded in generated code and printed by scaffold subcommands.
+Plain-text TOML and .env templates embedded as exported constants in generated Bind code.
 
 ```yaml
 formats:
   - toml
   - env
 delivery:
-  - embedded plain text in generated Go
-  - generated CLI subcommands print to stdout
+  - ConfigbindScaffoldTOML and ConfigbindScaffoldEnv in generated Go
+  - application owns any command, stdout, or file-writing behavior
 sources:
   - api:configbind-bind prefixes and types only
   - decision:struct-field-tags default help enum
@@ -24,6 +24,7 @@ content:
   - comments from help tags
   - example values from default tags
   - TOML keys stay field keys; not renamed by opt CLI aliases
+  - environment names follow runtime opt and env overrides; env:"-" is omitted
 pipeline: flow:configbind-codegen
 related:
   - requirement:scaffold-generation

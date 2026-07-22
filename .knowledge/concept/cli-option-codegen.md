@@ -14,7 +14,6 @@ artifacts:
   - parse entrypoint
   - help strings from help tags
   - defaults from default tags
-  - scaffold subcommands that print embedded plain text to stdout
   - wiring into concept:reusable-source-parsers CLI map helpers
   - overlay writes for Bind CLI keys under stable config_key
 flag_naming:

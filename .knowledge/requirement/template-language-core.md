@@ -27,7 +27,9 @@ control:
   recursion: shared parser parses headers and delegates each control body back to the active format parser
 functions:
   standard: portable semantics defined by the language
-  external: backend-mapped and statically checked
+  external:
+    flat_template_mode: same-package backend-mapped and statically checked
+    filesystem_route_mode: statically dispatched through data:html-route-dependencies
   template_declaration: reusable typed output composition
   intrinsic: compiler-known context-sensitive functions from requirement:explicit-output-control
 opaque_output_types: [trusted_html, trusted_css, trusted_javascript, script_json]

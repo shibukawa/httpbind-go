@@ -29,6 +29,11 @@ const (
 	FieldInt         = codegen.FieldInt
 	FieldStringSlice = codegen.FieldStringSlice
 	FieldStruct      = codegen.FieldStruct
+
+	// ScaffoldTOMLName and ScaffoldEnvName are the exported constant names
+	// emitted into the package containing Bind calls.
+	ScaffoldTOMLName = "ConfigbindScaffoldTOML"
+	ScaffoldEnvName  = "ConfigbindScaffoldEnv"
 )
 
 // Generate emits package source that registers Meta and Apply for each Spec.
@@ -38,6 +43,10 @@ func Generate(packageName string, specs []Spec) ([]byte, error) {
 	}
 	if len(specs) == 0 {
 		return nil, fmt.Errorf("configbind/codegen: no specs")
+	}
+	tomlScaffold, envScaffold, err := GenerateScaffolds(specs)
+	if err != nil {
+		return nil, err
 	}
 
 	var b bytes.Buffer
@@ -49,6 +58,11 @@ func Generate(packageName string, specs []Spec) ([]byte, error) {
 	b.WriteString("\t\"github.com/shibukawa/tinybind-go/cliparser\"\n")
 	b.WriteString("\t\"github.com/shibukawa/tinybind-go/configbind\"\n")
 	b.WriteString(")\n\n")
+
+	fmt.Fprintf(&b, "// %s is a sample TOML configuration derived from Bind struct metadata.\n", ScaffoldTOMLName)
+	fmt.Fprintf(&b, "const %s = %s\n\n", ScaffoldTOMLName, strconv.Quote(tomlScaffold))
+	fmt.Fprintf(&b, "// %s is a sample .env file derived from Bind struct metadata.\n", ScaffoldEnvName)
+	fmt.Fprintf(&b, "const %s = %s\n\n", ScaffoldEnvName, strconv.Quote(envScaffold))
 
 	b.WriteString("func init() {\n")
 	for _, s := range specs {
@@ -67,6 +81,189 @@ func Generate(packageName string, specs []Spec) ([]byte, error) {
 		return b.Bytes(), fmt.Errorf("configbind/codegen: format: %w\n%s", err, b.String())
 	}
 	return formatted, nil
+}
+
+// GenerateScaffolds builds TOML and .env sample text from Bind struct metadata.
+// It does not write files or generate an application command; callers may print
+// the emitted constants from a command appropriate for their application.
+func GenerateScaffolds(specs []Spec) (tomlText, envText string, err error) {
+	if len(specs) == 0 {
+		return "", "", fmt.Errorf("configbind/codegen: no specs")
+	}
+
+	var toml, env bytes.Buffer
+	var allMetas []cliparser.FieldMeta
+	var leaves []Field
+	seenPrefixes := make(map[string]string, len(specs))
+	for specIndex, s := range specs {
+		if s.TypeName == "" || s.Prefix == "" {
+			return "", "", fmt.Errorf("configbind/codegen: TypeName and Prefix required")
+		}
+		if !validBareKeyPath(s.Prefix) {
+			return "", "", fmt.Errorf("configbind/codegen: %s: prefix %q is not a bare TOML key path", s.TypeName, s.Prefix)
+		}
+		if previous, ok := seenPrefixes[s.Prefix]; ok {
+			return "", "", fmt.Errorf("configbind/codegen: duplicate prefix %q for %s and %s", s.Prefix, previous, s.TypeName)
+		}
+		seenPrefixes[s.Prefix] = s.TypeName
+
+		if specIndex > 0 {
+			toml.WriteByte('\n')
+		}
+		fmt.Fprintf(&toml, "[%s]\n", s.Prefix)
+		if err := emitTOMLScaffoldFields(&toml, "", s.Fields); err != nil {
+			return "", "", fmt.Errorf("configbind/codegen: %s: %w", s.TypeName, err)
+		}
+
+		metas := collectFlagMetas(s.Prefix, s.Fields)
+		allMetas = append(allMetas, metas...)
+		leaves = appendLeafFields(leaves, s.Fields)
+	}
+
+	defs, err := cliparser.BuildDefs(allMetas)
+	if err != nil {
+		return "", "", fmt.Errorf("configbind/codegen: scaffold: %w", err)
+	}
+	for i, def := range defs {
+		name := def.Env
+		if name == "-" {
+			continue
+		}
+		if name == "" && len(def.Longs) > 0 {
+			name = configbind.EnvName(def.Longs[0])
+		}
+		if name == "" {
+			continue
+		}
+		writeScaffoldHelp(&env, def.Help)
+		value, err := scaffoldValue(leaves[i], false)
+		if err != nil {
+			return "", "", fmt.Errorf("configbind/codegen: %s: %w", def.ConfigKey, err)
+		}
+		fmt.Fprintf(&env, "%s=%s\n", name, value)
+	}
+	return toml.String(), env.String(), nil
+}
+
+func emitTOMLScaffoldFields(b *bytes.Buffer, prefix string, fields []Field) error {
+	for _, f := range fields {
+		if f.Key == "" || !validBareKeyPath(f.Key) {
+			return fmt.Errorf("field %s has invalid bare TOML key %q", f.GoName, f.Key)
+		}
+		key := joinKey(prefix, f.Key)
+		if f.Kind == FieldStruct {
+			if err := emitTOMLScaffoldFields(b, key, f.Nested); err != nil {
+				return err
+			}
+			continue
+		}
+		writeScaffoldHelp(b, f.Help)
+		value, err := scaffoldValue(f, true)
+		if err != nil {
+			return fmt.Errorf("field %s: %w", f.GoName, err)
+		}
+		fmt.Fprintf(b, "%s = %s\n", key, value)
+	}
+	return nil
+}
+
+func appendLeafFields(dst []Field, fields []Field) []Field {
+	for _, f := range fields {
+		if f.Kind == FieldStruct {
+			dst = appendLeafFields(dst, f.Nested)
+			continue
+		}
+		dst = append(dst, f)
+	}
+	return dst
+}
+
+func scaffoldValue(f Field, toml bool) (string, error) {
+	switch f.Kind {
+	case FieldString:
+		if toml {
+			return quoteTOMLString(f.Default), nil
+		}
+		return strconv.Quote(f.Default), nil
+	case FieldBool:
+		if f.Default == "" {
+			return "false", nil
+		}
+		value, err := strconv.ParseBool(f.Default)
+		if err != nil {
+			return "", fmt.Errorf("invalid bool default %q", f.Default)
+		}
+		return strconv.FormatBool(value), nil
+	case FieldInt:
+		if f.Default == "" {
+			return "0", nil
+		}
+		value, err := strconv.ParseInt(f.Default, 10, 64)
+		if err != nil {
+			return "", fmt.Errorf("invalid int default %q", f.Default)
+		}
+		return strconv.FormatInt(value, 10), nil
+	case FieldStringSlice:
+		if toml {
+			return "[]", nil
+		}
+		return strconv.Quote(""), nil
+	default:
+		return "", fmt.Errorf("unsupported field kind for %s", f.GoName)
+	}
+}
+
+func writeScaffoldHelp(b *bytes.Buffer, help string) {
+	for _, line := range strings.Split(strings.TrimSpace(help), "\n") {
+		if line != "" {
+			fmt.Fprintf(b, "# %s\n", strings.TrimSpace(line))
+		}
+	}
+}
+
+func quoteTOMLString(value string) string {
+	var b strings.Builder
+	b.WriteByte('"')
+	for _, r := range value {
+		switch r {
+		case '"', '\\':
+			b.WriteByte('\\')
+			b.WriteRune(r)
+		case '\b':
+			b.WriteString("\\b")
+		case '\t':
+			b.WriteString("\\t")
+		case '\n':
+			b.WriteString("\\n")
+		case '\f':
+			b.WriteString("\\f")
+		case '\r':
+			b.WriteString("\\r")
+		default:
+			if r < 0x20 || r == 0x7f {
+				fmt.Fprintf(&b, "\\u%04X", r)
+			} else {
+				b.WriteRune(r)
+			}
+		}
+	}
+	b.WriteByte('"')
+	return b.String()
+}
+
+func validBareKeyPath(path string) bool {
+	for _, part := range strings.Split(path, ".") {
+		if part == "" {
+			return false
+		}
+		for _, r := range part {
+			if !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') ||
+				(r >= '0' && r <= '9') || r == '_' || r == '-') {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func emitType(b *bytes.Buffer, s Spec) error {
@@ -163,8 +360,12 @@ func emitApplyFields(b *bytes.Buffer, recv, prefix string, fields []Field) error
 			b.WriteString("\t\t}\n")
 			fmt.Fprintf(b, "\t\t%s = bb\n", access)
 			if f.Default != "" {
+				value, err := strconv.ParseBool(f.Default)
+				if err != nil {
+					return fmt.Errorf("invalid bool default %q for %s", f.Default, f.GoName)
+				}
 				b.WriteString("\t} else {\n")
-				fmt.Fprintf(b, "\t\t%s = %v\n", access, f.Default == "true")
+				fmt.Fprintf(b, "\t\t%s = %v\n", access, value)
 				b.WriteString("\t}\n")
 			} else {
 				b.WriteString("\t}\n")
@@ -177,8 +378,12 @@ func emitApplyFields(b *bytes.Buffer, recv, prefix string, fields []Field) error
 			b.WriteString("\t\t}\n")
 			fmt.Fprintf(b, "\t\t%s = int(n)\n", access)
 			if f.Default != "" {
+				value, err := strconv.ParseInt(f.Default, 10, 64)
+				if err != nil {
+					return fmt.Errorf("invalid int default %q for %s", f.Default, f.GoName)
+				}
 				b.WriteString("\t} else {\n")
-				fmt.Fprintf(b, "\t\t%s = %s\n", access, f.Default)
+				fmt.Fprintf(b, "\t\t%s = %s\n", access, strconv.FormatInt(value, 10))
 				b.WriteString("\t}\n")
 			} else {
 				b.WriteString("\t}\n")
@@ -283,6 +488,3 @@ func joinKey(prefix, key string) string {
 	}
 	return prefix + "." + key
 }
-
-// Ensure configbind import used for EnvName reference in docs
-var _ = configbind.EnvName

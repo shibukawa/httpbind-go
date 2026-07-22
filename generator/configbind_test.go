@@ -31,6 +31,10 @@ func TestGenerateConfigBindFromFixture(t *testing.T) {
 		`"webserver.tls.enabled"`,
 		`Opt: "port,p"`,
 		`Env: "TLS_CERT_FILE"`,
+		`const ConfigbindScaffoldTOML`,
+		`const ConfigbindScaffoldEnv`,
+		`[webserver]\n# HTTP listen port\nport = 8080`,
+		`TLS_CERT_FILE=\"\"`,
 		"applyWebServerConfig",
 		"cliparser.FieldMeta",
 	} {

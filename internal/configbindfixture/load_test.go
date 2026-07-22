@@ -3,11 +3,21 @@ package configbindfixture_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/shibukawa/tinybind-go/configbind"
 	"github.com/shibukawa/tinybind-go/internal/configbindfixture"
 )
+
+func TestGeneratedScaffolds(t *testing.T) {
+	if !strings.Contains(configbindfixture.ConfigbindScaffoldTOML, "[webserver]\n") {
+		t.Fatalf("TOML scaffold=%q", configbindfixture.ConfigbindScaffoldTOML)
+	}
+	if !strings.Contains(configbindfixture.ConfigbindScaffoldEnv, "TLS_CERT_FILE=\"\"\n") {
+		t.Fatalf("env scaffold=%q", configbindfixture.ConfigbindScaffoldEnv)
+	}
+}
 
 func TestGeneratedLoadPrecedence(t *testing.T) {
 	configbind.ResetTargets()

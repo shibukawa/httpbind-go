@@ -53,6 +53,74 @@ go generate ./...
 
 When config targets are present, the default output is `configbind_gen.go`. The type argument and prefix must be statically discoverable, so use a string literal for the prefix.
 
+## Generating configuration scaffolds
+
+The generated file exports two plain-text constants derived from the `Bind` structs:
+
+```go
+const ConfigbindScaffoldTOML string
+const ConfigbindScaffoldEnv string
+```
+
+`ConfigbindScaffoldTOML` contains a restricted-subset TOML sample. `ConfigbindScaffoldEnv` contains a `.env` sample. Both use `default` values when present, type-appropriate zero values otherwise, and comments from `help` tags. The environment scaffold also respects `opt`, `env:"NAME"`, and `env:"-"`.
+
+For example, this definition:
+
+```go
+type ServerConfig struct {
+	Port     int    `default:"8080" opt:"port,p" help:"HTTP listen port"`
+	Host     string `default:"localhost" help:"listen host"`
+	Internal string `env:"-"`
+}
+
+var server = configbind.Bind[ServerConfig]("server")
+```
+
+produces constants whose text is equivalent to:
+
+```toml
+[server]
+# HTTP listen port
+port = 8080
+# listen host
+host = "localhost"
+internal = ""
+```
+
+```dotenv
+# HTTP listen port
+PORT=8080
+# listen host
+SERVER_HOST="localhost"
+```
+
+The generator does not create files at runtime or add a scaffold subcommand to your application. Add the command shape that fits your application and print the constants. For example, code in the generated package can expose this helper through your preferred CLI framework:
+
+```go
+import "fmt"
+
+func printConfigScaffold(format string) error {
+	if format == "env" {
+		fmt.Print(ConfigbindScaffoldEnv)
+		return nil
+	}
+	if format == "toml" {
+		fmt.Print(ConfigbindScaffoldTOML)
+		return nil
+	}
+	return fmt.Errorf("unknown scaffold format %q", format)
+}
+```
+
+Redirect it when you want a file:
+
+```bash
+./myserver scaffold-config toml > config.toml
+./myserver scaffold-config env > .env
+```
+
+`configbind.Load` reads process environment variables; it does not parse `.env` files. Use your preferred dotenv loader or shell mechanism before calling `Load` if you use the `.env` scaffold.
+
 ## Minimal example
 
 ```go

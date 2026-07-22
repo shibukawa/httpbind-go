@@ -10,6 +10,12 @@ import (
 	"github.com/shibukawa/tinybind-go/configbind"
 )
 
+// ConfigbindScaffoldTOML is a sample TOML configuration derived from Bind struct metadata.
+const ConfigbindScaffoldTOML = "[webserver]\n# HTTP listen port\nport = 8080\n# listen host\nhost = \"localhost\"\n# CORS origins\ncors_origins = []\n# enable TLS\ntls.enabled = false\n# TLS certificate path\ntls.cert_path = \"\"\n"
+
+// ConfigbindScaffoldEnv is a sample .env file derived from Bind struct metadata.
+const ConfigbindScaffoldEnv = "# HTTP listen port\nPORT=8080\n# listen host\nWEBSERVER_HOST=\"localhost\"\n# CORS origins\nWEBSERVER_CORS_ORIGINS=\"\"\n# enable TLS\nWEBSERVER_TLS_ENABLED=false\n# TLS certificate path\nTLS_CERT_FILE=\"\"\n"
+
 func init() {
 	registerWebServerConfig()
 }

@@ -53,6 +53,74 @@ go generate ./...
 
 configbind の対象がある場合、既定では `configbind_gen.go` が生成されます。`Bind` の type parameter と prefix は静的に発見できる必要があるため、prefix には文字列 literal を使ってください。
 
+## 設定 file の雛形生成
+
+生成された file には、`Bind` した構造体から作った plain text の定数が2つ公開されます。
+
+```go
+const ConfigbindScaffoldTOML string
+const ConfigbindScaffoldEnv string
+```
+
+`ConfigbindScaffoldTOML` は対応 subset 内の TOML 例、`ConfigbindScaffoldEnv` は `.env` 例です。`default` があればその値を、なければ型に応じた zero value を使い、`help` tag は comment になります。環境変数の雛形には `opt`、`env:"NAME"`、`env:"-"` も反映されます。
+
+たとえば次の定義がある場合:
+
+```go
+type ServerConfig struct {
+	Port     int    `default:"8080" opt:"port,p" help:"HTTP listen port"`
+	Host     string `default:"localhost" help:"listen host"`
+	Internal string `env:"-"`
+}
+
+var server = configbind.Bind[ServerConfig]("server")
+```
+
+定数の内容は次のようになります。
+
+```toml
+[server]
+# HTTP listen port
+port = 8080
+# listen host
+host = "localhost"
+internal = ""
+```
+
+```dotenv
+# HTTP listen port
+PORT=8080
+# listen host
+SERVER_HOST="localhost"
+```
+
+generator は実行時に file を作成せず、application に雛形出力用 subcommand も追加しません。application に合う command をユーザー側で用意して、定数を出力してください。たとえば生成先 package の次の helper を、任意の CLI framework から呼び出せます。
+
+```go
+import "fmt"
+
+func printConfigScaffold(format string) error {
+	if format == "env" {
+		fmt.Print(ConfigbindScaffoldEnv)
+		return nil
+	}
+	if format == "toml" {
+		fmt.Print(ConfigbindScaffoldTOML)
+		return nil
+	}
+	return fmt.Errorf("unknown scaffold format %q", format)
+}
+```
+
+file が必要なときは redirect します。
+
+```bash
+./myserver scaffold-config toml > config.toml
+./myserver scaffold-config env > .env
+```
+
+`configbind.Load` が読むのは process の環境変数であり、`.env` file 自体を parse するわけではありません。`.env` の雛形を使う場合は、`Load` より前に任意の dotenv loader や shell の仕組みで環境変数へ取り込んでください。
+
 ## 最小例
 
 ```go

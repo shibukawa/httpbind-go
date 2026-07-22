@@ -22,7 +22,7 @@ principles:
   - defaults and help on struct tags
   - SubCommand returns *T or nil; CLI-only
   - TOML and env for shared Bind config only
-  - generated scaffold subcommands print plain text to stdout
+  - generated scaffold constants leave printing commands to the application
   - TOML as config file format
   - provenance log helper with secret redaction for observability
   - TinyGo first-class
