@@ -36,7 +36,7 @@ SQL templates do not run migrations or create database tables.
 ```go
 package store
 
-//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen -dir .
+//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir .
 ```
 
 Place `users.tb.sql` in the same directory, then run:
@@ -392,7 +392,7 @@ return tx.Commit()
 When framework middleware stores a transaction in Context, enable Context APIs during generation:
 
 ```go
-//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen -dir . -sql-context-api
+//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir . -sql-context-api
 ```
 
 ```go

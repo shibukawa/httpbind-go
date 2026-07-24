@@ -15,7 +15,7 @@ layers:
     description: generated default tag values into concept:config-overlay
     tags: decision:struct-field-tags
   - id: file
-    description: single resolved TOML file map merged as file_toml
+    description: first resolved TOML candidate map merged as file_toml
     format: decision:toml-config-format
     path: decision:config-file-path-resolution
     parser: concept:reusable-source-parsers
@@ -33,7 +33,7 @@ rules:
   - keys are scoped by Bind prefix / TOML table
   - SubCommand fields never read TOML or env and are not overlay-backed
   - struct apply is generated; no runtime reflection
-  - only one TOML file is loaded; user and system files are not merged
+  - only one TOML file is loaded; extra, user, and system files are not merged
 related:
   - concept:layered-config-sources
   - concept:config-overlay
@@ -56,4 +56,5 @@ acceptance:
   - overlay Place feeds provenance helper
   - --config-path selects the file over configdir search
   - --config-path unreadable returns error without falling back to configdir
+  - first existing ExtraConfigReadPaths entry wins over later extras and configdir
 ```

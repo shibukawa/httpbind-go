@@ -2,6 +2,7 @@ package parser
 
 import (
 	"go/ast"
+	"go/constant"
 	"go/token"
 	"go/types"
 	"path/filepath"
@@ -143,18 +144,29 @@ func (p *packageParser) addDiag(call *ast.CallExpr, reason, message string) {
 
 func (p *packageParser) tryRouteCall(call *ast.CallExpr) (Route, bool) {
 	obj := objectOf(p.info, call.Fun)
-	if !isRouteRegistration(obj, p.config.RouteRegistrations) {
+	patternArg, handlerArg := 0, 1
+	var fixedPattern *string
+	if pattern, ok := configuredCall(obj, p.config.Calls); ok && pattern.Operation == CallRouteRegister {
+		patternArg, handlerArg = pattern.PatternArgument, pattern.HandlerArgument
+		fixedPattern = pattern.PatternConstant
+	} else {
 		return Route{}, false
 	}
-	if len(call.Args) < 2 {
+	if handlerArg < 0 || len(call.Args) <= handlerArg || fixedPattern == nil && (patternArg < 0 || len(call.Args) <= patternArg) {
 		p.addDiag(call, ReasonOther, "Handle/HandleFunc call has fewer than 2 arguments")
 		return Route{}, false
 	}
 
-	patternLit, ok := stringLiteral(call.Args[0])
-	if !ok {
-		p.addDiag(call, ReasonDynamicPattern, "route pattern is not a string literal; OpenAPI will omit this registration")
-		return Route{}, false
+	patternLit := ""
+	if fixedPattern != nil {
+		patternLit = *fixedPattern
+	} else {
+		var ok bool
+		patternLit, ok = p.staticString(call.Args[patternArg])
+		if !ok {
+			p.addDiag(call, ReasonDynamicPattern, "route pattern is not a compile-time string constant; OpenAPI will omit this registration")
+			return Route{}, false
+		}
 	}
 	method, path, ok := splitPattern(patternLit)
 	if !ok {
@@ -162,7 +174,7 @@ func (p *packageParser) tryRouteCall(call *ast.CallExpr) (Route, bool) {
 		return Route{}, false
 	}
 
-	leaf, meta, ok := unwrapHandler(call.Args[1], WrapperMeta{})
+	leaf, meta, ok := unwrapHandler(call.Args[handlerArg], WrapperMeta{})
 	if !ok {
 		p.addDiag(call, ReasonOpaqueMiddleware, "handler wrapper chain could not be unwrapped to a leaf handler")
 		return Route{}, false
@@ -203,6 +215,20 @@ func (p *packageParser) tryRouteCall(call *ast.CallExpr) (Route, bool) {
 		// Write-less response name should not happen; default 200 if response known from Write
 	}
 	return route, true
+}
+
+func (p *packageParser) staticString(expr ast.Expr) (string, bool) {
+	if value, ok := stringLiteral(expr); ok {
+		return value, true
+	}
+	if p.info == nil {
+		return "", false
+	}
+	typed := p.info.Types[expr]
+	if typed.Value == nil || typed.Value.Kind() != constant.String {
+		return "", false
+	}
+	return constant.StringVal(typed.Value), true
 }
 
 func splitPattern(pattern string) (method, path string, ok bool) {

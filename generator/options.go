@@ -2,6 +2,7 @@ package generator
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/shibukawa/tinybind-go/parser"
 )
@@ -54,15 +55,8 @@ type Options struct {
 	RouteMethods    PatternSet[MethodPattern]
 	RouteFunctions  PatternSet[SymbolPattern]
 	RuntimePackages PatternSet[string]
-
-	Bind        PatternSet[SymbolPattern]
-	Write       PatternSet[SymbolPattern]
-	WriteStatus PatternSet[SymbolPattern]
-	DecodeJSON  PatternSet[SymbolPattern]
-	EncodeJSON  PatternSet[SymbolPattern]
-	NewStream   PatternSet[SymbolPattern]
-	ScanRows    PatternSet[SymbolPattern]
-	FileTypes   PatternSet[TypePattern]
+	Calls           PatternSet[CallPattern]
+	FileTypes       PatternSet[TypePattern]
 	// SQLContextAPI adds Context-resolved wrappers for exported SQL templates.
 	SQLContextAPI bool
 	// SQLExecutorResolver selects a framework-specific Context resolver and
@@ -97,88 +91,280 @@ type normalizedOptions struct {
 	openAPI      bool
 }
 
-func (o Options) normalized() normalizedOptions {
+func (o Options) normalized() (normalizedOptions, error) {
 	disabled := make(map[Feature]bool, len(o.DisableFeatures))
 	for _, feature := range o.DisableFeatures {
 		disabled[feature] = true
 	}
-	runtimePackages := o.RuntimePackages.Set
-	if o.RuntimePackages.Disabled {
-		runtimePackages = nil
-	}
-	resolve := func(set PatternSet[SymbolPattern], name string, feature Feature) []SymbolPattern {
-		if set.Disabled || disabled[feature] {
-			return nil
-		}
-		if set.Set != nil {
-			return append([]SymbolPattern(nil), set.Set...)
-		}
-		out := make([]SymbolPattern, 0, len(runtimePackages))
-		for _, path := range runtimePackages {
-			out = append(out, SymbolPattern{PackagePath: path, Name: name})
-		}
-		return out
-	}
-
-	bind := resolve(o.Bind, "Bind", FeatureBind)
-	write := resolve(o.Write, "Write", FeatureWrite)
-	writeStatus := resolve(o.WriteStatus, "WriteStatus", FeatureWriteStatus)
-	decode := resolve(o.DecodeJSON, "DecodeJSON", FeatureDecodeJSON)
-	encode := resolve(o.EncodeJSON, "EncodeJSON", FeatureEncodeJSON)
-	stream := resolve(o.NewStream, "NewStream", FeatureStreaming)
-	scanRows := resolve(o.ScanRows, "ScanRows", FeatureScanRows)
-
 	n := normalizedOptions{openAPI: !disabled[FeatureOpenAPI]}
-	add := func(patterns []SymbolPattern, usage Usage) {
-		if len(patterns) == 0 {
-			return
-		}
-		n.enabledUsage |= usage
-		for _, pattern := range patterns {
-			n.symbols = append(n.symbols, DiscoverySymbol{PackagePath: pattern.PackagePath, Name: pattern.Name, Usage: usage})
-			n.parserConfig.GenericFunctions = append(n.parserConfig.GenericFunctions, parser.FunctionSymbol{PackagePath: pattern.PackagePath, Name: pattern.Name})
-		}
-	}
-	add(bind, UsageBind)
-	add(write, UsageWrite)
-	add(writeStatus, UsageEncodeJSON)
-	add(decode, UsageDecodeJSON)
-	add(encode, UsageEncodeJSON)
-	add(stream, UsageEncodeJSON)
-	add(scanRows, UsageScanRows)
 
-	if !o.FileTypes.Disabled && !disabled[FeatureMultipartFile] {
-		n.fileTypes = append(n.fileTypes, o.FileTypes.Set...)
+	callPatterns, err := o.callPatterns()
+	if err != nil {
+		return normalizedOptions{}, err
 	}
 	if !disabled[FeatureRouteDiscovery] {
 		if !o.RouteFunctions.Disabled {
-			for _, pattern := range o.RouteFunctions.Set {
-				n.parserConfig.RouteRegistrations = append(n.parserConfig.RouteRegistrations, parser.RouteSymbol{PackagePath: pattern.PackagePath, Name: pattern.Name})
+			for _, symbol := range o.RouteFunctions.Set {
+				callPatterns = append(callPatterns, RouteRegisterCall(
+					Function(symbol.PackagePath, symbol.Name), Argument("pattern", 0), Argument("handler", 1),
+				))
 			}
 		}
 		if !o.RouteMethods.Disabled {
-			for _, pattern := range o.RouteMethods.Set {
-				n.parserConfig.RouteRegistrations = append(n.parserConfig.RouteRegistrations, parser.RouteSymbol{
-					PackagePath: pattern.PackagePath, Name: pattern.Name,
-					ReceiverPackagePath: pattern.ReceiverPackagePath, ReceiverType: pattern.ReceiverType,
-				})
+			for _, symbol := range o.RouteMethods.Set {
+				callPatterns = append(callPatterns, RouteRegisterCall(
+					Method(symbol.PackagePath, symbol.Name, symbol.ReceiverPackagePath, symbol.ReceiverType), Argument("pattern", 0), Argument("handler", 1),
+				))
 			}
 		}
 		if !o.ServeMuxes.Disabled {
-			for _, pattern := range o.ServeMuxes.Set {
+			for _, mux := range o.ServeMuxes.Set {
 				for _, name := range []string{"Handle", "HandleFunc"} {
-					n.parserConfig.RouteRegistrations = append(n.parserConfig.RouteRegistrations, parser.RouteSymbol{
-						PackagePath: pattern.PackagePath, Name: name,
-						ReceiverPackagePath: pattern.PackagePath, ReceiverType: pattern.Name,
-					})
+					callPatterns = append(callPatterns, RouteRegisterCall(
+						Method(mux.PackagePath, name, mux.PackagePath, mux.Name), Argument("pattern", 0), Argument("handler", 1),
+					))
 				}
 			}
 		}
 	}
-	for _, path := range runtimePackages {
-		for _, name := range []string{"BadRequest", "Unauthorized", "Forbidden", "NotFound", "Conflict", "PayloadTooLarge", "Internal", "Validation"} {
-			n.parserConfig.ErrorFunctions = append(n.parserConfig.ErrorFunctions, parser.FunctionSymbol{PackagePath: path, Name: name})
+	normalizedCalls := NewCallRegistry()
+	if err := normalizedCalls.Register(callPatterns...); err != nil {
+		return normalizedOptions{}, err
+	}
+	callPatterns = normalizedCalls.patterns
+	sortCallPatterns(callPatterns)
+	for _, pattern := range callPatterns {
+		if featureDisabledForCall(pattern.Operation, disabled) {
+			continue
+		}
+		usage := usageForCallOperation(pattern.Operation)
+		if usage != 0 {
+			n.enabledUsage |= usage
+			typeSource := primaryTypeSource(pattern)
+			symbol := DiscoverySymbol{Usage: usage}
+			if typeSource.GenericArgument != nil {
+				symbol.TypeArgument = *typeSource.GenericArgument
+			}
+			symbol.ArgumentType = typeSource.ArgumentType
+			if target := pattern.Target.Function; target != nil {
+				symbol.PackagePath, symbol.Name = target.PackagePath, target.Name
+			} else if target := pattern.Target.Method; target != nil {
+				symbol.PackagePath, symbol.Name = target.PackagePath, target.Name
+				symbol.ReceiverPackagePath, symbol.ReceiverType = target.ReceiverPackagePath, target.ReceiverType
+			}
+			n.symbols = append(n.symbols, symbol)
+		}
+		if parserPattern, ok := toParserCallPattern(pattern); ok {
+			n.parserConfig.Calls = append(n.parserConfig.Calls, parserPattern)
 		}
 	}
-	return n
+
+	if !o.FileTypes.Disabled && !disabled[FeatureMultipartFile] {
+		n.fileTypes = append(n.fileTypes, o.FileTypes.Set...)
+	}
+	return n, nil
+}
+
+func (o Options) callPatterns() ([]CallPattern, error) {
+	if o.Calls.Disabled {
+		return nil, nil
+	}
+	patterns := o.Calls.Set
+	if patterns == nil && !o.RuntimePackages.Disabled {
+		for _, path := range o.RuntimePackages.Set {
+			patterns = append(patterns, canonicalRuntimeCalls(path)...)
+		}
+		if len(o.RuntimePackages.Set) > 0 {
+			patterns = append(patterns, ConfigBindCall(
+				Function(configbindImportPath, "Bind"),
+				GenericType("config", 0), Argument("prefix", 0),
+			))
+			patterns = append(patterns, ConfigSubCommandCall(
+				Function(configbindImportPath, "SubCommand"),
+				GenericType("config", 0), Argument("name", 0), Argument("help", 1),
+			))
+		}
+	}
+	registry := NewCallRegistry()
+	if err := registry.Register(patterns...); err != nil {
+		return nil, err
+	}
+	result := append([]CallPattern(nil), registry.patterns...)
+	sortCallPatterns(result)
+	return result, nil
+}
+
+func canonicalRuntimeCalls(path string) []CallPattern {
+	patterns := []CallPattern{
+		RequestBindCall(Function(path, "Bind"), GenericType("request", 0)),
+		ResponseWriteCall(Function(path, "Write"), GenericType("response", 0)),
+		ResponseWriteStatusCall(Function(path, "WriteStatus"), GenericType("response", 0), Argument("status", 2)),
+		StreamCreateCall(Function(path, "NewStream"), GenericType("stream", 0)),
+		JSONDecodeCall(Function(path, "DecodeJSON"), GenericType("decode", 0)),
+		JSONEncodeCall(Function(path, "EncodeJSON"), GenericType("encode", 0)),
+		RowsScanCall(Function(path, "ScanRows"), GenericType("row", 0)),
+	}
+	statuses := map[string]int{
+		"BadRequest": 400, "Validation": 400, "Unauthorized": 401, "Forbidden": 403,
+		"NotFound": 404, "Conflict": 409, "PayloadTooLarge": 413, "Internal": 500,
+	}
+	for name, status := range statuses {
+		patterns = append(patterns, ErrorResponseCall(
+			Function(path, name), Constant("status", status), Constant("error_name", name),
+		))
+	}
+	return patterns
+}
+
+func usageForCallOperation(operation CallOperation) Usage {
+	switch operation {
+	case OperationRequestBind:
+		return UsageBind
+	case OperationResponseWrite, OperationResponseWriteStatus, OperationStreamCreate:
+		return UsageWrite
+	case OperationJSONEncode:
+		return UsageEncodeJSON
+	case OperationJSONDecode:
+		return UsageDecodeJSON
+	case OperationRowsScan:
+		return UsageScanRows
+	default:
+		return 0
+	}
+}
+
+func featureDisabledForCall(operation CallOperation, disabled map[Feature]bool) bool {
+	switch operation {
+	case OperationRequestBind:
+		return disabled[FeatureBind]
+	case OperationResponseWrite:
+		return disabled[FeatureWrite]
+	case OperationResponseWriteStatus:
+		return disabled[FeatureWriteStatus]
+	case OperationStreamCreate:
+		return disabled[FeatureStreaming]
+	case OperationJSONDecode:
+		return disabled[FeatureDecodeJSON]
+	case OperationJSONEncode:
+		return disabled[FeatureEncodeJSON]
+	case OperationRowsScan:
+		return disabled[FeatureScanRows]
+	default:
+		return false
+	}
+}
+
+func primaryTypeSource(pattern CallPattern) TypeSource {
+	roles := []string{"request", "response", "stream", "decode", "encode", "row", "config"}
+	for _, role := range roles {
+		if source, ok := pattern.TypeRoles[role]; ok {
+			return source
+		}
+	}
+	return TypeSource{}
+}
+
+func toParserCallPattern(pattern CallPattern) (parser.CallPattern, bool) {
+	operation := parser.CallOperation("")
+	role := ""
+	switch pattern.Operation {
+	case OperationRequestBind:
+		operation, role = parser.CallRequestBind, "request"
+	case OperationResponseWrite:
+		operation, role = parser.CallResponseWrite, "response"
+	case OperationResponseWriteStatus:
+		operation, role = parser.CallResponseWriteStatus, "response"
+	case OperationStreamCreate:
+		operation, role = parser.CallStreamCreate, "stream"
+	case OperationErrorResponse:
+		operation = parser.CallErrorResponse
+	case OperationRouteRegister:
+		operation = parser.CallRouteRegister
+	default:
+		return parser.CallPattern{}, false
+	}
+	target := parser.RouteSymbol{}
+	if pattern.Target.Function != nil {
+		target.PackagePath, target.Name = pattern.Target.Function.PackagePath, pattern.Target.Function.Name
+	} else if pattern.Target.Method != nil {
+		method := pattern.Target.Method
+		target = parser.RouteSymbol{PackagePath: method.PackagePath, Name: method.Name, ReceiverPackagePath: method.ReceiverPackagePath, ReceiverType: method.ReceiverType}
+	}
+	result := parser.CallPattern{Target: target, Operation: operation}
+	if role != "" {
+		source := pattern.TypeRoles[role]
+		if source.GenericArgument != nil {
+			result.TypeArgument = *source.GenericArgument
+		} else if source.ArgumentType != nil {
+			index := *source.ArgumentType
+			result.TypeValueArgument = &index
+		} else {
+			return parser.CallPattern{}, false
+		}
+	}
+	if operation == parser.CallResponseWriteStatus {
+		source := pattern.ArgumentRoles["status"]
+		if source.Argument != nil {
+			index := *source.Argument
+			result.StatusArgument = &index
+		} else if source.IsConstant {
+			status, ok := source.Constant.(int)
+			if !ok {
+				return parser.CallPattern{}, false
+			}
+			result.StatusConstant = &status
+		}
+	}
+	if operation == parser.CallErrorResponse {
+		status, ok := pattern.ArgumentRoles["status"].Constant.(int)
+		if !ok {
+			return parser.CallPattern{}, false
+		}
+		if name, ok := pattern.ArgumentRoles["error_name"].Constant.(string); ok {
+			result.ErrorName = name
+		} else {
+			result.ErrorName = errorNameForStatus(status)
+		}
+	}
+	if operation == parser.CallRouteRegister {
+		patternSource := pattern.ArgumentRoles["pattern"]
+		handlerSource := pattern.ArgumentRoles["handler"]
+		if handlerSource.Argument == nil {
+			return parser.CallPattern{}, false
+		}
+		if patternSource.Argument != nil {
+			result.PatternArgument = *patternSource.Argument
+		} else if patternSource.IsConstant {
+			value, ok := patternSource.Constant.(string)
+			if !ok {
+				return parser.CallPattern{}, false
+			}
+			result.PatternConstant = &value
+		} else {
+			return parser.CallPattern{}, false
+		}
+		result.HandlerArgument = *handlerSource.Argument
+	}
+	return result, true
+}
+
+func errorNameForStatus(status int) string {
+	switch status {
+	case 400:
+		return "BadRequest"
+	case 401:
+		return "Unauthorized"
+	case 403:
+		return "Forbidden"
+	case 404:
+		return "NotFound"
+	case 409:
+		return "Conflict"
+	case 413:
+		return "PayloadTooLarge"
+	case 500:
+		return "Internal"
+	default:
+		return fmt.Sprintf("Status%d", status)
+	}
 }

@@ -13,3 +13,11 @@ type TLSConfig struct {
 	Enabled  bool   `default:"false" help:"enable TLS"`
 	CertPath string `env:"TLS_CERT_FILE" help:"TLS certificate path"`
 }
+
+// MigrateOptions is a CLI-only subcommand fixture.
+type MigrateOptions struct {
+	Path   string   `arg:"required" help:"migration path"`
+	Label  string   `arg:"optional" help:"migration label"`
+	DryRun bool     `default:"false" help:"print changes without applying"`
+	Extra  []string `arg:"*" help:"additional migration inputs"`
+}

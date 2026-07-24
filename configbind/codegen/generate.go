@@ -17,6 +17,9 @@ type Spec struct {
 	PackagePath string
 	TypeName    string
 	Prefix      string
+	SubCommand  bool
+	Name        string
+	Help        string
 	Fields      []Field
 }
 
@@ -65,7 +68,14 @@ func Generate(packageName string, specs []Spec) ([]byte, error) {
 		if s.PackagePath == "" {
 			s.PackagePath = packageName
 		}
-		if err := emitType(&b, s, fmt.Sprintf("register%sDefinition%d", s.TypeName, i)); err != nil {
+		registerName := fmt.Sprintf("register%sDefinition%d", s.TypeName, i)
+		var err error
+		if s.SubCommand {
+			err = emitSubCommandType(&b, s, registerName)
+		} else {
+			err = emitType(&b, s, registerName)
+		}
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -99,6 +109,11 @@ func specsNeedStrconv(specs []Spec) bool {
 func emitType(b *bytes.Buffer, s Spec, registerName string) error {
 	if s.TypeName == "" || s.Prefix == "" {
 		return fmt.Errorf("configbind/codegen: TypeName and Prefix required")
+	}
+	for _, field := range flattenFields("", s.Fields) {
+		if field.Field.Arg != "" {
+			return fmt.Errorf("configbind/codegen: Bind field %s cannot use arg tag", field.Field.GoName)
+		}
 	}
 	keys := collectKeys(s.Prefix, s.Fields)
 	defaults := collectDefaults(s.Prefix, s.Fields)
@@ -188,22 +203,171 @@ func emitType(b *bytes.Buffer, s Spec, registerName string) error {
 	return nil
 }
 
+func emitSubCommandType(b *bytes.Buffer, s Spec, registerName string) error {
+	if s.TypeName == "" || s.Name == "" || s.Help == "" {
+		return fmt.Errorf("configbind/codegen: subcommand TypeName, Name, and Help required")
+	}
+	if strings.ContainsAny(s.Name, " \t\r\n") || strings.HasPrefix(s.Name, "-") {
+		return fmt.Errorf("configbind/codegen: invalid subcommand name %q", s.Name)
+	}
+	flagMetas := collectFlagMetas("", s.Fields)
+	if _, err := cliparser.BuildDefs(flagMetas); err != nil {
+		return fmt.Errorf("configbind/codegen: subcommand %s: %w", s.Name, err)
+	}
+	positionals, err := collectPositionals(s.Fields)
+	if err != nil {
+		return fmt.Errorf("configbind/codegen: subcommand %s: %w", s.Name, err)
+	}
+	defaults := collectDefaults("", s.Fields)
+	keys := collectKeys("", s.Fields)
+	typeIdentity := s.PackagePath + "." + s.TypeName
+	applyName := "apply" + strings.TrimPrefix(registerName, "register")
+
+	fmt.Fprintf(b, "func %s() {\n", registerName)
+	fmt.Fprintf(b, "\tconfigbind.RegisterSubCommand[%s](configbind.SubCommandDefinition{\n", s.TypeName)
+	fmt.Fprintf(b, "\t\tTypeName: %s,\n", strconv.Quote(typeIdentity))
+	fmt.Fprintf(b, "\t\tName: %s,\n", strconv.Quote(s.Name))
+	fmt.Fprintf(b, "\t\tHelp: %s,\n", strconv.Quote(s.Help))
+	if len(defaults) > 0 {
+		b.WriteString("\t\tDefaults: map[string]string{\n")
+		for _, key := range keys {
+			if value, ok := defaults[key]; ok {
+				fmt.Fprintf(b, "\t\t\t%s: %s,\n", strconv.Quote(key), strconv.Quote(value))
+			}
+		}
+		b.WriteString("\t\t},\n")
+	}
+	b.WriteString("\t\tFlagMetas: []cliparser.FieldMeta{\n")
+	for _, meta := range flagMetas {
+		fmt.Fprintf(b, "\t\t\t{Key: %s, Env: \"-\"", strconv.Quote(meta.Key))
+		if meta.Opt != "" {
+			fmt.Fprintf(b, ", Opt: %s", strconv.Quote(meta.Opt))
+		}
+		if meta.Help != "" {
+			fmt.Fprintf(b, ", Help: %s", strconv.Quote(meta.Help))
+		}
+		switch meta.Kind {
+		case cliparser.KindBool:
+			b.WriteString(", Kind: cliparser.KindBool")
+		case cliparser.KindArray:
+			b.WriteString(", Kind: cliparser.KindArray")
+		}
+		b.WriteString("},\n")
+	}
+	b.WriteString("\t\t},\n")
+	if len(positionals) > 0 {
+		b.WriteString("\t\tPositionals: []configbind.Positional{\n")
+		for _, positional := range positionals {
+			fmt.Fprintf(b, "\t\t\t{ConfigKey: %s, Name: %s, Role: %s",
+				strconv.Quote(positional.Key), strconv.Quote(positional.Key), positionalRoleName(positional.Field.Arg))
+			if positional.Field.Help != "" {
+				fmt.Fprintf(b, ", Help: %s", strconv.Quote(positional.Field.Help))
+			}
+			b.WriteString("},\n")
+		}
+		b.WriteString("\t\t},\n")
+	}
+	fmt.Fprintf(b, "\t\tApply: %s,\n", applyName)
+	b.WriteString("\t})\n")
+	b.WriteString("}\n\n")
+
+	fmt.Fprintf(b, "func %s(dst any, o *configbind.Overlay) error {\n", applyName)
+	fmt.Fprintf(b, "\tp, ok := dst.(*%s)\n", s.TypeName)
+	b.WriteString("\tif !ok || p == nil {\n")
+	fmt.Fprintf(b, "\t\treturn fmt.Errorf(\"configbind: apply %s: bad destination\")\n", s.TypeName)
+	b.WriteString("\t}\n")
+	if err := emitApplyFields(b, "p", "", s.Fields); err != nil {
+		return err
+	}
+	b.WriteString("\treturn nil\n")
+	b.WriteString("}\n\n")
+	return nil
+}
+
 type scaffoldCodegenField struct {
 	Key   string
 	Field Field
 }
 
-func flattenScaffoldFields(prefix string, fields []Field) []scaffoldCodegenField {
+func flattenFields(prefix string, fields []Field) []scaffoldCodegenField {
 	var result []scaffoldCodegenField
 	for _, field := range fields {
 		key := joinKey(prefix, field.Key)
 		if field.Kind == FieldStruct {
-			result = append(result, flattenScaffoldFields(key, field.Nested)...)
+			result = append(result, flattenFields(key, field.Nested)...)
 			continue
 		}
 		result = append(result, scaffoldCodegenField{Key: key, Field: field})
 	}
 	return result
+}
+
+func flattenScaffoldFields(prefix string, fields []Field) []scaffoldCodegenField {
+	return flattenFields(prefix, fields)
+}
+
+func collectPositionals(fields []Field) ([]scaffoldCodegenField, error) {
+	var result []scaffoldCodegenField
+	optionalSeen := false
+	restSeen := false
+	for _, field := range fields {
+		if field.Kind == FieldStruct {
+			if field.Arg != "" {
+				return nil, fmt.Errorf("field %s: nested struct cannot be positional", field.GoName)
+			}
+			nested, err := collectPositionals(field.Nested)
+			if err != nil {
+				return nil, err
+			}
+			if len(nested) > 0 {
+				return nil, fmt.Errorf("field %s: nested positional fields are not supported", field.GoName)
+			}
+			continue
+		}
+		if field.Arg == "" {
+			continue
+		}
+		switch field.Arg {
+		case "required":
+			if optionalSeen || restSeen {
+				return nil, fmt.Errorf("required positional %s must precede optional and rest arguments", field.Key)
+			}
+			if field.Kind == FieldStringSlice {
+				return nil, fmt.Errorf("required positional %s must be a scalar", field.Key)
+			}
+		case "optional":
+			if restSeen {
+				return nil, fmt.Errorf("optional positional %s must precede the rest argument", field.Key)
+			}
+			if field.Kind == FieldStringSlice {
+				return nil, fmt.Errorf("optional positional %s must be a scalar", field.Key)
+			}
+			optionalSeen = true
+		case "*":
+			if restSeen || field.Kind != FieldStringSlice {
+				return nil, fmt.Errorf("rest positional %s must be a unique []string field", field.Key)
+			}
+			restSeen = true
+		default:
+			return nil, fmt.Errorf("field %s has invalid arg tag %q", field.GoName, field.Arg)
+		}
+		result = append(result, scaffoldCodegenField{Key: field.Key, Field: field})
+	}
+	if restSeen && result[len(result)-1].Field.Arg != "*" {
+		return nil, fmt.Errorf("rest positional must be last")
+	}
+	return result, nil
+}
+
+func positionalRoleName(role string) string {
+	switch role {
+	case "required":
+		return "configbind.PositionalRequired"
+	case "optional":
+		return "configbind.PositionalOptional"
+	default:
+		return "configbind.PositionalRest"
+	}
 }
 
 func scaffoldKindName(kind FieldKind) string {
@@ -336,6 +500,9 @@ func collectFlagMetas(prefix string, fields []Field) []cliparser.FieldMeta {
 			}
 			if f.Kind == FieldStruct {
 				walk(full, f.Nested)
+				continue
+			}
+			if f.Arg != "" {
 				continue
 			}
 			// FieldMeta uses Prefix + Key where Key is relative path under prefix

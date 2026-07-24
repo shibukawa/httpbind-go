@@ -1,5 +1,6 @@
-// Package configpath resolves a single config file path for configbind.
-// Explicit --config-path wins; otherwise configdir user then system is searched exclusively.
+// Package configpath resolves one config file path for configbind.
+// Candidates are searched exclusively in priority order: explicit path,
+// extra read paths, user config, then system config.
 package configpath
 
 import (
@@ -67,18 +68,42 @@ func joinVendorToolFile(root, vendor, tool, fileName string) string {
 // If explicitPath is non-empty, that path is the only candidate: missing or unreadable
 // returns an error (no directory search fallback). On success found is true.
 //
-// If explicitPath is empty, vendor, tool, and fileName are required; directory search
-// prefers user over system and returns at most one path. When neither has the file,
-// found is false and err is nil (TOML layer may be skipped).
+// With no explicit path or extras, vendor, tool, and fileName are required;
+// directory search prefers user over system and returns at most one path. When
+// neither has the file, found is false and err is nil (TOML may be skipped).
 func Resolve(vendor, tool, fileName, explicitPath string) (path string, found bool, err error) {
-	return ResolveWithSearch(vendor, tool, fileName, explicitPath, ConfigDirSearch{})
+	return ResolveWithExtras(vendor, tool, fileName, explicitPath, nil)
 }
 
 // ResolveWithSearch is like Resolve but uses the provided FileSearch for directory lookup.
 func ResolveWithSearch(vendor, tool, fileName, explicitPath string, search FileSearch) (path string, found bool, err error) {
+	return ResolveWithExtrasAndSearch(vendor, tool, fileName, explicitPath, nil, search)
+}
+
+// ResolveWithExtras chooses the first readable config file from explicitPath,
+// extraReadPaths in slice order, then the user/system config directory search.
+// Missing or unreadable extra paths are skipped. An explicit path remains
+// strict: when supplied but unreadable, resolution fails without fallback.
+func ResolveWithExtras(vendor, tool, fileName, explicitPath string, extraReadPaths []string) (path string, found bool, err error) {
+	return ResolveWithExtrasAndSearch(vendor, tool, fileName, explicitPath, extraReadPaths, ConfigDirSearch{})
+}
+
+// ResolveWithExtrasAndSearch is like ResolveWithExtras but injects the
+// user/system directory search implementation.
+func ResolveWithExtrasAndSearch(vendor, tool, fileName, explicitPath string, extraReadPaths []string, search FileSearch) (path string, found bool, err error) {
 	explicitPath = strings.TrimSpace(explicitPath)
 	if explicitPath != "" {
 		return resolveExplicit(explicitPath)
+	}
+	for _, candidate := range extraReadPaths {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		path := filepath.Clean(candidate)
+		if fileReadable(path) {
+			return path, true, nil
+		}
 	}
 	vendor = strings.TrimSpace(vendor)
 	tool = strings.TrimSpace(tool)

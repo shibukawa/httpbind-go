@@ -71,6 +71,81 @@ func TestResolveExplicitPathMissingNoFallback(t *testing.T) {
 	}
 }
 
+func TestResolveExtraPathsUseFirstReadableBeforeConfigDirs(t *testing.T) {
+	dir := t.TempDir()
+	missing := filepath.Join(dir, "missing.toml")
+	first := filepath.Join(dir, "local-test.toml")
+	second := filepath.Join(dir, "local-other.toml")
+	writeFile(t, first, "from=first\n")
+	writeFile(t, second, "from=second\n")
+
+	userRoot := filepath.Join(dir, "user")
+	systemRoot := filepath.Join(dir, "system")
+	writeFile(t, filepath.Join(userRoot, "acme", "mytool", "app.toml"), "from=user\n")
+	writeFile(t, filepath.Join(systemRoot, "acme", "mytool", "app.toml"), "from=system\n")
+
+	path, found, err := configpath.ResolveWithExtrasAndSearch(
+		"acme",
+		"mytool",
+		"app.toml",
+		"",
+		[]string{"", missing, first, second},
+		configpath.FixedRootsSearch{UserRoot: userRoot, SystemRoot: systemRoot},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !found || path != first {
+		t.Fatalf("path=%q found=%v want first extra %q", path, found, first)
+	}
+}
+
+func TestResolveMissingExtraPathsFallBackToUserThenSystem(t *testing.T) {
+	dir := t.TempDir()
+	userRoot := filepath.Join(dir, "user")
+	systemRoot := filepath.Join(dir, "system")
+	userFile := filepath.Join(userRoot, "acme", "mytool", "app.toml")
+	writeFile(t, userFile, "from=user\n")
+	writeFile(t, filepath.Join(systemRoot, "acme", "mytool", "app.toml"), "from=system\n")
+
+	path, found, err := configpath.ResolveWithExtrasAndSearch(
+		"acme",
+		"mytool",
+		"app.toml",
+		"",
+		[]string{filepath.Join(dir, "missing-1.toml"), filepath.Join(dir, "missing-2.toml")},
+		configpath.FixedRootsSearch{UserRoot: userRoot, SystemRoot: systemRoot},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !found || path != userFile {
+		t.Fatalf("path=%q found=%v want user %q", path, found, userFile)
+	}
+}
+
+func TestResolveExplicitWinsExtrasAndMissingExplicitDoesNotFallback(t *testing.T) {
+	dir := t.TempDir()
+	explicit := filepath.Join(dir, "explicit.toml")
+	extra := filepath.Join(dir, "extra.toml")
+	writeFile(t, explicit, "from=explicit\n")
+	writeFile(t, extra, "from=extra\n")
+
+	path, found, err := configpath.ResolveWithExtrasAndSearch(
+		"", "", "", explicit, []string{extra}, configpath.FixedRootsSearch{},
+	)
+	if err != nil || !found || path != explicit {
+		t.Fatalf("path=%q found=%v err=%v", path, found, err)
+	}
+
+	path, found, err = configpath.ResolveWithExtrasAndSearch(
+		"", "", "", filepath.Join(dir, "missing.toml"), []string{extra}, configpath.FixedRootsSearch{},
+	)
+	if err == nil || found || path != "" {
+		t.Fatalf("missing explicit must not fall back: path=%q found=%v err=%v", path, found, err)
+	}
+}
+
 func TestResolveUserWinsOverSystem(t *testing.T) {
 	dir := t.TempDir()
 	userRoot := filepath.Join(dir, "user")

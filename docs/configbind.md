@@ -36,7 +36,7 @@ Application code does not implement generated internals. It obtains a pointer wi
 ```go
 package main
 
-//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen -dir .
+//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir .
 ```
 
 Put a concrete `Bind` call in the analyzed package:
@@ -278,7 +278,18 @@ result, err := configbind.Load(configbind.LoadOptions{
 })
 ```
 
-`FileName` defaults to `config.toml`. Without an explicit path, configbind searches the OS user configuration directory first, then the system configuration directory, under the supplied `Vendor` and `Tool`. A missing discovered file is not an error; defaults, environment, and CLI values still load.
+`FileName` defaults to `config.toml`. configbind selects the first readable file
+in this order and reads only that file:
+
+1. `ExplicitConfigPath`, or `--config-path` when the field is empty
+2. `ExtraConfigReadPaths`, in slice order
+3. the OS user configuration directory under `Vendor` / `Tool`
+4. the OS system configuration directory under `Vendor` / `Tool`
+
+Files are never merged. This allows a local test configuration to replace,
+rather than combine with, a production system configuration. Missing or
+unreadable entries in `ExtraConfigReadPaths` are skipped. When no candidate is
+found, defaults, environment, and CLI values still load.
 
 Use `--config-path` to select a file explicitly at runtime:
 
@@ -300,16 +311,30 @@ result, err := configbind.Load(configbind.LoadOptions{
 
 `ExplicitConfigPath` wins over `--config-path`. Production applications should normally accept `--config-path` through `Args`.
 
+Use `ExtraConfigReadPaths` for optional local or deployment-specific files:
+
+```go
+result, err := configbind.Load(configbind.LoadOptions{
+	Vendor:               "acme",
+	Tool:                 "myserver",
+	ExtraConfigReadPaths: []string{"./config.test.toml", "/run/secrets/app.toml"},
+})
+```
+
+If `./config.test.toml` exists, it is the only TOML file read. Otherwise
+`/run/secrets/app.toml` is tried, followed by user and system config.
+
 ### `LoadOptions` reference
 
 | Field | Meaning | Default |
 | --- | --- | --- |
-| `Vendor` | Vendor name below OS configuration directories | Required when no explicit path is used |
-| `Tool` | Application or tool name | Required when no explicit path is used |
+| `Vendor` | Vendor name below OS configuration directories | Required when resolution reaches configdir |
+| `Tool` | Application or tool name | Required when resolution reaches configdir |
 | `FileName` | TOML basename to discover | `config.toml` |
 | `Args` | CLI arguments without the program name | `os.Args[1:]` when nil |
 | `Environ` | Environment as `KEY=value` entries | `os.Environ()` when nil |
-| `ExplicitConfigPath` | File path that must be used | Empty uses `--config-path` or directory discovery |
+| `ExplicitConfigPath` | File path that must be used | Empty uses `--config-path`, extras, or directory discovery |
+| `ExtraConfigReadPaths` | Optional file paths searched in slice order | Missing entries are skipped |
 
 Pass an empty slice rather than nil to disable CLI or environment input in tests:
 
@@ -358,6 +383,51 @@ observability := configbind.Bind[ObservabilityConfig]("observability")
 | Environment | `OTEL_SERVICE_NAME=checkout` |
 
 The `env` value is used exactly as written and must begin with a letter or `_`. Assigning the same environment name to multiple fields is a generation error. Use `env:"-"` for a field that must not accept environment input.
+
+## CLI subcommands
+
+`SubCommand[T]` declares a generated, CLI-only command branch. Its fields never
+read TOML or environment values. Fields without `arg` are options; positional
+fields use `arg:"required"`, `arg:"optional"`, or `arg:"*"`.
+
+```go
+type MigrateOptions struct {
+	Path   string   `arg:"required" help:"migration directory"`
+	Label  string   `arg:"optional" help:"migration label"`
+	DryRun bool     `default:"false" help:"print changes without applying"`
+	Extra  []string `arg:"*" help:"additional migration inputs"`
+}
+
+server := configbind.Bind[ServerConfig]("server")
+migrate := configbind.SubCommand[MigrateOptions]("migrate", "run database migrations")
+
+if _, err := configbind.Load(configbind.LoadOptions{
+	Vendor: "acme",
+	Tool:   "myserver",
+}); err != nil {
+	// *configbind.UsageError includes generated top-level or command usage.
+	log.Fatal(err)
+}
+if migrate != nil {
+	runMigrations(*migrate)
+	return
+}
+runServer(*server)
+```
+
+After running `go generate`, these forms select and fill `MigrateOptions`:
+
+```bash
+./myserver migrate ./migrations
+./myserver migrate ./migrations --dry_run release extra-a extra-b
+```
+
+Only the selected `SubCommand` call returns non-nil. A missing required
+argument, an unknown command or option, or `--help` returns
+`*configbind.UsageError` containing generated usage. Options may appear before
+or after positional arguments. In production, leave `LoadOptions.Args` nil so
+both selection and parsing use `os.Args[1:]`; tests that override `Args` must
+set the matching `os.Args` before calling `SubCommand`.
 
 ## CLI options
 

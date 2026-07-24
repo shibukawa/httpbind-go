@@ -45,8 +45,13 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 パッケージに対してジェネレータを実行します（バインダ + OpenAPI 埋め込み）:
 
 ```bash
-go run ./cmd/tinybind-gen -dir . -openapi
+go run ./cmd/tinybind-gen generate -dir . -openapi
 ```
+
+同じ生成処理で `configbind.SubCommand[T]` によるCLI専用のapplication
+subcommandも生成できます。必須・任意・残余のposition引数に対応します。
+詳しくは [configbindのsubcommandガイド](docs/configbind.ja.md#cli-subcommand)
+を参照してください。
 
 ### 構造体タグ リファレンス
 
@@ -120,12 +125,12 @@ _ = stream.Write(ChatEvent{Type: "done"})
 | `testdata/cmd/*` | 開発用ヘルパ（配布対象外。`testdata` 配下のため `go get` / `./...` の対象外） |
 
 ```bash
-go run ./cmd/tinybind-gen -dir ./path/to/package
+go run ./cmd/tinybind-gen generate -dir ./path/to/package
 ```
 
-独自ジェネレータのコマンドは `generator.Main` を呼ぶだけで作れます。
-`DefaultOptions` から始め、プロジェクトで許可する探索先を各 `Set` にすべて
-列挙します。
+フレームワーク側ですべてのランタイム関数をラップしても、呼び出しを
+ジェネレータに認識させられます。ラッパーのパッケージ上の識別子、操作の意味、
+ジェネレータが必要とする型・値の位置だけを 0 始まりで登録します。
 
 ```go
 package main
@@ -133,28 +138,79 @@ package main
 import "github.com/shibukawa/tinybind-go/generator"
 
 func main() {
-    options := generator.DefaultOptions()
-    options.ServeMuxes.Set = []generator.TypePattern{
-        {PackagePath: "net/http", Name: "ServeMux"},
-        {PackagePath: "github.com/shibukawa/petitweb-go/handler", Name: "ServeMux"},
+    calls := generator.NewCallRegistry()
+    if err := calls.Register(
+        // func RegisterConfig[T any](ctx context.Context, name string) *T
+        generator.ConfigBindCall(
+            generator.Function("example.com/framework", "RegisterConfig"),
+            generator.GenericType("config", 0),
+            generator.Argument("prefix", 1),
+        ),
+        // func Created(ctx context.Context, w http.ResponseWriter, value any) error
+        generator.ResponseWriteStatusCall(
+            generator.Function("example.com/framework", "Created"),
+            generator.ArgumentType("response", 2),
+            generator.Constant("status", 201),
+        ),
+    ); err != nil {
+        panic(err)
     }
-    options.RuntimePackages.Set = []string{
-        "github.com/shibukawa/tinybind-go",
-        "github.com/shibukawa/tinybind-go/jsonbind",
-        "github.com/shibukawa/tinybind-go/sqlbind",
-        "github.com/shibukawa/petitweb-go/handler",
+    options, err := calls.Options(generator.DefaultOptions())
+    if err != nil {
+        panic(err)
     }
-    generator.Main(options)
+    generator.Main(generator.MustCommandSet(generator.GenerateCommand(options)))
 }
 ```
 
-`RuntimePackages` は同名の `Bind`、`Write`、`WriteStatus`、`DecodeJSON`、
-`EncodeJSON`、`NewStream`、`ScanRows` を展開します。操作単位の
-`options.DecodeJSON.Set` などを指定すると、その操作だけ展開結果を置換します。
-`Set` は追加ではなく完全置換なので、標準と互換パッケージの両方が必要なら
-両方を列挙します。`generator.Options{}` の探索先は空です。各パターンの
-`Disabled` または `DisableFeatures` で、`-generate-all` 使用時も機能を
-無効化できます。
+追加の引数は登録不要です。モデル型が型引数にある場合は `GenericType`、
+値引数の静的な型にある場合は `ArgumentType`、設定prefixやroute patternの
+ような値は `Argument`、ラッパー内に隠したHTTP 201のような固定値は
+`Constant` で指定します。操作ごとのコンストラクタは
+`RequestBindCall`、`ResponseWriteCall`、`ResponseWriteStatusCall`、
+`StreamCreateCall`、`JSONDecodeCall`、`JSONEncodeCall`、`RowsScanCall`、
+`ConfigBindCall`、`ConfigSubCommandCall`、`RouteRegisterCall`、
+`ErrorResponseCall` です。
+パッケージ関数は `Function`、名前付きreceiverのmethodは `Method` で
+対象にします。
+
+各コンストラクタの必須role名は同じ順に、`request`、`response`、
+`response` + `status`、`stream`、`decode`、`encode`、`row`、
+`config` + `prefix`、`config` + `name` + `help`、`pattern` + `handler`、
+`status` です。
+
+`RuntimePackages` は標準tinybindと同じ関数名・signatureを使う場合の短縮指定
+として残っています。関数名の変更、引数の並べ替え・追加、固定値の隠蔽がある
+ラッパーには明示的なcall patternを使います。`generator.Options{}` の探索先は
+空です。`DisableFeatures` へ追加した機能は `-generate-all` 使用時も無効です。
+
+組み込みの `generate` とフレームワーク独自のライフサイクルコマンドを
+一つのCLIにまとめられます。
+
+```go
+commands := generator.MustCommandSet(
+    generator.GenerateCommand(options),
+    generator.Command{Name: "init", Summary: "プロジェクトを初期化", Run: runInit},
+    generator.Command{Name: "build", Summary: "generateしてbuild", Run: runBuild},
+    generator.Command{Name: "watch", Summary: "監視してgenerateとbuild", Run: runWatch},
+)
+generator.Main(commands)
+```
+
+各コマンドには `context.Context`、引数、stdin/stdout/stderr・作業directory・
+環境変数を持つ `CommandIO` が渡されます。`build` や `watch` からCLIを
+起動せず、同一process内で生成できます。
+
+```go
+result, err := generator.New(options).GeneratePackage(ctx, generator.GenerateRequest{
+    Dir: dir, OpenAPI: true,
+})
+```
+
+`GeneratePackage` はtemplate、mapping、configbind、指定時のOpenAPIを実行し、
+出力したpathを返します。`generator.Main` はprocess境界だけを担当するため、
+テストや合成したコマンドでは `CommandSet.Run` または `GeneratePackage` を
+直接呼びます。
 
 生成は利用箇所単位で絞られ、`DecodeJSON[T]` だけを使うコードには JSON
 デコーダだけが生成され、root の HTTP runtime と `net/http` へ依存しません。従来どおり有効な全

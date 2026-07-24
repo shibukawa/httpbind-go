@@ -251,8 +251,23 @@ func register(router Router){router.Route("POST /custom",h)}
 	}
 	tidyModule(t, dir)
 	got, err := parser.ParsePackageWithConfig(dir, parser.Config{
-		RouteRegistrations: []parser.RouteSymbol{{PackagePath: "stricttest", Name: "Route", ReceiverPackagePath: "stricttest", ReceiverType: "Router"}},
-		GenericFunctions:   []parser.FunctionSymbol{{PackagePath: "stricttest", Name: "Bind"}, {PackagePath: "stricttest", Name: "Write"}},
+		Calls: []parser.CallPattern{
+			{
+				Target: parser.RouteSymbol{
+					PackagePath: "stricttest", Name: "Route",
+					ReceiverPackagePath: "stricttest", ReceiverType: "Router",
+				},
+				Operation: parser.CallRouteRegister, PatternArgument: 0, HandlerArgument: 1,
+			},
+			{
+				Target:    parser.RouteSymbol{PackagePath: "stricttest", Name: "Bind"},
+				Operation: parser.CallRequestBind,
+			},
+			{
+				Target:    parser.RouteSymbol{PackagePath: "stricttest", Name: "Write"},
+				Operation: parser.CallResponseWrite,
+			},
+		},
 	})
 	if err != nil {
 		t.Fatal(err)

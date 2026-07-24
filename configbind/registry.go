@@ -66,6 +66,16 @@ func definitionFor[T any](prefix string) (Definition, bool) {
 	return definition, ok
 }
 
+func snapshotDefinitions() []Definition {
+	definitionsMu.RLock()
+	defer definitionsMu.RUnlock()
+	out := make([]Definition, 0, len(definitions))
+	for _, definition := range definitions {
+		out = append(out, definition)
+	}
+	return out
+}
+
 // target is one Bind registration awaiting Load.
 type target struct {
 	prefix   string
@@ -103,6 +113,7 @@ func ResetDefinitions() {
 	definitionsMu.Lock()
 	definitions = map[bindingKey]Definition{}
 	definitionsMu.Unlock()
+	resetSubcommandDefinitions()
 }
 
 // ResetTargets clears Bind registrations (tests only).
@@ -110,6 +121,7 @@ func ResetTargets() {
 	targetsMu.Lock()
 	targets = nil
 	targetsMu.Unlock()
+	resetSubcommandTargets()
 }
 
 func snapshotTargets() []target {

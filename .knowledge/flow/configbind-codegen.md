@@ -3,7 +3,7 @@ id: flow:configbind-codegen
 type: flow
 title: configbind Codegen Pipeline
 ---
-Generator reads one package's Bind and SubCommand usage and emits one reflection-free Definition per Bind call, including apply, CLI, key, and scaffold metadata.
+Generator reads one package's Bind and SubCommand usage and emits reflection-free Definition and SubCommandDefinition registrations with typed apply code.
 
 ```yaml
 flow:
@@ -11,12 +11,14 @@ flow:
   architecture: decision:configbind-codegen-no-reflect
   steps:
     - id: discover-structs
-      action: find types from api:configbind-bind and api:configbind-subcommand usage
+      action: find concrete types, prefixes, names, and help values through configured data:generator-call-pattern roles for api:configbind-bind and api:configbind-subcommand semantics
       refs:
         - requirement:struct-registration
         - api:configbind-bind
         - api:configbind-subcommand
         - decision:prefix-table-binding
+        - requirement:framework-wrapper-discovery
+        - api:generator-call-registration
     - id: parse-fields
       action: read fields, supported types, and default|help|opt|enum|secret|arg tags at compile time
       refs:
@@ -56,7 +58,7 @@ flow:
         - concept:config-overlay
         - term:config-key
     - id: emit-definitions
-      action: register one configbind Definition per Bind type and prefix; api:config-scaffold-output renders scaffold fields from all imported package definitions
+      action: register one configbind Definition per Bind type and prefix plus one SubCommandDefinition per CLI branch; api:config-scaffold-output renders only Bind fields
       refs:
         - requirement:scaffold-generation
         - requirement:modular-package-generation

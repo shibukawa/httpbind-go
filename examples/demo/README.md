@@ -124,5 +124,5 @@ examples/demo/
 ```bash
 go generate ./examples/demo
 # equivalent:
-# go run ./cmd/tinybind-gen -dir ./examples/demo
+# go run ./cmd/tinybind-gen generate -dir ./examples/demo
 ```

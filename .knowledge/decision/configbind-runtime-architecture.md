@@ -14,7 +14,7 @@ layers:
       - restricted TOML document to flat or nested key/value map
       - CLI argv tokenizer / flag token stream to key/value map
       - env snapshot reader
-      - config file path discovery via system:configdir and --config-path
+      - single config file discovery via explicit, extra, user, and system candidates
     constraint: not tied to a specific application config struct
     concept: concept:reusable-source-parsers
   - id: overlay_merge

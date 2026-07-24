@@ -1,6 +1,7 @@
 package generator_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,6 +36,11 @@ func TestGenerateConfigBindFromFixture(t *testing.T) {
 		`Key: "tls.cert_path"`,
 		`Env: "TLS_CERT_FILE"`,
 		"applyWebServerConfigDefinition0",
+		"RegisterSubCommand[MigrateOptions]",
+		`Name:     "migrate"`,
+		"configbind.PositionalRequired",
+		"configbind.PositionalOptional",
+		"configbind.PositionalRest",
 		"cliparser.FieldMeta",
 	} {
 		if !strings.Contains(text, want) {
@@ -46,14 +52,15 @@ func TestGenerateConfigBindFromFixture(t *testing.T) {
 	}
 }
 
-func TestRunTinybindGenConfigBind(t *testing.T) {
+func TestGenerateCommandConfigBind(t *testing.T) {
 	dir := filepath.Join("..", "internal", "configbindfixture")
 	out := t.TempDir()
-	code := generator.Run([]string{
-		"-dir", dir,
+	set := generator.MustCommandSet(generator.GenerateCommand(generator.DefaultOptions()))
+	code := set.Run(context.Background(), []string{
+		"generate", "-dir", dir,
 		"-out", out,
 		"-openapi=false",
-	}, os.Stdout, os.Stderr, generator.DefaultOptions())
+	}, generator.CommandIO{Stdout: os.Stdout, Stderr: os.Stderr})
 	if code != 0 {
 		t.Fatalf("exit %d", code)
 	}
@@ -64,5 +71,22 @@ func TestRunTinybindGenConfigBind(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "WebServerConfig") {
 		t.Fatalf("unexpected gen:\n%s", data)
+	}
+}
+
+func TestGeneratePackageReturnsConfigBindArtifact(t *testing.T) {
+	dir := filepath.Join("..", "internal", "configbindfixture")
+	out := t.TempDir()
+	result, err := generator.New(generator.DefaultOptions()).GeneratePackage(context.Background(), generator.GenerateRequest{
+		Dir: dir, Out: out, OpenAPI: false, ConfigBindName: "framework_config_gen.go",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(result.ConfigBindPath) != "framework_config_gen.go" {
+		t.Fatalf("ConfigBindPath=%q paths=%v", result.ConfigBindPath, result.Paths())
+	}
+	if _, err := os.Stat(result.ConfigBindPath); err != nil {
+		t.Fatal(err)
 	}
 }

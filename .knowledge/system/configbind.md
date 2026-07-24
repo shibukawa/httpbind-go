@@ -27,6 +27,7 @@ primary_inputs:
   - TOML config file path for Bind fields only
   - vendor name, tool name, and file name for configdir discovery via API
   - optional --config-path process flag (error if unreadable)
+  - optional ExtraConfigReadPaths direct file candidates (missing entries ignored)
   - process environment for Bind fields only
   - CLI args including subcommand name
 config_path: decision:config-file-path-resolution

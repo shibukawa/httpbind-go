@@ -78,3 +78,55 @@ func TestGenerateRejectsDuplicateEnvironmentOverride(t *testing.T) {
 		t.Fatalf("error=%v", err)
 	}
 }
+
+func TestGenerateEmitsSubCommandRegistrationAndPositionals(t *testing.T) {
+	src, err := Generate("fixture", []Spec{{
+		PackagePath: "example.test/fixture",
+		TypeName:    "MigrateOptions",
+		SubCommand:  true,
+		Name:        "migrate",
+		Help:        "run migrations",
+		Fields: []Field{
+			{GoName: "Path", Key: "path", Kind: FieldString, Arg: "required", Help: "migration path"},
+			{GoName: "Label", Key: "label", Kind: FieldString, Arg: "optional"},
+			{GoName: "DryRun", Key: "dry_run", Kind: FieldBool, Default: "false", Help: "print only"},
+			{GoName: "Extra", Key: "extra", Kind: FieldStringSlice, Arg: "*"},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`configbind.RegisterSubCommand[MigrateOptions]`,
+		`Name:     "migrate"`,
+		`Help:     "run migrations"`,
+		`{Key: "dry_run", Env: "-", Help: "print only", Kind: cliparser.KindBool}`,
+		`{ConfigKey: "path", Name: "path", Role: configbind.PositionalRequired, Help: "migration path"}`,
+		`{ConfigKey: "label", Name: "label", Role: configbind.PositionalOptional}`,
+		`{ConfigKey: "extra", Name: "extra", Role: configbind.PositionalRest}`,
+		"applyMigrateOptionsDefinition0",
+	} {
+		if !strings.Contains(string(src), want) {
+			t.Fatalf("generated subcommand registration %q missing:\n%s", want, src)
+		}
+	}
+	if strings.Contains(string(src), "Scaffold:") {
+		t.Fatalf("subcommand fields must not enter scaffolds:\n%s", src)
+	}
+}
+
+func TestGenerateRejectsInvalidSubCommandPositionals(t *testing.T) {
+	_, err := Generate("fixture", []Spec{{
+		TypeName:   "BadOptions",
+		SubCommand: true,
+		Name:       "bad",
+		Help:       "bad command",
+		Fields: []Field{
+			{GoName: "Optional", Key: "optional", Kind: FieldString, Arg: "optional"},
+			{GoName: "Required", Key: "required", Kind: FieldString, Arg: "required"},
+		},
+	}})
+	if err == nil || !strings.Contains(err.Error(), "must precede") {
+		t.Fatalf("error=%v", err)
+	}
+}

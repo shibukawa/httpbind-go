@@ -30,7 +30,7 @@ Place a generation directive in the target package:
 ```go
 package api
 
-//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen -dir .
+//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir .
 ```
 
 ```bash
@@ -46,7 +46,7 @@ The default output files are:
 Use `-check` in CI to fail when route candidates cannot be analyzed:
 
 ```bash
-go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen -dir . -check
+go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir . -check
 ```
 
 One invocation analyzes one Go package. It does not follow handler implementations into another package, so route registration and the analyzed handler should normally live in the same package.

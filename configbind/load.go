@@ -24,6 +24,10 @@ type LoadOptions struct {
 	// ExplicitConfigPath forces a config file path (overrides --config-path when set).
 	// Prefer leaving empty and passing --config-path via Args in production.
 	ExplicitConfigPath string
+	// ExtraConfigReadPaths are optional config files searched in slice order
+	// after ExplicitConfigPath/--config-path and before user/system config dirs.
+	// Missing or unreadable entries are skipped; only the first found file is read.
+	ExtraConfigReadPaths []string
 }
 
 // LoadResult holds the overlay after load (for tests/provenance).
@@ -36,7 +40,8 @@ type LoadResult struct {
 // Load merges default → TOML → env → CLI into Bind targets and applies without reflection.
 func Load(opts LoadOptions) (*LoadResult, error) {
 	ts := snapshotTargets()
-	if len(ts) == 0 {
+	subcommands := snapshotSubcommandDefinitions()
+	if len(ts) == 0 && len(subcommands) == 0 {
 		return nil, fmt.Errorf("configbind: no Bind targets registered")
 	}
 	fileName := opts.FileName
@@ -46,6 +51,9 @@ func Load(opts LoadOptions) (*LoadResult, error) {
 	args := opts.Args
 	if args == nil {
 		args = os.Args[1:]
+	}
+	if len(subcommands) > 0 && len(args) > 0 && (args[0] == "-h" || args[0] == "--help") {
+		return nil, &UsageError{Usage: topLevelUsage(subcommands)}
 	}
 
 	// Build flag defs: process --config-path + all Bind field flags.
@@ -65,7 +73,26 @@ func Load(opts LoadOptions) (*LoadResult, error) {
 
 	cliRes, err := cliparser.Parse(args, defs)
 	if err != nil {
+		if len(subcommands) > 0 {
+			return nil, &UsageError{
+				Message: fmt.Sprintf("configbind: cli: %v", err),
+				Usage:   topLevelUsage(subcommands),
+			}
+		}
 		return nil, fmt.Errorf("configbind: cli: %w", err)
+	}
+
+	var commandName string
+	var commandArgs []string
+	if len(cliRes.Rest) > 0 && len(subcommands) > 0 {
+		commandName = cliRes.Rest[0]
+		commandArgs = cliRes.Rest[1:]
+		if _, ok := subcommands[commandName]; !ok {
+			return nil, &UsageError{
+				Message: fmt.Sprintf("configbind: unknown subcommand %q", commandName),
+				Usage:   topLevelUsage(subcommands),
+			}
+		}
 	}
 
 	explicit := opts.ExplicitConfigPath
@@ -73,9 +100,15 @@ func Load(opts LoadOptions) (*LoadResult, error) {
 		explicit = configpath.ExplicitPathFromParse(cliRes)
 	}
 
-	cfgPath, found, err := configpath.Resolve(opts.Vendor, opts.Tool, fileName, explicit)
-	if err != nil {
-		return nil, err
+	var cfgPath string
+	var found bool
+	if len(ts) > 0 {
+		cfgPath, found, err = configpath.ResolveWithExtras(
+			opts.Vendor, opts.Tool, fileName, explicit, opts.ExtraConfigReadPaths,
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	o := NewOverlay()
@@ -120,8 +153,96 @@ func Load(opts LoadOptions) (*LoadResult, error) {
 			return nil, fmt.Errorf("configbind: apply %s: %w", t.typeName, err)
 		}
 	}
+	if commandName != "" {
+		if err := applySubcommand(commandName, commandArgs, subcommands[commandName]); err != nil {
+			return nil, err
+		}
+	} else if len(ts) == 0 && len(subcommands) > 0 {
+		return nil, &UsageError{
+			Message: "configbind: a subcommand is required",
+			Usage:   topLevelUsage(subcommands),
+		}
+	}
 
 	return &LoadResult{Overlay: o, ConfigPath: cfgPath, FoundFile: found}, nil
+}
+
+func applySubcommand(name string, args []string, definition SubCommandDefinition) error {
+	usage := subcommandUsage(definition)
+	if wantsHelp(args) {
+		return &UsageError{Usage: usage}
+	}
+	target, ok := selectedSubcommand(name)
+	if !ok {
+		return &UsageError{
+			Message: fmt.Sprintf("configbind: subcommand %q was selected through LoadOptions.Args but SubCommand returned nil; keep LoadOptions.Args aligned with os.Args[1:]", name),
+			Usage:   usage,
+		}
+	}
+	if target.err != nil {
+		return target.err
+	}
+	return applySubcommandValues(name, args, definition, target.dst)
+}
+
+func applySubcommandValues(name string, args []string, definition SubCommandDefinition, dst any) error {
+	usage := subcommandUsage(definition)
+	if wantsHelp(args) {
+		return &UsageError{Usage: usage}
+	}
+	defs, err := cliparser.BuildDefs(definition.FlagMetas)
+	if err != nil {
+		return fmt.Errorf("configbind: subcommand %q: %w", name, err)
+	}
+	parsed, err := cliparser.ParseInterspersed(args, defs)
+	if err != nil {
+		return &UsageError{
+			Message: fmt.Sprintf("configbind: subcommand %q: %v", name, err),
+			Usage:   usage,
+		}
+	}
+
+	values := NewOverlay()
+	for key, value := range definition.Defaults {
+		values.Set(key, value, PlaceDefault)
+	}
+	values.MergeMap(parsed.Values, PlaceCLI)
+	values.MergeMultiMap(parsed.Multi, PlaceCLI)
+
+	position := 0
+	for _, positional := range definition.Positionals {
+		switch positional.Role {
+		case PositionalRequired:
+			if position >= len(parsed.Rest) {
+				return &UsageError{
+					Message: fmt.Sprintf("configbind: subcommand %q: missing required argument <%s>", name, positional.Name),
+					Usage:   usage,
+				}
+			}
+			values.Set(positional.ConfigKey, parsed.Rest[position], PlaceCLI)
+			position++
+		case PositionalOptional:
+			if position < len(parsed.Rest) {
+				values.Set(positional.ConfigKey, parsed.Rest[position], PlaceCLI)
+				position++
+			}
+		case PositionalRest:
+			if position < len(parsed.Rest) {
+				values.SetMulti(positional.ConfigKey, parsed.Rest[position:], PlaceCLI)
+				position = len(parsed.Rest)
+			}
+		}
+	}
+	if position < len(parsed.Rest) {
+		return &UsageError{
+			Message: fmt.Sprintf("configbind: subcommand %q: unexpected argument %q", name, parsed.Rest[position]),
+			Usage:   usage,
+		}
+	}
+	if err := definition.Apply(dst, values); err != nil {
+		return fmt.Errorf("configbind: apply subcommand %s: %w", definition.TypeName, err)
+	}
+	return nil
 }
 
 func mergeDocument(o *Overlay, doc minitoml.Document, place Place) error {

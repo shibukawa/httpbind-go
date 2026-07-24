@@ -1,0 +1,42 @@
+---
+id: policy:html-update-csrf-protection
+type: policy
+title: HTML Update CSRF Protection
+---
+Protect generated component and navigation update endpoints when browsers attach ambient credentials.
+
+```yaml
+evidence:
+  - https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html
+  - https://pkg.go.dev/net/http#CrossOriginProtection
+scope:
+  required: cookie-authenticated POST, PUT, PATCH, and DELETE update endpoints
+  conditional: safe render-only GET endpoints must remain side-effect-free; origin defense may still apply
+  optional: APIs using explicit non-cookie authorization without ambient credentials
+primary:
+  stateful: synchronizer token unique and unpredictable per login session or request
+  stateless: session-bound signed double-submit token; naive unsigned double-submit is forbidden
+browser_transport:
+  bootstrap: escaped token in data:html-client-bootstrap meta or inert configuration
+  request: X-CSRF-Token custom header from requirement:html-runtime-bootstrap
+  forbidden: URL, query string, persistent Web Storage, or application logs
+server_validation:
+  - validate token before parsing boundary capability or executing renderer
+  - compare secrets in constant time where applicable
+  - reject missing or invalid token with 403 and record safe diagnostics
+defense_in_depth:
+  - wrap unsafe handlers with Go 1.25+ http.CrossOriginProtection on the repository Go 1.26 baseline
+  - do not treat CrossOriginProtection as the token replacement when requests without Fetch Metadata or Origin must also be rejected
+  - validate same-origin Origin and Fetch Metadata according to deployment proxy configuration
+  - use Secure, HttpOnly, and appropriate SameSite session cookies; SameSite is not the only defense
+  - allow credentialed CORS only for exact trusted origins; never combine credentials with wildcard origin
+  - preserve rule:template-context-safety and CSP because XSS can read a DOM-exposed CSRF token
+cache:
+  - inject token outside requirement:component-output-cache and requirement:layout-reuse-boundaries validators
+  - do not share personalized token-bearing complete HTML through public caches
+open_questions:
+  - framework token-provider interface versus application middleware integration
+  - per-session versus per-request rotation and multi-tab behavior
+  - delta-response token refresh header
+  - policy for unauthenticated but computationally expensive render updates
+```

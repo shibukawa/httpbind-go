@@ -11,11 +11,16 @@ return_type: '*T'
 nil_semantics:
   - non-nil *T when CLI selected this subcommand and parse succeeded
   - nil when not selected
+  - nil when selected arguments fail parsing; Load returns the stored UsageError
 behavior:
-  - registers subcommand name and help for CLI dispatch
-  - parses CLI flags and positionals on T only
+  - generated code registers SubCommandDefinition before main
+  - SubCommand selects from process argv and parses CLI flags and positionals on T only
+  - Load validates the same branch and returns generated usage for help or errors
   - does not participate in TOML or env layers
   - parses positional fields tagged arg required|optional|*
+  - options may appear before or after positionals
+testing:
+  - LoadOptions.Args must match os.Args[1:] because nil/non-nil selection occurs when SubCommand returns
 example:
   go: |
     migrate := configbind.SubCommand[MigrateOpt]("migrate", "run migrations")

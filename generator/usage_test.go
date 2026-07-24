@@ -185,8 +185,10 @@ func use() { _, _ = compat.DecodeJSON[Note](nil) }
 	}
 	tidyTempModule(t, dir)
 	g := generator.New(generator.Options{
-		DecodeJSON: generator.PatternSet[generator.SymbolPattern]{Set: []generator.SymbolPattern{{PackagePath: "tempmod/compat", Name: "DecodeJSON"}}},
-		FileTypes:  generator.PatternSet[generator.TypePattern]{Set: []generator.TypePattern{{PackagePath: "tempmod/compat", Name: "File"}}},
+		Calls: generator.PatternSet[generator.CallPattern]{Set: []generator.CallPattern{
+			generator.JSONDecodeCall(generator.Function("tempmod/compat", "DecodeJSON"), generator.GenericType("decode", 0)),
+		}},
+		FileTypes: generator.PatternSet[generator.TypePattern]{Set: []generator.TypePattern{{PackagePath: "tempmod/compat", Name: "File"}}},
 	})
 	plan, err := g.Analyze(dir)
 	if err != nil {

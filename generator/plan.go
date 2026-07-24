@@ -118,9 +118,13 @@ const (
 // DiscoverySymbol identifies a generic function and the entry point it needs.
 // PackagePath is matched by go/types identity, so import aliases are supported.
 type DiscoverySymbol struct {
-	PackagePath string
-	Name        string
-	Usage       Usage
+	PackagePath         string
+	Name                string
+	ReceiverPackagePath string
+	ReceiverType        string
+	Usage               Usage
+	TypeArgument        int
+	ArgumentType        *int
 }
 
 // PackagePlan is all type plans in a package.
@@ -177,7 +181,10 @@ func AnalyzePackageWithOptions(dir string, opts Options) (*PackagePlan, error) {
 
 	plan := &PackagePlan{Package: pkg.Name, PackagePath: pkg.PkgPath}
 	discovered := map[string]Usage{}
-	normalized := opts.normalized()
+	normalized, err := opts.normalized()
+	if err != nil {
+		return nil, err
+	}
 	symbols := normalized.symbols
 	fset := pkg.Fset
 	for _, f := range pkg.Syntax {
@@ -198,7 +205,11 @@ func AnalyzePackageWithOptions(dir string, opts Options) (*PackagePlan, error) {
 			continue
 		}
 		binderNames := configuredTypeNames(f, normalized.fileTypes, pkg.Imports)
-		for name, usage := range discoverGenericTypeArgs(f, pkg.TypesInfo, symbols) {
+		discoveredInFile, err := discoverGenericTypeArgs(f, pkg.TypesInfo, symbols)
+		if err != nil {
+			return nil, err
+		}
+		for name, usage := range discoveredInFile {
 			discovered[name] |= usage
 		}
 		for _, decl := range f.Decls {
@@ -270,37 +281,83 @@ func configuredTypeNames(f *ast.File, configured []TypePattern, imports map[stri
 
 // discoverGenericTypeArgs finds type arguments of httpbind Bind/Write/DecodeJSON/EncodeJSON
 // using go/types-resolved function identity (import-alias safe).
-func discoverGenericTypeArgs(f *ast.File, info *types.Info, symbols []DiscoverySymbol) map[string]Usage {
+func discoverGenericTypeArgs(f *ast.File, info *types.Info, symbols []DiscoverySymbol) (map[string]Usage, error) {
 	out := map[string]Usage{}
 	if f == nil || info == nil {
-		return out
+		return out, nil
 	}
+	var discoveryErr error
 	ast.Inspect(f, func(n ast.Node) bool {
+		if discoveryErr != nil {
+			return false
+		}
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
 			return true
 		}
 		obj := objectOfCall(info, call.Fun)
-		usage := usageForSymbol(obj, symbols)
-		if usage == 0 {
-			return true
-		}
-		for _, a := range genericTypeArgExprs(call.Fun) {
-			if id, ok := a.(*ast.Ident); ok && id.Name != "" {
-				out[id.Name] |= usage
+		for _, symbol := range symbols {
+			if !discoverySymbolMatches(obj, symbol) {
+				continue
 			}
-		}
-		if len(genericTypeArgExprs(call.Fun)) == 0 {
-			if name := instantiatedTypeName(info, call.Fun); name != "" {
-				out[name] |= usage
+			signature, _ := obj.Type().(*types.Signature)
+			if symbol.ArgumentType != nil {
+				if signature == nil || signature.Params().Len() <= *symbol.ArgumentType {
+					discoveryErr = fmt.Errorf("generator: call pattern %s.%s argument_type index %d exceeds wrapper signature", symbol.PackagePath, symbol.Name, *symbol.ArgumentType)
+					return false
+				}
+			} else if signature == nil || signature.TypeParams().Len() <= symbol.TypeArgument {
+				discoveryErr = fmt.Errorf("generator: call pattern %s.%s generic_argument index %d exceeds wrapper signature", symbol.PackagePath, symbol.Name, symbol.TypeArgument)
+				return false
+			}
+			args := genericTypeArgExprs(call.Fun)
+			if symbol.ArgumentType != nil {
+				if len(call.Args) > *symbol.ArgumentType {
+					if name := namedTypeName(info.TypeOf(call.Args[*symbol.ArgumentType])); name != "" {
+						out[name] |= symbol.Usage
+					}
+				}
+				continue
+			}
+			if len(args) > symbol.TypeArgument {
+				if name := namedTypeName(info.TypeOf(args[symbol.TypeArgument])); name != "" {
+					out[name] |= symbol.Usage
+				}
+				continue
+			}
+			if name := instantiatedTypeNameAt(info, call.Fun, symbol.TypeArgument); name != "" {
+				out[name] |= symbol.Usage
 			}
 		}
 		return true
 	})
-	return out
+	return out, discoveryErr
 }
 
-func instantiatedTypeName(info *types.Info, fun ast.Expr) string {
+func discoverySymbolMatches(obj types.Object, symbol DiscoverySymbol) bool {
+	fn, ok := obj.(*types.Func)
+	if !ok || fn.Pkg() == nil || fn.Pkg().Path() != symbol.PackagePath || fn.Name() != symbol.Name {
+		return false
+	}
+	signature, ok := fn.Type().(*types.Signature)
+	if !ok {
+		return false
+	}
+	if symbol.ReceiverType == "" {
+		return signature.Recv() == nil
+	}
+	if signature.Recv() == nil {
+		return false
+	}
+	receiver := signature.Recv().Type()
+	if pointer, ok := receiver.(*types.Pointer); ok {
+		receiver = pointer.Elem()
+	}
+	named, ok := receiver.(*types.Named)
+	return ok && named.Obj().Pkg() != nil && named.Obj().Pkg().Path() == symbol.ReceiverPackagePath && named.Obj().Name() == symbol.ReceiverType
+}
+
+func instantiatedTypeNameAt(info *types.Info, fun ast.Expr, index int) string {
 	for {
 		switch e := fun.(type) {
 		case *ast.ParenExpr:
@@ -310,13 +367,13 @@ func instantiatedTypeName(info *types.Info, fun ast.Expr) string {
 		case *ast.IndexListExpr:
 			fun = e.X
 		case *ast.SelectorExpr:
-			if inst, ok := info.Instances[e.Sel]; ok && inst.TypeArgs.Len() > 0 {
-				return namedTypeName(inst.TypeArgs.At(0))
+			if inst, ok := info.Instances[e.Sel]; ok && inst.TypeArgs.Len() > index {
+				return namedTypeName(inst.TypeArgs.At(index))
 			}
 			return ""
 		case *ast.Ident:
-			if inst, ok := info.Instances[e]; ok && inst.TypeArgs.Len() > 0 {
-				return namedTypeName(inst.TypeArgs.At(0))
+			if inst, ok := info.Instances[e]; ok && inst.TypeArgs.Len() > index {
+				return namedTypeName(inst.TypeArgs.At(index))
 			}
 			return ""
 		default:
@@ -333,20 +390,6 @@ func namedTypeName(t types.Type) string {
 		return n.Obj().Name()
 	}
 	return ""
-}
-
-func usageForSymbol(obj types.Object, symbols []DiscoverySymbol) Usage {
-	f, ok := obj.(*types.Func)
-	if !ok || f.Pkg() == nil {
-		return 0
-	}
-	var usage Usage
-	for _, s := range symbols {
-		if f.Pkg().Path() == s.PackagePath && f.Name() == s.Name {
-			usage |= s.Usage
-		}
-	}
-	return usage
 }
 
 func propagateNestedUsage(plans []TypePlan) {
@@ -414,22 +457,6 @@ func objectOfCall(info *types.Info, fun ast.Expr) types.Object {
 	}
 }
 
-func isHTTPBinderGeneric(obj types.Object) bool {
-	f, ok := obj.(*types.Func)
-	if !ok || f.Pkg() == nil {
-		return false
-	}
-	if f.Pkg().Path() != httpbindImportPath {
-		return false
-	}
-	switch f.Name() {
-	case "Bind", "Write", "WriteStatus", "DecodeJSON", "EncodeJSON", "NewStream":
-		return true
-	default:
-		return false
-	}
-}
-
 func genericTypeArgExprs(fun ast.Expr) []ast.Expr {
 	switch f := fun.(type) {
 	case *ast.IndexExpr:
@@ -439,34 +466,6 @@ func genericTypeArgExprs(fun ast.Expr) []ast.Expr {
 	default:
 		return nil
 	}
-}
-
-// httpbindImportNames returns local identifiers that refer to this library
-// (default name "httpbind" or explicit/aliased imports).
-func httpbindImportNames(f *ast.File) map[string]bool {
-	out := make(map[string]bool)
-	if f == nil {
-		return out
-	}
-	for _, imp := range f.Imports {
-		path, err := strconv.Unquote(imp.Path.Value)
-		if err != nil || path != httpbindImportPath {
-			continue
-		}
-		if imp.Name != nil {
-			switch imp.Name.Name {
-			case "_":
-				// side-effect import only
-			case ".":
-				// dot-import
-			default:
-				out[imp.Name.Name] = true
-			}
-			continue
-		}
-		out["httpbind"] = true
-	}
-	return out
 }
 
 func analyzeStruct(name string, st *ast.StructType, binderNames map[string]bool) (TypePlan, bool, error) {

@@ -23,7 +23,10 @@ func BuildOpenAPI(dir string) (Document, error) {
 
 // BuildOpenAPI builds a document using this generator's discovery identities.
 func (g *Generator) BuildOpenAPI(dir string) (Document, error) {
-	normalized := g.Options.normalized()
+	normalized, err := g.Options.normalized()
+	if err != nil {
+		return nil, err
+	}
 	if !normalized.openAPI {
 		return nil, fmt.Errorf("%w: %s", ErrFeatureDisabled, FeatureOpenAPI)
 	}
@@ -501,6 +504,8 @@ func errorStatus(name string) string {
 		return "404"
 	case "Conflict":
 		return "409"
+	case "PayloadTooLarge":
+		return "413"
 	case "Internal":
 		return "500"
 	default:

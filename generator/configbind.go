@@ -3,7 +3,7 @@ package generator
 import (
 	"fmt"
 	"go/ast"
-	"go/token"
+	"go/constant"
 	"go/types"
 	"os"
 	"path/filepath"
@@ -23,12 +23,20 @@ const (
 
 // ConfigBindBinding is one discovered configbind.Bind[T](prefix) call.
 type ConfigBindBinding struct {
-	TypeName string
-	Prefix   string
+	TypeName   string
+	Prefix     string
+	SubCommand bool
+	Name       string
+	Help       string
 }
 
-// AnalyzeConfigBind discovers Bind[T](prefix) registrations and builds codegen specs.
+// AnalyzeConfigBind discovers default Bind[T](prefix) registrations.
 func AnalyzeConfigBind(dir string) (pkgName string, specs []cbcg.Spec, err error) {
+	return AnalyzeConfigBindWithOptions(dir, DefaultOptions())
+}
+
+// AnalyzeConfigBindWithOptions discovers configured config-bind calls.
+func AnalyzeConfigBindWithOptions(dir string, options Options) (pkgName string, specs []cbcg.Spec, err error) {
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return "", nil, err
@@ -76,6 +84,17 @@ func AnalyzeConfigBind(dir string) (pkgName string, specs []cbcg.Spec, err error
 		}
 	}
 
+	patterns, err := options.callPatterns()
+	if err != nil {
+		return "", nil, err
+	}
+	var configPatterns []CallPattern
+	for _, pattern := range patterns {
+		if pattern.Operation == OperationConfigBind || pattern.Operation == OperationConfigSubCommand {
+			configPatterns = append(configPatterns, pattern)
+		}
+	}
+
 	var bindings []ConfigBindBinding
 	fset := pkg.Fset
 	for _, f := range pkg.Syntax {
@@ -92,13 +111,20 @@ func AnalyzeConfigBind(dir string) (pkgName string, specs []cbcg.Spec, err error
 			base == "tinybind_openapi_gen.go" {
 			continue
 		}
-		bindings = append(bindings, discoverConfigBindCalls(f, pkg.TypesInfo)...)
+		discovered, err := discoverConfigBindCalls(f, pkg.TypesInfo, configPatterns)
+		if err != nil {
+			return "", nil, err
+		}
+		bindings = append(bindings, discovered...)
 	}
 
-	// Deduplicate by TypeName+Prefix
+	// Deduplicate Bind by TypeName+Prefix and subcommands by TypeName+Name.
 	seen := map[string]bool{}
 	for _, b := range bindings {
 		key := b.TypeName + "\x00" + b.Prefix
+		if b.SubCommand {
+			key = "subcommand\x00" + b.TypeName + "\x00" + b.Name
+		}
 		if seen[key] {
 			continue
 		}
@@ -115,64 +141,157 @@ func AnalyzeConfigBind(dir string) (pkgName string, specs []cbcg.Spec, err error
 			PackagePath: pkg.PkgPath,
 			TypeName:    b.TypeName,
 			Prefix:      b.Prefix,
+			SubCommand:  b.SubCommand,
+			Name:        b.Name,
+			Help:        b.Help,
 			Fields:      fields,
 		})
 	}
 	return pkg.Name, specs, nil
 }
 
-func discoverConfigBindCalls(f *ast.File, info *types.Info) []ConfigBindBinding {
+func discoverConfigBindCalls(f *ast.File, info *types.Info, patterns []CallPattern) ([]ConfigBindBinding, error) {
 	var out []ConfigBindBinding
 	if f == nil || info == nil {
-		return out
+		return out, nil
 	}
+	var discoveryErr error
 	ast.Inspect(f, func(n ast.Node) bool {
+		if discoveryErr != nil {
+			return false
+		}
 		call, ok := n.(*ast.CallExpr)
-		if !ok || len(call.Args) < 1 {
+		if !ok {
 			return true
 		}
 		obj := objectOfCall(info, call.Fun)
 		if obj == nil || obj.Pkg() == nil {
 			return true
 		}
-		if obj.Pkg().Path() != configbindImportPath || obj.Name() != "Bind" {
-			return true
-		}
-		typeName := ""
-		for _, a := range genericTypeArgExprs(call.Fun) {
-			if id, ok := a.(*ast.Ident); ok {
-				typeName = id.Name
-				break
-			}
-		}
-		if typeName == "" {
-			if name := instantiatedTypeName(info, call.Fun); name != "" {
-				typeName = name
-			}
-		}
-		if typeName == "" {
-			return true
-		}
-		prefix, ok := stringLit(call.Args[0])
+		pattern, ok := matchingCallPattern(obj, patterns)
 		if !ok {
 			return true
+		}
+		signature, _ := obj.Type().(*types.Signature)
+		typeSource := pattern.TypeRoles["config"]
+		if typeSource.GenericArgument != nil && (signature == nil || signature.TypeParams().Len() <= *typeSource.GenericArgument) {
+			discoveryErr = fmt.Errorf("generator: %s pattern %s generic_argument index %d exceeds wrapper signature", pattern.Operation, callTargetKey(pattern.Target), *typeSource.GenericArgument)
+			return false
+		}
+		if typeSource.ArgumentType != nil && (signature == nil || signature.Params().Len() <= *typeSource.ArgumentType) {
+			discoveryErr = fmt.Errorf("generator: %s pattern %s argument_type index %d exceeds wrapper signature", pattern.Operation, callTargetKey(pattern.Target), *typeSource.ArgumentType)
+			return false
+		}
+		typeName := callTypeRoleName(info, call, typeSource)
+		if typeName == "" {
+			discoveryErr = fmt.Errorf("generator: %s pattern %s could not resolve a same-package config type", pattern.Operation, callTargetKey(pattern.Target))
+			return false
+		}
+		if pattern.Operation == OperationConfigSubCommand {
+			name, ok := checkedStringRole(info, call, signature, pattern, "name")
+			if !ok {
+				discoveryErr = fmt.Errorf("generator: config_subcommand pattern %s requires a compile-time string name", callTargetKey(pattern.Target))
+				return false
+			}
+			help, ok := checkedStringRole(info, call, signature, pattern, "help")
+			if !ok {
+				discoveryErr = fmt.Errorf("generator: config_subcommand pattern %s requires compile-time string help", callTargetKey(pattern.Target))
+				return false
+			}
+			out = append(out, ConfigBindBinding{TypeName: typeName, SubCommand: true, Name: name, Help: help})
+			return true
+		}
+		prefix, ok := checkedStringRole(info, call, signature, pattern, "prefix")
+		if !ok {
+			discoveryErr = fmt.Errorf("generator: config_bind pattern %s requires a compile-time string prefix", callTargetKey(pattern.Target))
+			return false
 		}
 		out = append(out, ConfigBindBinding{TypeName: typeName, Prefix: prefix})
 		return true
 	})
-	return out
+	return out, discoveryErr
 }
 
-func stringLit(e ast.Expr) (string, bool) {
-	bl, ok := e.(*ast.BasicLit)
-	if !ok || bl.Kind != token.STRING {
+func checkedStringRole(info *types.Info, call *ast.CallExpr, signature *types.Signature, pattern CallPattern, role string) (string, bool) {
+	source := pattern.ArgumentRoles[role]
+	if source.Argument != nil && (signature == nil || signature.Params().Len() <= *source.Argument) {
 		return "", false
 	}
-	s, err := strconv.Unquote(bl.Value)
-	if err != nil {
+	return callStringRole(info, call, source)
+}
+
+func matchingCallPattern(obj types.Object, patterns []CallPattern) (CallPattern, bool) {
+	fn, ok := obj.(*types.Func)
+	if !ok || fn.Pkg() == nil {
+		return CallPattern{}, false
+	}
+	for _, pattern := range patterns {
+		if pattern.Target.Function != nil {
+			target := pattern.Target.Function
+			if fn.Pkg().Path() == target.PackagePath && fn.Name() == target.Name {
+				if signature, ok := fn.Type().(*types.Signature); ok && signature.Recv() == nil {
+					return pattern, true
+				}
+			}
+			continue
+		}
+		if pattern.Target.Method == nil || fn.Pkg().Path() != pattern.Target.Method.PackagePath || fn.Name() != pattern.Target.Method.Name {
+			continue
+		}
+		signature, ok := fn.Type().(*types.Signature)
+		if !ok || signature.Recv() == nil {
+			continue
+		}
+		receiver := signature.Recv().Type()
+		if pointer, ok := receiver.(*types.Pointer); ok {
+			receiver = pointer.Elem()
+		}
+		named, ok := receiver.(*types.Named)
+		if ok && named.Obj().Pkg() != nil && named.Obj().Pkg().Path() == pattern.Target.Method.ReceiverPackagePath && named.Obj().Name() == pattern.Target.Method.ReceiverType {
+			return pattern, true
+		}
+	}
+	return CallPattern{}, false
+}
+
+func callTypeRoleName(info *types.Info, call *ast.CallExpr, source TypeSource) string {
+	if source.GenericArgument != nil {
+		args := genericTypeArgExprs(call.Fun)
+		if len(args) > *source.GenericArgument {
+			return localNamedTypeName(info.TypeOf(args[*source.GenericArgument]))
+		}
+		return instantiatedTypeNameAt(info, call.Fun, *source.GenericArgument)
+	}
+	if source.ArgumentType != nil && len(call.Args) > *source.ArgumentType {
+		return localNamedTypeName(info.TypeOf(call.Args[*source.ArgumentType]))
+	}
+	return ""
+}
+
+func localNamedTypeName(value types.Type) string {
+	if pointer, ok := value.(*types.Pointer); ok {
+		value = pointer.Elem()
+	}
+	named, ok := value.(*types.Named)
+	if !ok || named.Obj() == nil || named.Obj().Pkg() == nil {
+		return ""
+	}
+	return named.Obj().Name()
+}
+
+func callStringRole(info *types.Info, call *ast.CallExpr, source ValueSource) (string, bool) {
+	if source.IsConstant {
+		value, ok := source.Constant.(string)
+		return value, ok
+	}
+	if source.Argument == nil || len(call.Args) <= *source.Argument {
 		return "", false
 	}
-	return s, true
+	typed := info.Types[call.Args[*source.Argument]]
+	if typed.Value == nil || typed.Value.Kind() != constant.String {
+		return "", false
+	}
+	return constant.StringVal(typed.Value), true
 }
 
 func configFieldsFromStruct(st *types.Struct, keyPrefix string) ([]cbcg.Field, error) {
@@ -192,6 +311,7 @@ func configFieldsFromStruct(st *types.Struct, keyPrefix string) ([]cbcg.Field, e
 		opt := structTagGet(tag, "opt")
 		env := structTagGet(tag, "env")
 		help := structTagGet(tag, "help")
+		arg := structTagGet(tag, "arg")
 
 		ft := f.Type()
 		if named, ok := ft.(*types.Named); ok {
@@ -209,6 +329,7 @@ func configFieldsFromStruct(st *types.Struct, keyPrefix string) ([]cbcg.Field, e
 					Opt:     opt,
 					Env:     env,
 					Help:    help,
+					Arg:     arg,
 				})
 				continue
 			}
@@ -225,6 +346,7 @@ func configFieldsFromStruct(st *types.Struct, keyPrefix string) ([]cbcg.Field, e
 			Opt:     opt,
 			Env:     env,
 			Help:    help,
+			Arg:     arg,
 		})
 	}
 	return fields, nil
@@ -330,7 +452,7 @@ func joinConfigKey(prefix, key string) string {
 // GenerateConfigBind analyzes dir for configbind.Bind usage and writes configbind_gen.go.
 // Returns the absolute path written, or "" if no Bind calls found.
 func (g *Generator) GenerateConfigBind(dir, outDir, outName string) (string, error) {
-	pkgName, specs, err := AnalyzeConfigBind(dir)
+	pkgName, specs, err := AnalyzeConfigBindWithOptions(dir, g.Options)
 	if err != nil {
 		return "", err
 	}

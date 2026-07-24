@@ -6,7 +6,7 @@
       "line": 28,
       "column": 3,
       "reason": "dynamic_pattern",
-      "message": "route pattern is not a string literal; OpenAPI will omit this registration",
+      "message": "route pattern is not a compile-time string constant; OpenAPI will omit this registration",
       "omits_openapi": true
     }
   ]

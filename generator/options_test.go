@@ -2,6 +2,7 @@ package generator_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -79,7 +80,7 @@ func use() { _, _ = hb.DecodeJSON[Standard](nil); _, _ = compat.DecodeJSON[Compa
 	assertTypeUsage(t, plan, "Compatible", generator.UsageDecodeJSON)
 
 	explicitlyEmpty := generator.DefaultOptions()
-	explicitlyEmpty.DecodeJSON.Set = []generator.SymbolPattern{}
+	explicitlyEmpty.Calls.Set = []generator.CallPattern{}
 	plan, err = generator.New(explicitlyEmpty).Analyze(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -94,7 +95,7 @@ func TestDisabledPatternCannotBeReenabledByGenerateAll(t *testing.T) {
 	writeTestFile(t, filepath.Join(dir, "main.go"), "package sample\ntype Note struct{ Text string }\n")
 	tidyTempModule(t, dir)
 	opts := generator.DefaultOptions()
-	opts.DecodeJSON.Disabled = true
+	opts.DisableFeatures = append(opts.DisableFeatures, generator.FeatureDecodeJSON)
 	opts.GenerateAll = true
 	plan, err := generator.New(opts).Analyze(dir)
 	if err != nil {
@@ -159,7 +160,7 @@ func register(mux *petit.ServeMux) { mux.HandleFunc("POST /notes", route) }
 	}
 }
 
-func TestRunCannotReenableDisabledOpenAPI(t *testing.T) {
+func TestGenerateCommandCannotReenableDisabledOpenAPI(t *testing.T) {
 	dir := t.TempDir()
 	writeTempModule(t, dir)
 	writeTestFile(t, filepath.Join(dir, "main.go"), "package sample\ntype Note struct{ Text string }\n")
@@ -167,9 +168,12 @@ func TestRunCannotReenableDisabledOpenAPI(t *testing.T) {
 	opts := generator.DefaultOptions()
 	opts.DisableFeatures = []generator.Feature{generator.FeatureOpenAPI}
 	var stdout, stderr bytes.Buffer
-	code := generator.Run([]string{"-dir", dir, "-out", dir, "-openapi=true"}, &stdout, &stderr, opts)
+	set := generator.MustCommandSet(generator.GenerateCommand(opts))
+	code := set.Run(context.Background(), []string{"generate", "-dir", dir, "-out", dir, "-openapi=true"}, generator.CommandIO{
+		Stdout: &stdout, Stderr: &stderr,
+	})
 	if code != 0 {
-		t.Fatalf("Run = %d, stderr=%s", code, stderr.String())
+		t.Fatalf("CommandSet.Run = %d, stderr=%s", code, stderr.String())
 	}
 	if _, err := os.Stat(filepath.Join(dir, "tinybind_openapi_gen.go")); !os.IsNotExist(err) {
 		t.Fatalf("disabled OpenAPI was generated: %v", err)

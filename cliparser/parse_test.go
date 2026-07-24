@@ -198,6 +198,36 @@ func TestParseEqualsAndBoolAndArray(t *testing.T) {
 	}
 }
 
+func TestParseInterspersedFlagsAfterPositionals(t *testing.T) {
+	defs, err := cliparser.BuildDefs([]cliparser.FieldMeta{
+		{Key: "dry_run", Kind: cliparser.KindBool},
+		{Key: "tag", Kind: cliparser.KindArray},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := cliparser.ParseInterspersed([]string{
+		"./migrations",
+		"--dry_run",
+		"release",
+		"--tag", "one",
+		"--tag=two",
+		"-3",
+	}, defs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Values["dry_run"] != "true" {
+		t.Fatalf("dry_run=%q", result.Values["dry_run"])
+	}
+	if got := result.Multi["tag"]; len(got) != 2 || got[0] != "one" || got[1] != "two" {
+		t.Fatalf("tag=%v", got)
+	}
+	if got := result.Rest; len(got) != 3 || got[0] != "./migrations" || got[1] != "release" || got[2] != "-3" {
+		t.Fatalf("Rest=%v", got)
+	}
+}
+
 func TestBuildDefsThenParseFixture(t *testing.T) {
 	// Shipped helper path used by codegen: FieldMeta → BuildDefs → Parse.
 	fields := []cliparser.FieldMeta{

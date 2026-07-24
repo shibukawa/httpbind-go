@@ -10,8 +10,8 @@ goals:
   - register any number of config structs via Bind[T](prefix)
   - map shared settings onto registered structs under prefix tables
   - multi-source load for Bind only: TOML file, env, CLI
-  - single TOML file path via --config-path or configdir user-then-system search
-  - never merge user and system config file contents
+  - single TOML file via explicit, extra, configdir user, then configdir system search
+  - never merge extra, user, and system config file contents
   - later source wins on the same Bind key
   - code-generate CLI option parsers and struct apply without reflection
   - reusable source parsers feed a provenance-aware overlay then generated apply
@@ -70,6 +70,7 @@ acceptance:
   - Bind[WebServiceConfig]("webservice") maps TOML table [webservice]
   - --config-path overrides configdir user/system file discovery
   - --config-path unreadable or missing fails load without fallback
+  - first existing ExtraConfigReadPaths entry wins over later candidates; missing extras are ignored
   - discovery API takes vendor name, tool name, and file name
   - user config file preferred over system; only one file is read
   - nested struct fields map via nested standard tables or dotted bare keys

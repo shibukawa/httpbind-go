@@ -19,6 +19,17 @@ type Result struct {
 // Only flags that appear in argv are present in Values/Multi; missing flags are absent.
 // Runtime uses only the provided Def list—no reflection.
 func Parse(args []string, defs []Def) (Result, error) {
+	return parse(args, defs, false)
+}
+
+// ParseInterspersed parses flags anywhere before "--" and collects every
+// non-flag token in Rest. It is intended for subcommands, whose options may
+// appear before or after positional arguments.
+func ParseInterspersed(args []string, defs []Def) (Result, error) {
+	return parse(args, defs, true)
+}
+
+func parse(args []string, defs []Def, interspersed bool) (Result, error) {
 	res := Result{
 		Values: make(map[string]string),
 		Multi:  make(map[string][]string),
@@ -60,6 +71,11 @@ func Parse(args []string, defs []Def) (Result, error) {
 		if a == "--" {
 			res.Rest = append(res.Rest, args[i+1:]...)
 			return res, nil
+		}
+		if interspersed && strings.HasPrefix(a, "-") && !isFlagToken(a) {
+			res.Rest = append(res.Rest, a)
+			i++
+			continue
 		}
 		if strings.HasPrefix(a, "--") {
 			name := a[2:]
@@ -113,6 +129,11 @@ func Parse(args []string, defs []Def) (Result, error) {
 			}
 			setResult(&res, d, val)
 			i = next
+			continue
+		}
+		if interspersed {
+			res.Rest = append(res.Rest, a)
+			i++
 			continue
 		}
 		res.Rest = append(res.Rest, args[i:]...)

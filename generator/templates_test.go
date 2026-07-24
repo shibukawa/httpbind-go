@@ -2,6 +2,7 @@ package generator_test
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -63,7 +64,7 @@ export statement FindUser(id: int): sql.optional<User> {SELECT id, name FROM use
 	}
 }
 
-func TestRunGeneratesTemplatesWithoutBinderStructs(t *testing.T) {
+func TestGenerateCommandGeneratesTemplatesWithoutBinderStructs(t *testing.T) {
 	dir := t.TempDir()
 	source := []byte(`package fixture
 export statement Ping(): sql.exec {SELECT 1}`)
@@ -74,7 +75,10 @@ export statement Ping(): sql.exec {SELECT 1}`)
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	exit := generator.Run([]string{"-dir", dir, "-openapi=false", "-sql-context-api"}, &stdout, &stderr, generator.DefaultOptions())
+	set := generator.MustCommandSet(generator.GenerateCommand(generator.DefaultOptions()))
+	exit := set.Run(context.Background(), []string{"generate", "-dir", dir, "-openapi=false", "-sql-context-api"}, generator.CommandIO{
+		Stdout: &stdout, Stderr: &stderr,
+	})
 	if exit != 0 {
 		t.Fatalf("exit=%d stderr=%s", exit, stderr.String())
 	}

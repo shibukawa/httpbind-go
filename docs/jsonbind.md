@@ -25,7 +25,7 @@
 ```go
 package document
 
-//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen -dir .
+//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir .
 ```
 
 ```bash

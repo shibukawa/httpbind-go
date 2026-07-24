@@ -36,7 +36,7 @@ SQL template は schema migration を実行せず、接続先の table を自動
 ```go
 package store
 
-//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen -dir .
+//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir .
 ```
 
 同じディレクトリに `users.tb.sql` を置きます。
@@ -392,7 +392,7 @@ return tx.Commit()
 framework middleware が transaction を Context に保持する場合は、生成時に `-sql-context-api` を指定します。
 
 ```go
-//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen -dir . -sql-context-api
+//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir . -sql-context-api
 ```
 
 ```go

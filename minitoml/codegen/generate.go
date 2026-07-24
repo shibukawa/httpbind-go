@@ -42,6 +42,8 @@ type Field struct {
 	Env string
 	// Help is optional CLI/scaffold help text.
 	Help string
+	// Arg is a subcommand-only positional role: required, optional, or *.
+	Arg string
 }
 
 // Spec describes one Bind-style config struct and its prefix table name.

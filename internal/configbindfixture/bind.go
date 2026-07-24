@@ -6,3 +6,8 @@ import "github.com/shibukawa/tinybind-go/configbind"
 func Register() *WebServerConfig {
 	return configbind.Bind[WebServerConfig]("webserver")
 }
+
+// RegisterMigrate returns migrate options only when that CLI branch is selected.
+func RegisterMigrate() *MigrateOptions {
+	return configbind.SubCommand[MigrateOptions]("migrate", "run database migrations")
+}

@@ -116,3 +116,41 @@ func TestLoadDefaultWhenNoSources(t *testing.T) {
 		t.Fatalf("cfg=%+v", cfg)
 	}
 }
+
+func TestLoadExtraConfigReadPathsUsesFirstFoundWithoutMerging(t *testing.T) {
+	configbind.ResetTargets()
+	registerTestServerConfig(t)
+	cfg := configbind.Bind[testServerConfig]("webserver")
+
+	dir := t.TempDir()
+	missing := filepath.Join(dir, "missing.toml")
+	first := filepath.Join(dir, "first.toml")
+	second := filepath.Join(dir, "second.toml")
+	if err := os.WriteFile(first, []byte("[webserver]\nport = 11\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(second, []byte("[webserver]\nhost = \"from-second\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := configbind.Load(configbind.LoadOptions{
+		Vendor:               "acme",
+		Tool:                 "demo",
+		FileName:             "config.toml",
+		ExtraConfigReadPaths: []string{missing, first, second},
+		Environ:              []string{},
+		Args:                 []string{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.FoundFile || result.ConfigPath != first {
+		t.Fatalf("result=%+v want first extra %q", result, first)
+	}
+	if cfg.Port != 11 {
+		t.Fatalf("Port=%d want 11 from first extra", cfg.Port)
+	}
+	if cfg.Host != "localhost" {
+		t.Fatalf("Host=%q: second extra must not be merged", cfg.Host)
+	}
+}

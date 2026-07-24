@@ -32,7 +32,7 @@ flow:
         - requirement:struct-field-metadata
         - decision:configbind-codegen-no-reflect
     - id: resolve-config-path
-      action: choose one TOML path via --config-path or configdir user-then-system for vendor_name, tool_name, file_name
+      action: choose the first TOML path from explicit, ExtraConfigReadPaths order, configdir user, then configdir system
       refs:
         - decision:config-file-path-resolution
         - requirement:config-file-discovery
@@ -41,6 +41,8 @@ flow:
       notes:
         - vendor_name and tool_name come from public API
         - --config-path unreadable yields error without fallback
+        - missing extra paths are ignored
+        - stop after the first readable candidate; never merge files
     - id: parse-cli-early-path
       action: parse process flags including --config-path before TOML load when needed
       refs:

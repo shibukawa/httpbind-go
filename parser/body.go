@@ -3,6 +3,7 @@ package parser
 import (
 	"go/ast"
 	"go/token"
+	"go/types"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,29 +35,44 @@ func (p *packageParser) analyzeBody(body *ast.BlockStmt) bodyInfo {
 			return true
 		}
 
-		// httpbind.Bind[T] / Write[T] / WriteStatus[T] / NewStream[T]
-		if isConfiguredFunc(obj, p.config.GenericFunctions) {
-			name := callFuncName(obj)
+		if pattern, configured := configuredCall(obj, p.config.Calls); configured {
 			typeArgs := genericTypeArgExprs(call)
 			typeArgStrs := make([]string, 0, len(typeArgs))
 			for _, a := range typeArgs {
 				typeArgStrs = append(typeArgStrs, typeExprString(a))
 			}
-			switch name {
-			case "Bind":
-				if len(typeArgs) >= 1 {
-					if reason := typeArgIssue(typeArgs[0]); reason != "" {
+			typeIndex := pattern.TypeArgument
+			if pattern.TypeValueArgument != nil {
+				if typeName := p.callArgumentTypeName(call, *pattern.TypeValueArgument); typeName != "" {
+					typeArgs = []ast.Expr{ast.NewIdent(typeName)}
+					typeArgStrs = []string{typeName}
+					typeIndex = 0
+				}
+			} else if len(typeArgs) <= typeIndex {
+				if typeName := p.instantiatedTypeArgumentName(call.Fun, typeIndex); typeName != "" {
+					for len(typeArgs) <= typeIndex {
+						typeArgs = append(typeArgs, nil)
+						typeArgStrs = append(typeArgStrs, "")
+					}
+					typeArgs[typeIndex] = ast.NewIdent(typeName)
+					typeArgStrs[typeIndex] = typeName
+				}
+			}
+			switch pattern.Operation {
+			case CallRequestBind:
+				if len(typeArgs) > typeIndex {
+					if reason := typeArgIssue(typeArgs[typeIndex]); reason != "" {
 						info.Diagnostics = append(info.Diagnostics, p.diagAt(call, reason, "Bind type argument is not a same-package plain named type"))
-					} else if info.Request == "" && len(typeArgStrs) >= 1 {
-						info.Request = typeArgStrs[0]
+					} else if info.Request == "" {
+						info.Request = typeArgStrs[typeIndex]
 					}
 				}
-			case "Write":
-				if len(typeArgs) >= 1 {
-					if reason := typeArgIssue(typeArgs[0]); reason != "" {
+			case CallResponseWrite:
+				if len(typeArgs) > typeIndex {
+					if reason := typeArgIssue(typeArgs[typeIndex]); reason != "" {
 						info.Diagnostics = append(info.Diagnostics, p.diagAt(call, reason, "Write type argument is not a same-package plain named type"))
 					} else {
-						resp, streamElem := parseResponseType(typeArgStrs[0])
+						resp, streamElem := parseResponseType(typeArgStrs[typeIndex])
 						if info.Response == "" {
 							info.Response = resp
 						}
@@ -66,12 +82,12 @@ func (p *packageParser) analyzeBody(body *ast.BlockStmt) bodyInfo {
 						statusSet[200] = struct{}{}
 					}
 				}
-			case "WriteStatus":
-				if len(typeArgs) >= 1 {
-					if reason := typeArgIssue(typeArgs[0]); reason != "" {
+			case CallResponseWriteStatus:
+				if len(typeArgs) > typeIndex {
+					if reason := typeArgIssue(typeArgs[typeIndex]); reason != "" {
 						info.Diagnostics = append(info.Diagnostics, p.diagAt(call, reason, "WriteStatus type argument is not a same-package plain named type"))
 					} else {
-						resp, streamElem := parseResponseType(typeArgStrs[0])
+						resp, streamElem := parseResponseType(typeArgStrs[typeIndex])
 						if info.Response == "" {
 							info.Response = resp
 						}
@@ -79,20 +95,30 @@ func (p *packageParser) analyzeBody(body *ast.BlockStmt) bodyInfo {
 							info.Stream = streamElem
 						}
 						// WriteStatus[T](w, r, status, value) — status is arg index 2
-						if st, ok := staticHTTPStatus(call); ok {
+						if pattern.StatusConstant != nil {
+							statusSet[*pattern.StatusConstant] = struct{}{}
+						} else if pattern.StatusArgument != nil {
+							if st, ok := staticIntArgument(call, *pattern.StatusArgument); ok {
+								statusSet[st] = struct{}{}
+							} else {
+								info.Diagnostics = append(info.Diagnostics, p.diagAt(call, ReasonOther, "response status is not a compile-time integer constant; OpenAPI uses 200"))
+								statusSet[200] = struct{}{}
+							}
+						} else if st, ok := staticHTTPStatus(call); ok {
 							statusSet[st] = struct{}{}
 						} else {
 							// dynamic status: still record a success response (default 200 in OpenAPI fallback)
+							info.Diagnostics = append(info.Diagnostics, p.diagAt(call, ReasonOther, "response status is not a compile-time integer constant; OpenAPI uses 200"))
 							statusSet[200] = struct{}{}
 						}
 					}
 				}
-			case "NewStream":
-				if len(typeArgs) >= 1 {
-					if reason := typeArgIssue(typeArgs[0]); reason != "" {
+			case CallStreamCreate:
+				if len(typeArgs) > typeIndex {
+					if reason := typeArgIssue(typeArgs[typeIndex]); reason != "" {
 						info.Diagnostics = append(info.Diagnostics, p.diagAt(call, reason, "NewStream type argument is not a same-package plain named type"))
 					} else {
-						elem := typeArgStrs[0]
+						elem := typeArgStrs[typeIndex]
 						if info.Stream == "" {
 							info.Stream = elem
 						}
@@ -102,13 +128,11 @@ func (p *packageParser) analyzeBody(body *ast.BlockStmt) bodyInfo {
 						statusSet[200] = struct{}{}
 					}
 				}
+			case CallErrorResponse:
+				if pattern.ErrorName != "" {
+					errorSet[pattern.ErrorName] = struct{}{}
+				}
 			}
-			return true
-		}
-
-		// httpbind error constructors (alias-safe via types)
-		if isConfiguredFunc(obj, p.config.ErrorFunctions) {
-			errorSet[callFuncName(obj)] = struct{}{}
 			return true
 		}
 		return true
@@ -128,6 +152,60 @@ func (p *packageParser) analyzeBody(body *ast.BlockStmt) bodyInfo {
 		sort.Ints(info.SuccessStatuses)
 	}
 	return info
+}
+
+func (p *packageParser) callArgumentTypeName(call *ast.CallExpr, index int) string {
+	if p.info == nil || p.pkg == nil || p.pkg.Types == nil || call == nil || index < 0 || len(call.Args) <= index {
+		return ""
+	}
+	value := p.info.TypeOf(call.Args[index])
+	if pointer, ok := value.(*types.Pointer); ok {
+		value = pointer.Elem()
+	}
+	named, ok := value.(*types.Named)
+	if !ok || named.Obj() == nil || named.Obj().Pkg() == nil || named.Obj().Pkg().Path() != p.pkg.Types.Path() {
+		return ""
+	}
+	return named.Obj().Name()
+}
+
+func (p *packageParser) instantiatedTypeArgumentName(fun ast.Expr, index int) string {
+	if p.info == nil || p.pkg == nil || p.pkg.Types == nil || index < 0 {
+		return ""
+	}
+	for {
+		switch expr := stripParens(fun).(type) {
+		case *ast.IndexExpr:
+			fun = expr.X
+		case *ast.IndexListExpr:
+			fun = expr.X
+		case *ast.SelectorExpr:
+			instance, ok := p.info.Instances[expr.Sel]
+			if !ok || instance.TypeArgs.Len() <= index {
+				return ""
+			}
+			return localNamedTypeName(instance.TypeArgs.At(index), p.pkg.Types.Path())
+		case *ast.Ident:
+			instance, ok := p.info.Instances[expr]
+			if !ok || instance.TypeArgs.Len() <= index {
+				return ""
+			}
+			return localNamedTypeName(instance.TypeArgs.At(index), p.pkg.Types.Path())
+		default:
+			return ""
+		}
+	}
+}
+
+func localNamedTypeName(value types.Type, packagePath string) string {
+	if pointer, ok := value.(*types.Pointer); ok {
+		value = pointer.Elem()
+	}
+	named, ok := value.(*types.Named)
+	if !ok || named.Obj() == nil || named.Obj().Pkg() == nil || named.Obj().Pkg().Path() != packagePath {
+		return ""
+	}
+	return named.Obj().Name()
 }
 
 func (p *packageParser) diagAt(call *ast.CallExpr, reason, message string) Diagnostic {
@@ -207,10 +285,14 @@ func genericTypeArgStrings(call *ast.CallExpr) []string {
 
 // staticHTTPStatus resolves WriteStatus status argument (index 2) when constant.
 func staticHTTPStatus(call *ast.CallExpr) (int, bool) {
-	if call == nil || len(call.Args) < 3 {
+	return staticIntArgument(call, 2)
+}
+
+func staticIntArgument(call *ast.CallExpr, index int) (int, bool) {
+	if call == nil || index < 0 || len(call.Args) <= index {
 		return 0, false
 	}
-	return evalStatusExpr(call.Args[2])
+	return evalStatusExpr(call.Args[index])
 }
 
 func evalStatusExpr(expr ast.Expr) (int, bool) {

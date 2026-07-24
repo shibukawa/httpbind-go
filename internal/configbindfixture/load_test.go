@@ -112,3 +112,28 @@ func TestGeneratedEnvNameFromLongOpt(t *testing.T) {
 		t.Fatal(configbind.EnvName("webserver-tls-cert_path"))
 	}
 }
+
+func TestGeneratedSubCommand(t *testing.T) {
+	configbind.ResetTargets()
+	previousArgs := os.Args
+	os.Args = []string{"demo", "migrate", "./migrations", "--dry_run", "release", "one", "two"}
+	t.Cleanup(func() { os.Args = previousArgs })
+
+	options := configbindfixture.RegisterMigrate()
+	if options == nil {
+		t.Fatal("selected generated subcommand is nil")
+	}
+	_, err := configbind.Load(configbind.LoadOptions{
+		Args:    os.Args[1:],
+		Environ: []string{"DRY_RUN=false"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if options.Path != "./migrations" || options.Label != "release" || !options.DryRun {
+		t.Fatalf("options=%+v", options)
+	}
+	if got := options.Extra; len(got) != 2 || got[0] != "one" || got[1] != "two" {
+		t.Fatalf("Extra=%v", got)
+	}
+}

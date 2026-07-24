@@ -7,7 +7,7 @@ Generator reads same-package handlers and Go types, then emits local runtime fun
 
 ```yaml
 flow:
-  trigger: developer defines Go types and handlers recognized by data:generator-options
+  trigger: developer defines Go types and calls recognized by data:generator-options and data:generator-call-pattern
   steps:
     - id: discover-handlers
       action: run flow:handler-parse on configured same-package registrations
@@ -23,12 +23,14 @@ flow:
         - rule:nested-wrapper-unwrap
         - rule:custom-middleware-unwrap
     - id: discover-models
-      action: detect configured mapping calls and retain operation per model
+      action: map configured direct or framework wrapper calls to semantic operations and retain operation per model
       refs:
         - rule:request-model-discovery
         - rule:response-model-discovery
         - rule:error-response-discovery
         - requirement:configurable-generator-discovery
+        - requirement:framework-wrapper-discovery
+        - data:generator-call-pattern
     - id: parse-go-types
       action: analyze discovered struct fields and tags
     - id: build-ir

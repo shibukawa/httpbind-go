@@ -28,7 +28,7 @@
 ```go
 package pages
 
-//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen -dir .
+//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir .
 ```
 
 同じディレクトリに `profile.tb.html` を置きます。

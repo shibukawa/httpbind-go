@@ -45,8 +45,12 @@ func createUserHandler(w http.ResponseWriter, r *http.Request) {
 Run the generator on the package (binders + OpenAPI embed):
 
 ```bash
-go run ./cmd/tinybind-gen -dir . -openapi
+go run ./cmd/tinybind-gen generate -dir . -openapi
 ```
+
+The same generation pass also supports CLI-only application subcommands through
+`configbind.SubCommand[T]`, including required, optional, and rest positional
+arguments. See the [configbind subcommand guide](docs/configbind.md#cli-subcommands).
 
 ### Struct tag reference
 
@@ -120,7 +124,7 @@ _ = stream.Write(ChatEvent{Type: "done"})
 | `testdata/cmd/*` | Dev-only helpers (not for distribution; under `testdata` so `go get` / `./...` skip them) |
 
 ```bash
-go run ./cmd/tinybind-gen -dir ./path/to/package
+go run ./cmd/tinybind-gen generate -dir ./path/to/package
 ```
 
 The CLI automatically discovers `.tb.html` and `.tb.sql` files in the target
@@ -162,7 +166,7 @@ Web frameworks can opt in to executor-from-Context wrappers while the explicit
 `db` APIs remain available:
 
 ```bash
-go run ./cmd/tinybind-gen -dir ./path/to/package -sql-context-api
+go run ./cmd/tinybind-gen generate -dir ./path/to/package -sql-context-api
 ```
 
 The generated `FindUsersContext(ctx, filter)` resolves the `*sql.DB`,
@@ -193,9 +197,9 @@ options.SQLExecutorResolver = &generator.SymbolPattern{
 }
 ```
 
-Custom generator commands only need to call `generator.Main`. Start with
-`DefaultOptions`, then replace each authoritative `Set` with every identity the
-project accepts:
+Frameworks may wrap the runtime functions and still make those calls visible to
+the generator. Register the wrapper's package identity, semantic operation, and
+the zero-based positions of only the type/value roles that the generator needs:
 
 ```go
 package main
@@ -203,28 +207,79 @@ package main
 import "github.com/shibukawa/tinybind-go/generator"
 
 func main() {
-    options := generator.DefaultOptions()
-    options.ServeMuxes.Set = []generator.TypePattern{
-        {PackagePath: "net/http", Name: "ServeMux"},
-        {PackagePath: "github.com/shibukawa/petitweb-go/handler", Name: "ServeMux"},
+    calls := generator.NewCallRegistry()
+    if err := calls.Register(
+        // func RegisterConfig[T any](ctx context.Context, name string) *T
+        generator.ConfigBindCall(
+            generator.Function("example.com/framework", "RegisterConfig"),
+            generator.GenericType("config", 0),
+            generator.Argument("prefix", 1),
+        ),
+        // func Created(ctx context.Context, w http.ResponseWriter, value any) error
+        generator.ResponseWriteStatusCall(
+            generator.Function("example.com/framework", "Created"),
+            generator.ArgumentType("response", 2),
+            generator.Constant("status", 201),
+        ),
+    ); err != nil {
+        panic(err)
     }
-    options.RuntimePackages.Set = []string{
-        "github.com/shibukawa/tinybind-go",
-        "github.com/shibukawa/tinybind-go/jsonbind",
-        "github.com/shibukawa/tinybind-go/sqlbind",
-        "github.com/shibukawa/petitweb-go/handler",
+    options, err := calls.Options(generator.DefaultOptions())
+    if err != nil {
+        panic(err)
     }
-    generator.Main(options)
+    generator.Main(generator.MustCommandSet(generator.GenerateCommand(options)))
 }
 ```
 
-`RuntimePackages` expands the same-named `Bind`, `Write`, `WriteStatus`,
-`DecodeJSON`, `EncodeJSON`, `NewStream`, and `ScanRows` functions. An
-operation-specific set such as `options.DecodeJSON.Set` replaces that expansion.
-`Set` always replaces defaults; include both the standard and compatibility
-identity when both should be explored. `generator.Options{}` deliberately has
-no discovery identities. Set a pattern's `Disabled` field, or add its feature to
-`DisableFeatures`, to prevent discovery even under `-generate-all`.
+Extra wrapper arguments do not need to be described. Use `GenericType` when the
+model comes from a generic type argument, `ArgumentType` when it comes from a
+value argument's static type, `Argument` for a runtime value such as a config
+prefix or route pattern, and `Constant` when the wrapper hides a fixed value
+such as status 201. The available operations have matching constructors:
+`RequestBindCall`, `ResponseWriteCall`, `ResponseWriteStatusCall`,
+`StreamCreateCall`, `JSONDecodeCall`, `JSONEncodeCall`, `RowsScanCall`,
+`ConfigBindCall`, `ConfigSubCommandCall`, `RouteRegisterCall`, and
+`ErrorResponseCall`. `Function`
+targets package functions; `Method` targets named-receiver methods.
+
+The required role names, in the same order, are `request`; `response`;
+`response` + `status`; `stream`; `decode`; `encode`; `row`; `config` +
+`prefix`; `config` + `name` + `help`; `pattern` + `handler`; and `status`.
+
+`RuntimePackages` remains a shorthand for functions with the standard tinybind
+names and signatures. Use explicit call patterns for renamed wrappers, reordered
+arguments, extra arguments, or hidden constants. `generator.Options{}`
+deliberately has no discovery identities. Add a feature to `DisableFeatures` to
+prevent discovery even under `-generate-all`.
+
+A framework can combine the built-in `generate` command with its own lifecycle
+commands:
+
+```go
+commands := generator.MustCommandSet(
+    generator.GenerateCommand(options),
+    generator.Command{Name: "init", Summary: "initialize a project", Run: runInit},
+    generator.Command{Name: "build", Summary: "generate and build", Run: runBuild},
+    generator.Command{Name: "watch", Summary: "watch, generate, and build", Run: runWatch},
+)
+generator.Main(commands)
+```
+
+Each command receives a `context.Context`, arguments, and injected `CommandIO`
+containing stdin/stdout/stderr, working directory, and environment. A `build` or
+`watch` implementation can generate in-process without invoking a CLI:
+
+```go
+result, err := generator.New(options).GeneratePackage(ctx, generator.GenerateRequest{
+    Dir: dir, OpenAPI: true,
+})
+```
+
+`GeneratePackage` runs template, mapping, configbind, and optional OpenAPI
+generation and returns the written paths. `generator.Main` is only the outer
+process boundary; tests and composed commands should call `CommandSet.Run` or
+`GeneratePackage` directly.
 
 Generation is usage-aware: a package that only calls `DecodeJSON[T]` gets only
 its JSON decoder, imports `jsonbind`, and does not import the root HTTP runtime

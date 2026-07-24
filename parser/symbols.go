@@ -12,69 +12,82 @@ import (
 )
 
 const (
-	netHTTPPath     = "net/http"
-	httpbindPath    = "github.com/shibukawa/tinybind-go"
-	serveMuxTypeStr = "net/http.ServeMux"
+	netHTTPPath  = "net/http"
+	httpbindPath = "github.com/shibukawa/tinybind-go"
 )
-
-type FunctionSymbol struct{ PackagePath, Name string }
 
 type RouteSymbol struct {
 	PackagePath, Name                 string
 	ReceiverPackagePath, ReceiverType string
 }
 
-// Config customizes symbols explored by the parser. Every slice is authoritative.
+// CallOperation is the static-analysis meaning of a configured function.
+type CallOperation string
+
+const (
+	CallRequestBind         CallOperation = "request_bind"
+	CallResponseWrite       CallOperation = "response_write"
+	CallResponseWriteStatus CallOperation = "response_write_status"
+	CallStreamCreate        CallOperation = "stream_create"
+	CallRouteRegister       CallOperation = "route_register"
+	CallErrorResponse       CallOperation = "error_response"
+)
+
+// CallPattern maps a resolved function or method to handler-body semantics.
+type CallPattern struct {
+	Target            RouteSymbol
+	Operation         CallOperation
+	TypeArgument      int
+	TypeValueArgument *int
+	StatusArgument    *int
+	StatusConstant    *int
+	ErrorName         string
+	PatternArgument   int
+	PatternConstant   *string
+	HandlerArgument   int
+}
+
+// Config provides the authoritative semantic calls explored by the parser.
 type Config struct {
-	RouteRegistrations []RouteSymbol
-	GenericFunctions   []FunctionSymbol
-	ErrorFunctions     []FunctionSymbol
+	Calls []CallPattern
 }
 
 func DefaultConfig() Config {
-	return Config{
-		RouteRegistrations: []RouteSymbol{
-			{PackagePath: netHTTPPath, Name: "Handle"}, {PackagePath: netHTTPPath, Name: "HandleFunc"},
-			{PackagePath: netHTTPPath, Name: "Handle", ReceiverPackagePath: netHTTPPath, ReceiverType: "ServeMux"},
-			{PackagePath: netHTTPPath, Name: "HandleFunc", ReceiverPackagePath: netHTTPPath, ReceiverType: "ServeMux"},
-		},
-		GenericFunctions: namesToSymbols(httpbindPath, httpbindGenericFns),
-		ErrorFunctions:   namesToSymbols(httpbindPath, httpbindErrorFns),
+	config := Config{}
+	for _, target := range []RouteSymbol{
+		{PackagePath: netHTTPPath, Name: "Handle"}, {PackagePath: netHTTPPath, Name: "HandleFunc"},
+		{PackagePath: netHTTPPath, Name: "Handle", ReceiverPackagePath: netHTTPPath, ReceiverType: "ServeMux"},
+		{PackagePath: netHTTPPath, Name: "HandleFunc", ReceiverPackagePath: netHTTPPath, ReceiverType: "ServeMux"},
+	} {
+		config.Calls = append(config.Calls, CallPattern{
+			Target: target, Operation: CallRouteRegister, PatternArgument: 0, HandlerArgument: 1,
+		})
 	}
+	for name, operation := range map[string]CallOperation{
+		"Bind": CallRequestBind, "Write": CallResponseWrite,
+		"WriteStatus": CallResponseWriteStatus, "NewStream": CallStreamCreate,
+	} {
+		pattern := CallPattern{
+			Target:    RouteSymbol{PackagePath: httpbindPath, Name: name},
+			Operation: operation,
+		}
+		if operation == CallResponseWriteStatus {
+			index := 2
+			pattern.StatusArgument = &index
+		}
+		config.Calls = append(config.Calls, pattern)
+	}
+	for _, name := range []string{
+		"BadRequest", "Unauthorized", "Forbidden", "NotFound",
+		"Conflict", "PayloadTooLarge", "Internal", "Validation",
+	} {
+		config.Calls = append(config.Calls, CallPattern{
+			Target:    RouteSymbol{PackagePath: httpbindPath, Name: name},
+			Operation: CallErrorResponse, ErrorName: name,
+		})
+	}
+	return config
 }
-
-func namesToSymbols(path string, names map[string]struct{}) []FunctionSymbol {
-	out := make([]FunctionSymbol, 0, len(names))
-	for name := range names {
-		out = append(out, FunctionSymbol{path, name})
-	}
-	return out
-}
-
-// Fixed allowlist of httpbind function names used in discovery.
-var (
-	httpbindGenericFns = map[string]struct{}{
-		"Bind":        {},
-		"Write":       {},
-		"WriteStatus": {},
-		"NewStream":   {},
-		"DecodeJSON":  {},
-		"EncodeJSON":  {},
-	}
-	httpbindErrorFns = map[string]struct{}{
-		"BadRequest":      {},
-		"Unauthorized":    {},
-		"Forbidden":       {},
-		"NotFound":        {},
-		"Conflict":        {},
-		"PayloadTooLarge": {},
-		"Internal":        {},
-		"Validation":      {},
-	}
-	httpbindOtherFns = map[string]struct{}{
-		"WriteError": {},
-	}
-)
 
 // loadPackage type-checks the package in dir (host-side only).
 func loadPackage(dir string) (*packages.Package, error) {
@@ -139,23 +152,6 @@ func objectOf(info *types.Info, fun ast.Expr) types.Object {
 	return nil
 }
 
-func isFuncNamed(obj types.Object, pkgPath, name string) bool {
-	f, ok := obj.(*types.Func)
-	if !ok || f.Name() != name {
-		return false
-	}
-	if f.Pkg() == nil || f.Pkg().Path() != pkgPath {
-		return false
-	}
-	return true
-}
-
-// isNetHTTPRegistration reports whether obj is net/http.Handle, HandleFunc,
-// or (*net/http.ServeMux).Handle / HandleFunc.
-func isNetHTTPRegistration(obj types.Object) bool {
-	return isRouteRegistration(obj, DefaultConfig().RouteRegistrations)
-}
-
 func isRouteRegistration(obj types.Object, symbols []RouteSymbol) bool {
 	f, ok := obj.(*types.Func)
 	if !ok {
@@ -194,72 +190,13 @@ func isRouteRegistration(obj types.Object, symbols []RouteSymbol) bool {
 	return false
 }
 
-func isConfiguredFunc(obj types.Object, symbols []FunctionSymbol) bool {
-	f, ok := obj.(*types.Func)
-	if !ok || f.Pkg() == nil {
-		return false
-	}
-	if sig, ok := f.Type().(*types.Signature); ok && sig.Recv() != nil {
-		return false
-	}
-	for _, s := range symbols {
-		if f.Pkg().Path() == s.PackagePath && f.Name() == s.Name {
-			return true
+func configuredCall(obj types.Object, patterns []CallPattern) (CallPattern, bool) {
+	for _, pattern := range patterns {
+		if isRouteRegistration(obj, []RouteSymbol{pattern.Target}) {
+			return pattern, true
 		}
 	}
-	return false
-}
-
-func isServeMuxType(t types.Type) bool {
-	if t == nil {
-		return false
-	}
-	if p, ok := t.(*types.Pointer); ok {
-		t = p.Elem()
-	}
-	n, ok := t.(*types.Named)
-	if !ok {
-		return false
-	}
-	obj := n.Obj()
-	if obj == nil || obj.Pkg() == nil {
-		return false
-	}
-	return obj.Pkg().Path() == netHTTPPath && obj.Name() == "ServeMux"
-}
-
-// isHTTPBinderFunc reports whether obj is a configured tinybind runtime function
-// with one of the allowed names in allowed.
-func isHTTPBinderFunc(obj types.Object, allowed map[string]struct{}) bool {
-	f, ok := obj.(*types.Func)
-	if !ok {
-		return false
-	}
-	if f.Pkg() == nil || f.Pkg().Path() != httpbindPath {
-		return false
-	}
-	// Methods are not expected; only package functions.
-	if sig, ok := f.Type().(*types.Signature); ok && sig.Recv() != nil {
-		return false
-	}
-	_, ok = allowed[f.Name()]
-	return ok
-}
-
-func isHTTPBinderGenericCall(obj types.Object) bool {
-	return isHTTPBinderFunc(obj, httpbindGenericFns)
-}
-
-func isHTTPBinderErrorCall(obj types.Object) bool {
-	return isHTTPBinderFunc(obj, httpbindErrorFns)
-}
-
-// callFuncName returns the simple function name if obj is *types.Func.
-func callFuncName(obj types.Object) string {
-	if f, ok := obj.(*types.Func); ok {
-		return f.Name()
-	}
-	return ""
+	return CallPattern{}, false
 }
 
 // orderedSyntaxFiles returns package syntax files sorted by filename, excluding

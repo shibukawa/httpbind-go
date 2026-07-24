@@ -36,7 +36,7 @@ default < TOML file < environment variable < CLI option
 ```go
 package main
 
-//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen -dir .
+//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir .
 ```
 
 解析対象 package に具体的な `Bind` 呼び出しを置きます。
@@ -278,7 +278,18 @@ result, err := configbind.Load(configbind.LoadOptions{
 })
 ```
 
-`FileName` の既定は `config.toml` です。明示 path がない場合は、OS の user config directory、次に system config directory の `Vendor` / `Tool` 配下から1つを探します。file が見つからなくても error にはならず、default、env、CLI だけで load します。
+`FileName` の既定は `config.toml` です。configbindは次の順で読み取り可能な
+fileを探し、最初に見つかった1つだけを読みます。
+
+1. `ExplicitConfigPath`。fieldが空なら `--config-path`
+2. `ExtraConfigReadPaths` の配列順
+3. `Vendor` / `Tool` 配下のOS user config directory
+4. `Vendor` / `Tool` 配下のOS system config directory
+
+複数fileはマージしません。そのため、local test用設定が存在するときは、
+production用system設定と混ぜずにlocal設定だけを使えます。
+`ExtraConfigReadPaths` の存在しない、または読めない項目はskipします。
+どの候補も見つからなければ、default、env、CLIだけでloadします。
 
 実行時に file を明示するには `--config-path` を使います。
 
@@ -300,16 +311,30 @@ result, err := configbind.Load(configbind.LoadOptions{
 
 `ExplicitConfigPath` は `--config-path` より優先されます。本番では通常、`Args` から `--config-path` を受ける方法を使います。
 
+任意のlocal fileやdeployment固有fileには `ExtraConfigReadPaths` を使います。
+
+```go
+result, err := configbind.Load(configbind.LoadOptions{
+	Vendor:               "acme",
+	Tool:                 "myserver",
+	ExtraConfigReadPaths: []string{"./config.test.toml", "/run/secrets/app.toml"},
+})
+```
+
+`./config.test.toml` があれば、そのTOMLだけを読みます。なければ
+`/run/secrets/app.toml`、user config、system configの順に探索します。
+
 ### `LoadOptions` 一覧
 
 | Field | 意味 | 既定 |
 | --- | --- | --- |
-| `Vendor` | OS config directory 内の vendor 名 | 明示 path を使わない場合は必須 |
-| `Tool` | application / tool 名 | 明示 path を使わない場合は必須 |
+| `Vendor` | OS config directory 内の vendor 名 | configdir探索まで進む場合は必須 |
+| `Tool` | application / tool 名 | configdir探索まで進む場合は必須 |
 | `FileName` | 探索する TOML basename | `config.toml` |
 | `Args` | program 名を除いた CLI arguments | `nil` なら `os.Args[1:]` |
 | `Environ` | `KEY=value` 形式の環境 | `nil` なら `os.Environ()` |
-| `ExplicitConfigPath` | 強制的に使う file path | 空なら `--config-path` または directory 探索 |
+| `ExplicitConfigPath` | 強制的に使う file path | 空なら `--config-path`、extras、directory 探索 |
+| `ExtraConfigReadPaths` | 配列順に探索する任意のfile path | 存在しない項目はskip |
 
 test で CLI や環境を完全に無効にする場合は、`nil` ではなく空 slice を渡します。
 
@@ -358,6 +383,51 @@ observability := configbind.Bind[ObservabilityConfig]("observability")
 | 環境変数 | `OTEL_SERVICE_NAME=checkout` |
 
 `env` の値は大文字・小文字を含めてそのまま利用され、英字または `_` で始まる環境変数名を指定します。同じ環境変数名を複数 field に割り当てると生成 error になります。環境変数から設定されたくない field には `env:"-"` を指定できます。
+
+## CLI subcommand
+
+`SubCommand[T]` は、生成されるCLI専用のcommand branchを宣言します。fieldは
+TOMLや環境変数を一切読みません。`arg` のないfieldはoptionになり、position
+fieldには `arg:"required"`、`arg:"optional"`、`arg:"*"` を指定します。
+
+```go
+type MigrateOptions struct {
+	Path   string   `arg:"required" help:"migration directory"`
+	Label  string   `arg:"optional" help:"migration label"`
+	DryRun bool     `default:"false" help:"変更を適用せず表示"`
+	Extra  []string `arg:"*" help:"追加のmigration input"`
+}
+
+server := configbind.Bind[ServerConfig]("server")
+migrate := configbind.SubCommand[MigrateOptions]("migrate", "database migrationを実行")
+
+if _, err := configbind.Load(configbind.LoadOptions{
+	Vendor: "acme",
+	Tool:   "myserver",
+}); err != nil {
+	// *configbind.UsageError には生成されたtop-levelまたはcommand usageが含まれます。
+	log.Fatal(err)
+}
+if migrate != nil {
+	runMigrations(*migrate)
+	return
+}
+runServer(*server)
+```
+
+`go generate` 後は、次のどちらでも `MigrateOptions` が選択・設定されます。
+
+```bash
+./myserver migrate ./migrations
+./myserver migrate ./migrations --dry_run release extra-a extra-b
+```
+
+選択された `SubCommand` だけがnon-nilを返します。必須positionの不足、未知の
+commandやoption、`--help` では、生成usageを含む `*configbind.UsageError` が
+返ります。optionはposition引数の前後どちらにも置けます。本番では
+`LoadOptions.Args` をnilのままにし、選択とparseの両方で `os.Args[1:]` を
+使います。testで `Args` を上書きする場合は、`SubCommand` を呼ぶ前に同じ内容を
+`os.Args` に設定してください。
 
 ## CLI option
 

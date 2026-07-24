@@ -3,7 +3,7 @@ id: data:generator-options
 type: data
 title: Generator Discovery Options
 ---
-Generator options describe complete sets of exact go/types identities without importing target symbols.
+Generator options describe complete semantic call and type discovery sets without importing target symbols.
 
 ```yaml
 status: required
@@ -17,35 +17,36 @@ identity_types:
   MethodPattern:
     fields: [PackagePath, Name, ReceiverPackagePath, ReceiverType]
     use: exact method identity
+  CallPattern:
+    model: data:generator-call-pattern
+    use: function or method identity plus semantic type and argument role sources
 pattern_set:
   shape: "PatternSet[T] { Set []T; Disabled bool }"
   precedence:
     - Disabled yields empty set
     - non-nil Set is authoritative, including an explicitly empty slice
     - nil Set contains no identities unless the operation inherits explicit RuntimePackages expansion
+construction:
+  direct: construct complete sets as values
+  framework: api:generator-call-registration adds wrapper patterns and returns an immutable Options snapshot
 options:
   ServeMuxes: TypePattern set expanded to Handle and HandleFunc methods
   RouteMethods: MethodPattern set for nonstandard registration method names
   RouteFunctions: SymbolPattern set for package registration functions
-  RuntimePackages: package-path set expanded to same-named enabled runtime operations
-  Bind: SymbolPattern set
-  Write: SymbolPattern set
-  WriteStatus: SymbolPattern set
-  DecodeJSON: SymbolPattern set
-  EncodeJSON: SymbolPattern set
-  NewStream: SymbolPattern set
-  ScanRows: SymbolPattern set
+  Calls: CallPattern set for every generator-recognized operation
+  RuntimePackages: optional package-path shorthand expanded to canonical same-named CallPatterns
   FileTypes: TypePattern set
   SQLContextAPI: bool; opt in to decision:sql-context-executor-api wrappers
   SQLExecutorResolver: optional SymbolPattern; framework resolver that implies SQLContextAPI
   DisableFeatures: rule:generator-feature-disable
 runtime_package_expansion:
   functions: [Bind, Write, WriteStatus, DecodeJSON, EncodeJSON, NewStream, ScanRows]
-  rule: non-nil operation-specific Set replaces expansion for that operation
-compatibility_package:
-  type_alias: accepted for special types when configured by alias package identity
-  function_export: declare same-named forwarding generic functions; Go has no generic function alias
-  runtime_contract: forwarding functions must preserve tinybind-compatible signatures and semantics
+  rule: non-nil Calls.Set replaces all RuntimePackages expansion; CallRegistry.Options merges base expansion and registered wrappers into one explicit Calls snapshot
+wrapper_package:
+  arbitrary_name: explicit data:generator-call-pattern
+  added_or_reordered_arguments: explicit role sources
+  fixed_semantics: constant role sources
+  runtime_contract: requirement:framework-wrapper-discovery
 default_options:
   constructor: DefaultOptions
   ServeMuxes: [net/http.ServeMux]
@@ -70,4 +71,7 @@ related:
   - requirement:configurable-generator-discovery
   - rule:go-types-symbol-identity
   - rule:generator-feature-disable
+  - data:generator-call-pattern
+  - requirement:framework-wrapper-discovery
+  - api:generator-call-registration
 ```

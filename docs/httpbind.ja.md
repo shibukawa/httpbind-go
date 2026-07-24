@@ -30,7 +30,7 @@
 ```go
 package api
 
-//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen -dir .
+//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir .
 ```
 
 ```bash
@@ -46,7 +46,7 @@ go generate ./...
 CI では、静的解析できないルート候補も失敗として扱う `-check` が便利です。
 
 ```bash
-go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen -dir . -check
+go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir . -check
 ```
 
 ジェネレーターは対象ディレクトリの1つの Go パッケージを解析します。別パッケージにあるハンドラーの中までは追跡しないため、ルート登録と解析対象ハンドラーは同じパッケージに置くのが基本です。

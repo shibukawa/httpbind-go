@@ -28,7 +28,7 @@ You do not need to understand generated implementation details. Application code
 ```go
 package pages
 
-//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen -dir .
+//go:generate go run github.com/shibukawa/tinybind-go/cmd/tinybind-gen generate -dir .
 ```
 
 Place `profile.tb.html` in the same directory, then run:

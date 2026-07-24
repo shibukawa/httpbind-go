@@ -12,6 +12,7 @@ import (
 
 func init() {
 	registerWebServerConfigDefinition0()
+	registerMigrateOptionsDefinition1()
 }
 
 func registerWebServerConfigDefinition0() {
@@ -81,6 +82,52 @@ func applyWebServerConfigDefinition0(dst any, o *configbind.Overlay) error {
 	}
 	if v, ok := o.GetString("webserver.tls.cert_path"); ok {
 		p.TLS.CertPath = v
+	}
+	return nil
+}
+
+func registerMigrateOptionsDefinition1() {
+	configbind.RegisterSubCommand[MigrateOptions](configbind.SubCommandDefinition{
+		TypeName: "github.com/shibukawa/tinybind-go/internal/configbindfixture.MigrateOptions",
+		Name:     "migrate",
+		Help:     "run database migrations",
+		Defaults: map[string]string{
+			"dry_run": "false",
+		},
+		FlagMetas: []cliparser.FieldMeta{
+			{Key: "dry_run", Env: "-", Help: "print changes without applying", Kind: cliparser.KindBool},
+		},
+		Positionals: []configbind.Positional{
+			{ConfigKey: "path", Name: "path", Role: configbind.PositionalRequired, Help: "migration path"},
+			{ConfigKey: "label", Name: "label", Role: configbind.PositionalOptional, Help: "migration label"},
+			{ConfigKey: "extra", Name: "extra", Role: configbind.PositionalRest, Help: "additional migration inputs"},
+		},
+		Apply: applyMigrateOptionsDefinition1,
+	})
+}
+
+func applyMigrateOptionsDefinition1(dst any, o *configbind.Overlay) error {
+	p, ok := dst.(*MigrateOptions)
+	if !ok || p == nil {
+		return fmt.Errorf("configbind: apply MigrateOptions: bad destination")
+	}
+	if v, ok := o.GetString("path"); ok {
+		p.Path = v
+	}
+	if v, ok := o.GetString("label"); ok {
+		p.Label = v
+	}
+	if v, ok := o.GetString("dry_run"); ok {
+		bb, err := strconv.ParseBool(v)
+		if err != nil {
+			return fmt.Errorf("configbind: dry_run: %w", err)
+		}
+		p.DryRun = bb
+	} else {
+		p.DryRun = false
+	}
+	if v, ok := o.GetMulti("extra"); ok {
+		p.Extra = v
 	}
 	return nil
 }
